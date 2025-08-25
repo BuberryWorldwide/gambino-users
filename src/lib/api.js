@@ -1,14 +1,15 @@
+// lib/api.js
 import axios from 'axios';
 import { getToken } from './auth';
 
 const api = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3001',
-  withCredentials: false
+  baseURL: 'http://192.168.1.235:3001', // align with server
+  withCredentials: true,
 });
 
 api.interceptors.request.use((config) => {
-  const token = getToken();
-  if (token) config.headers.Authorization = `Bearer ${token}`;
+  const t = getToken();
+  if (t) config.headers.Authorization = `Bearer ${t}`;
   return config;
 });
 
