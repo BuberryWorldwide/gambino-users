@@ -5,8 +5,10 @@ import { getToken } from '@/lib/auth';
 import { useRouter } from 'next/navigation';
 import StatBox from '@/components/StatBox';
 
+
 export default function Dashboard() {
   const router = useRouter();
+  
 
   // Keep hook order stable
   const [mounted, setMounted] = useState(false);
@@ -15,7 +17,8 @@ export default function Dashboard() {
   const [qr, setQr] = useState(null);
   const [error, setError] = useState('');
   const [showPrivateKey, setShowPrivateKey] = useState(false);
-  const [showChangePassword, setShowChangePassword] = useState(false);
+  const [showKeyConfirmModal, setShowKeyConfirmModal] = useState(false);
+  const [showChangePassword, setShowChangePassword] = useState(false);  
   const [passwordForm, setPasswordForm] = useState({
     currentPassword: '',
     newPassword: '',
@@ -61,7 +64,22 @@ export default function Dashboard() {
           if (cancelled) return;
 
           if (balRes.status === 'fulfilled') {
-            setBalances(balRes.value.data?.balances ?? null);
+            const newBalances = balRes.value.data?.balances ?? null;
+            setBalances(newBalances);
+
+            // Sync GAMBINO balance to database if it exists and differs from profile
+            if (newBalances?.GG && user?.gambinoBalance !== newBalances.GG) {
+              try {
+                await api.post('/api/wallet/sync-balance', { 
+                  gambinoBalance: newBalances.GG 
+                });
+                // Update local profile state to reflect new balance
+                setProfile(prev => ({ ...prev, gambinoBalance: newBalances.GG }));
+              } catch (syncError) {
+                console.log('Balance sync failed:', syncError);
+                // Don't show error to user - balance will sync next time
+              }
+            }
           } else {
             setBalances(null);
           }
@@ -84,7 +102,8 @@ export default function Dashboard() {
 
     // initial fetch + poll
     fetchAll();
-    pollerRef.current = setInterval(fetchAll, 30000);
+    pollerRef.current = setInterval(fetchAll, 300000); // 5 minutes instead of 30 seconds
+
 
     return () => {
       cancelled = true;
@@ -184,11 +203,24 @@ export default function Dashboard() {
         <div className="space-y-6">
           {/* Account Info Section */}
           <div className="card">
-            <h2 className="text-xl font-bold mb-4">Account Information</h2>
+            <h2 className="text-xl font-bold mb-4">Profile Information</h2>
             <div className="grid md:grid-cols-2 gap-4">
+              <div>
+                <p className="text-sm text-zinc-400">Full Name</p>
+                <p className="font-semibold">
+                  {profile?.firstName && profile?.lastName 
+                    ? `${profile.firstName} ${profile.lastName}` 
+                    : 'Not set'
+                  }
+                </p>
+              </div>
               <div>
                 <p className="text-sm text-zinc-400">Email</p>
                 <p className="font-semibold">{profile?.email || 'Not set'}</p>
+              </div>
+              <div>
+                <p className="text-sm text-zinc-400">Phone</p>
+                <p className="font-semibold">{profile?.phone || 'Not set'}</p>
               </div>
               <div>
                 <p className="text-sm text-zinc-400">Member Since</p>
@@ -305,12 +337,7 @@ export default function Dashboard() {
                 <div>
                   <div className="flex items-center justify-between mb-2">
                     <p className="text-sm text-zinc-400">Wallet Address</p>
-                    <button 
-                      onClick={() => copyToClipboard(profile.walletAddress)}
-                      className="text-xs text-yellow-400 hover:text-yellow-300"
-                    >
-                      Copy Address
-                    </button>
+                    <p className="text-xs text-zinc-400">Tap to select</p>
                   </div>
                   <p className="font-mono break-all text-yellow-400 bg-zinc-800 p-3 rounded border">
                     {profile.walletAddress}
@@ -321,23 +348,25 @@ export default function Dashboard() {
                 <div className="border border-red-600/30 rounded-lg p-4 bg-red-900/10">
                   <div className="flex items-center justify-between mb-2">
                     <p className="text-sm text-red-400 font-semibold">⚠️ Private Key (Keep Secret!)</p>
-                    {!showPrivateKey ? (
-                      <button 
-                        onClick={handleRevealPrivateKey}
-                        className="text-xs bg-red-600 hover:bg-red-700 px-3 py-1 rounded"
-                      >
-                        Reveal Private Key
-                      </button>
-                    ) : (
-                      <button 
-                        onClick={() => copyToClipboard(profile.privateKey)}
-                        className="text-xs bg-red-600 hover:bg-red-700 px-3 py-1 rounded"
-                      >
-                        Copy Private Key
-                      </button>
-                    )}
+                    <div className="flex gap-2">
+                      {!showPrivateKey ? (
+                        <button 
+                          onClick={() => setShowKeyConfirmModal(true)}
+                          className="text-xs bg-red-600 hover:bg-red-700 px-3 py-1 rounded"
+                        >
+                          Reveal Private Key
+                        </button>
+                      ) : (
+                        <button 
+                          onClick={() => setShowPrivateKey(false)}
+                          className="text-xs bg-zinc-600 hover:bg-zinc-700 px-3 py-1 rounded"
+                        >
+                          Hide Key
+                        </button>
+                      )}
+                    </div>
                   </div>
-                  
+                    
                   {showPrivateKey && profile.privateKey ? (
                     <div>
                       <p className="font-mono text-sm break-all text-red-300 bg-zinc-900 p-3 rounded border border-red-600/50">
@@ -353,6 +382,38 @@ export default function Dashboard() {
                     <p className="text-zinc-500 text-sm">Click "Reveal Private Key" to show your wallet's private key</p>
                   )}
                 </div>
+                
+                {/* Confirmation Modal */}
+                {showKeyConfirmModal && (
+                  <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50">
+                    <div className="bg-zinc-900 border border-red-600/50 rounded-lg p-6 max-w-md mx-4">
+                      <h3 className="text-xl font-bold text-red-400 mb-4">⚠️ Security Warning</h3>
+                      <div className="text-sm text-zinc-300 mb-6 space-y-2">
+                        <p>You're about to reveal your private key. This gives complete access to your wallet.</p>
+                        <p className="text-red-300 font-semibold">• Never share this key with anyone</p>
+                        <p className="text-red-300 font-semibold">• Never enter it on suspicious websites</p>
+                        <p className="text-red-300 font-semibold">• Anyone with this key can steal your funds</p>
+                      </div>
+                      <div className="flex gap-3">
+                        <button
+                          onClick={async () => {
+                            setShowKeyConfirmModal(false);
+                            await handleRevealPrivateKey();
+                          }}
+                          className="bg-red-600 hover:bg-red-700 px-4 py-2 rounded text-sm font-semibold"
+                        >
+                          I Understand, Reveal Key
+                        </button>
+                        <button
+                          onClick={() => setShowKeyConfirmModal(false)}
+                          className="bg-zinc-700 hover:bg-zinc-600 px-4 py-2 rounded text-sm"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
 
                 {/* Balances and QR */}
                 <div className="flex flex-col md:flex-row items-start gap-6">
@@ -385,7 +446,14 @@ export default function Dashboard() {
                 {/* Wallet Actions */}
                 <div className="flex gap-3 pt-4 border-t border-zinc-700">
                   <button className="btn-ghost">Send Tokens</button>
-                  <button className="btn-ghost">Transaction History</button>
+                  <a 
+                    href={`https://solscan.io/account/${profile.walletAddress}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="btn-ghost inline-block text-center"
+                  >
+                    Transaction History
+                  </a>
                   <button className="btn-ghost">Export Wallet</button>
                 </div>
               </div>
