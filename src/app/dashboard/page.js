@@ -28,6 +28,11 @@ export default function Dashboard() {
   const [passwordSuccess, setPasswordSuccess] = useState('');
   const pollerRef = useRef(null);
 
+  const toBase64 = (u8) => {
+  if (typeof window === 'undefined') return '';
+  return btoa(String.fromCharCode(...u8));
+};
+
   // mark mounted to avoid SSR/client mismatch
   useEffect(() => { setMounted(true); }, []);
 
@@ -176,6 +181,78 @@ export default function Dashboard() {
     navigator.clipboard.writeText(text);
     // You could add a toast notification here
   };
+
+  // Add this handler inside the component
+const handleConnectPhantom = async () => {
+  try {
+    setError('');
+    console.log('[ConnectPhantom] start');
+
+    // Robust provider detection
+    const provider =
+      (typeof window !== 'undefined' && window.phantom?.solana && window.phantom.solana.isPhantom && window.phantom.solana) ||
+      (typeof window !== 'undefined' && window.solana && window.solana.isPhantom && window.solana) ||
+      null;
+
+    if (!provider) {
+      console.warn('[ConnectPhantom] provider not found');
+      setError('Phantom wallet not found. Open this site in the Phantom app or install the Phantom extension.');
+      // Optional mobile deep link (replace domain):
+      if (/Android|webOS|iPhone|iPad|iPod/i.test(navigator.userAgent)) {
+        window.location.href = 'https://phantom.app/ul/browse/https://YOUR-DOMAIN-HERE';
+      }
+      return;
+    }
+
+    // Connect
+    const resp = await provider.connect();
+    const pubkey = resp?.publicKey?.toBase58?.() || resp?.publicKey?.toString?.();
+    console.log('[ConnectPhantom] connected pubkey:', pubkey);
+    if (!pubkey) {
+      setError('Failed to get public key from Phantom.');
+      return;
+    }
+
+    // Check signMessage support
+    if (typeof provider.signMessage !== 'function') {
+      console.warn('[ConnectPhantom] signMessage not available on this Phantom build');
+      setError('Your Phantom version does not support message signing. Update Phantom, then try again.');
+      return;
+    }
+
+    const message = `Link Gambino account ${profile?.id || ''} at ${new Date().toISOString()}`;
+    const encoded = new TextEncoder().encode(message);
+
+    const { signature } = await provider.signMessage(encoded, 'utf8');
+    const sigBytes = Array.isArray(signature) ? new Uint8Array(signature) : signature;
+    const sigB64 = btoa(String.fromCharCode(...sigBytes));
+
+    console.log('[ConnectPhantom] posting to /api/wallet/connect');
+    const { data } = await api.post('/api/wallet/connect', {
+      publicKey: pubkey,
+      message,
+      signatureBase64: sigB64
+    });
+
+    if (data?.success) {
+      console.log('[ConnectPhantom] backend linked ok');
+      setProfile(prev => ({ ...(prev || {}), walletAddress: pubkey }));
+      const [balRes, qrRes] = await Promise.allSettled([
+        api.get(`/api/wallet/balance/${pubkey}`),
+        api.get(`/api/wallet/qrcode/${pubkey}`)
+      ]);
+      if (balRes.status === 'fulfilled') setBalances(balRes.value.data?.balances ?? null);
+      if (qrRes.status === 'fulfilled') setQr(qrRes.value.data?.qr ?? null);
+    } else {
+      console.error('[ConnectPhantom] backend error:', data);
+      setError(data?.error || 'Failed to connect Phantom wallet.');
+    }
+  } catch (e) {
+    console.error('[ConnectPhantom] failed:', e?.response?.data || e);
+    setError(e?.response?.data?.error || e?.message || 'Failed to connect Phantom wallet');
+  }
+};
+
 
   // avoid hydration flashes
   if (!mounted) return <div className="text-zinc-400">Loading…</div>;
@@ -327,11 +404,17 @@ export default function Dashboard() {
             <h2 className="text-xl font-bold mb-4">Wallet Management</h2>
             
             {!profile?.walletAddress ? (
-              <div className="text-center py-8">
-                <p className="text-zinc-400 mb-4">No wallet generated yet</p>
-                <button onClick={handleGenerateWallet} className="btn-gold">Generate Wallet</button>
+            <div className="text-center py-8">
+              <p className="text-zinc-400 mb-4">No wallet linked yet</p>
+              <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                <button onClick={handleConnectPhantom} className="btn-gold">Connect Phantom</button>
+                <button onClick={handleGenerateWallet} className="btn-ghost">Generate Custodial Wallet</button>
               </div>
-            ) : (
+              <p className="text-xs text-zinc-500 mt-3">
+                Prefer self-custody? Connect your Phantom wallet. Or generate a Gambino wallet managed by us.
+              </p>
+            </div>
+          ) : (
               <div className="space-y-6">
                 {/* Wallet Address */}
                 <div>
