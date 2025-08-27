@@ -232,15 +232,15 @@ export default function LoginPage() {
           </p>
           
           <div className="flex items-center justify-center gap-4 text-xs text-neutral-500">
-            <Link href="/legal/terms" className="hover:text-neutral-400 transition-colors">
+            <Link href="https://gambino.gold/legal/terms" className="hover:text-neutral-400 transition-colors">
               Terms
             </Link>
             <span>•</span>
-            <Link href="/legal/privacy" className="hover:text-neutral-400 transition-colors">
+            <Link href="https://gambino.gold/legal/privacy" className="hover:text-neutral-400 transition-colors">
               Privacy
             </Link>
             <span>•</span>
-            <Link href="/support" className="hover:text-neutral-400 transition-colors">
+            <Link href="https://gambino.gold/support" className="hover:text-neutral-400 transition-colors">
               Support
             </Link>
           </div>

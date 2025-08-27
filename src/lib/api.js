@@ -2,21 +2,17 @@
 import axios from 'axios';
 import { getToken } from './auth';
 
-// ONE canonical env var — set this in Vercel + .env.local
+// Use a single canonical env var.
 const API = process.env.NEXT_PUBLIC_API_URL;
 
-if (!API) {
-  // Helpful console hint in dev if you forgot the env
-  // (won't crash prod builds)
-  // eslint-disable-next-line no-console
-  console.warn('NEXT_PUBLIC_API_URL is not set; falling back to same-origin');
+if (!API && typeof window !== 'undefined') {
+  // Helpful hint in dev if you forgot to set it
+  console.warn('NEXT_PUBLIC_API_URL is not set; requests will use same-origin.');
 }
 
-// Build the baseURL (prefer env; otherwise same-origin in dev)
-const baseURL = API || (typeof window !== 'undefined' ? `${window.location.origin.replace(/^http:/, 'https:')}` : '');
-
 const api = axios.create({
-  baseURL,          // e.g. https://api.gambino.gold
+  // Prefer the explicit API host; otherwise same-origin (no hardcoded IPs!)
+  baseURL: API || '',
   withCredentials: true,
 });
 
