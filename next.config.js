@@ -1,8 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  reactStrictMode: true,
-  experimental: {
-    optimizePackageImports: ['axios']
-  }
+  reactStrictMode: false,
 };
+
 module.exports = nextConfig;
