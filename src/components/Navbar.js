@@ -1,9 +1,10 @@
 'use client';
+
 import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname, useRouter } from 'next/navigation';
-import { getToken, clearToken } from '@/lib/auth';
 import { useEffect, useState } from 'react';
+import { getToken, clearToken } from '@/lib/auth';
 
 export default function Navbar() {
   const pathname = usePathname();
@@ -11,8 +12,8 @@ export default function Navbar() {
   const [authed, setAuthed] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-  useEffect(() => { 
-    setAuthed(!!getToken()); 
+  useEffect(() => {
+    setAuthed(!!getToken());
   }, [pathname]);
 
   const handleLogout = () => {
@@ -21,32 +22,19 @@ export default function Navbar() {
     router.push('/login');
   };
 
-  const closeMobileMenu = () => {
-    setMobileMenuOpen(false);
-  };
+  const closeMobileMenu = () => setMobileMenuOpen(false);
 
   return (
     <nav className="sticky top-0 z-40 border-b border-neutral-800 bg-black/85 backdrop-blur-xl">
-      {/* Background effects */}
       <div className="absolute inset-0 pointer-events-none">
         <div className="absolute inset-0 bg-[radial-gradient(600px_200px_at_50%_-20%,rgba(234,179,8,0.08),transparent_60%)]" />
       </div>
-      
+
       <div className="mx-auto max-w-6xl px-4 py-3 flex items-center justify-between relative z-10">
-        {/* Logo Section */}
         <Link href="/" className="flex items-center gap-3 group">
-          {/* Logo Container - Add your logo here */}
           <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-neutral-900/70 backdrop-blur-sm border border-neutral-700/50 shadow-lg shadow-black/25 overflow-hidden group-hover:border-yellow-500/30 transition-colors">
-          <Image
-            src="/logo.png"  // Note: /logo.png not ./logo.png
-            alt="Gambino Logo"
-            width={32}
-            height={32}
-            className="object-contain"
-          />
-        </div>
-          
-          {/* Brand Text */}
+            <Image src="/logo.png" alt="Gambino Logo" width={32} height={32} className="object-contain" />
+          </div>
           <div className="font-extrabold text-xl tracking-tight">
             <span className="bg-gradient-to-r from-yellow-400 via-yellow-500 to-amber-600 bg-clip-text text-transparent">
               GAMBINO APP
@@ -54,29 +42,28 @@ export default function Navbar() {
           </div>
         </Link>
 
-        {/* Desktop Navigation */}
         <div className="hidden md:flex items-center gap-6">
-          <Link 
-            href="/leaderboard" 
+          <Link
+            href="/leaderboard"
             className={`text-sm transition-all duration-200 hover:text-yellow-400 ${
               pathname === '/leaderboard' ? 'text-yellow-400 font-medium' : 'text-neutral-300'
             }`}
           >
             Leaderboard
           </Link>
-          
+
           {authed ? (
             <>
-              <Link 
-                href="/dashboard" 
+              <Link
+                href="/dashboard"
                 className={`text-sm transition-all duration-200 hover:text-yellow-400 ${
                   pathname === '/dashboard' ? 'text-yellow-400 font-medium' : 'text-neutral-300'
                 }`}
               >
                 Dashboard
               </Link>
-              <Link 
-                href="/account" 
+              <Link
+                href="/account"
                 className={`text-sm transition-all duration-200 hover:text-yellow-400 ${
                   pathname === '/account' ? 'text-yellow-400 font-medium' : 'text-neutral-300'
                 }`}
@@ -92,34 +79,22 @@ export default function Navbar() {
             </>
           ) : (
             <>
-              <Link 
-                href="/login" 
-                className="text-sm text-neutral-300 hover:text-yellow-400 transition-all duration-200"
-              >
+              <Link href="/login" className="text-sm text-neutral-300 hover:text-yellow-400 transition-all duration-200">
                 Login
               </Link>
-              <Link 
-                href="/onboard" 
-                className="btn btn-gold text-sm px-4 py-2"
-              >
+              <Link href="/onboard" className="btn btn-gold text-sm px-4 py-2">
                 Get Started
               </Link>
             </>
           )}
         </div>
 
-        {/* Mobile Hamburger Button */}
         <button
           onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
           className="md:hidden p-2 rounded-lg text-neutral-300 hover:text-white hover:bg-neutral-800/50 transition-colors"
           aria-label="Toggle mobile menu"
         >
-          <svg
-            className={`h-6 w-6 transition-transform duration-300 ${mobileMenuOpen ? 'rotate-90' : ''}`}
-            fill="none" 
-            stroke="currentColor" 
-            viewBox="0 0 24 24"
-          >
+          <svg className={`h-6 w-6 transition-transform duration-300 ${mobileMenuOpen ? 'rotate-90' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
             {mobileMenuOpen ? (
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             ) : (
@@ -129,19 +104,13 @@ export default function Navbar() {
         </button>
       </div>
 
-      {/* Mobile Menu Dropdown */}
       {mobileMenuOpen && (
         <div className="md:hidden border-t border-neutral-800 bg-black/95 backdrop-blur-xl">
-          {/* Background blur overlay */}
-          <div 
-            className="fixed inset-0 bg-black/50 backdrop-blur-sm z-30 md:hidden" 
-            onClick={closeMobileMenu}
-          ></div>
-          
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-30 md:hidden" onClick={closeMobileMenu} />
           <div className="relative z-40">
             <nav className="flex flex-col px-4 py-4 space-y-1">
-              <Link 
-                href="/leaderboard" 
+              <Link
+                href="/leaderboard"
                 className={`px-3 py-3 text-sm transition-colors hover:text-white hover:bg-neutral-800/30 rounded-lg ${
                   pathname === '/leaderboard' ? 'text-yellow-400 bg-neutral-800/20' : 'text-neutral-300'
                 }`}
@@ -154,11 +123,11 @@ export default function Navbar() {
                   Leaderboard
                 </div>
               </Link>
-              
+
               {authed ? (
                 <>
-                  <Link 
-                    href="/dashboard" 
+                  <Link
+                    href="/dashboard"
                     className={`px-3 py-3 text-sm transition-colors hover:text-white hover:bg-neutral-800/30 rounded-lg ${
                       pathname === '/dashboard' ? 'text-yellow-400 bg-neutral-800/20' : 'text-neutral-300'
                     }`}
@@ -171,9 +140,9 @@ export default function Navbar() {
                       Dashboard
                     </div>
                   </Link>
-                  
-                  <Link 
-                    href="/account" 
+
+                  <Link
+                    href="/account"
                     className={`px-3 py-3 text-sm transition-colors hover:text-white hover:bg-neutral-800/30 rounded-lg ${
                       pathname === '/account' ? 'text-yellow-400 bg-neutral-800/20' : 'text-neutral-300'
                     }`}
@@ -186,7 +155,7 @@ export default function Navbar() {
                       Account
                     </div>
                   </Link>
-                  
+
                   <button
                     className="px-3 py-3 text-sm text-neutral-300 transition-colors hover:text-white hover:bg-neutral-800/30 rounded-lg text-left"
                     onClick={handleLogout}
@@ -201,8 +170,8 @@ export default function Navbar() {
                 </>
               ) : (
                 <>
-                  <Link 
-                    href="/login" 
+                  <Link
+                    href="/login"
                     className="px-3 py-3 text-sm text-neutral-300 transition-colors hover:text-white hover:bg-neutral-800/30 rounded-lg"
                     onClick={closeMobileMenu}
                   >
@@ -213,10 +182,10 @@ export default function Navbar() {
                       Login
                     </div>
                   </Link>
-                  
+
                   <div className="pt-4 mt-4 border-t border-neutral-800">
-                    <Link 
-                      href="/onboard" 
+                    <Link
+                      href="/onboard"
                       className="block w-full rounded-lg bg-yellow-500 text-black px-6 py-3 text-center text-sm font-semibold transition-all duration-300 hover:bg-yellow-400"
                       onClick={closeMobileMenu}
                     >
