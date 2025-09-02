@@ -1,9 +1,7 @@
-// Enhanced main admin dashboard (src/app/admin/page.js)
-// This shows how to integrate key metrics into your existing dashboard
-
 'use client'
 
 import { useState, useEffect } from 'react';
+import api from '@/lib/api';
 
 export default function AdminDashboardPage() {
   const [admin, setAdmin] = useState(null);
@@ -34,51 +32,52 @@ export default function AdminDashboardPage() {
   const loadDashboardData = async (adminData) => {
     try {
       setError('');
-      const apiUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://192.168.1.235:3001';
+      setLoading(true);
       
-      // Load key metrics for dashboard overview
-      if (adminData.role === 'super_admin') {
-        const [usersRes, tokensRes] = await Promise.all([
-          fetch(`${apiUrl}/api/admin/stats`, {
-            headers: { 
-              'Authorization': `Bearer ${localStorage.getItem('adminToken')}`,
-              'admin-key': 'admin123' 
-            }
-          }).catch(() => ({ json: () => ({}) })),
-          fetch(`${apiUrl}/api/price/current`).catch(() => ({ json: () => ({}) }))
-        ]);
+      // Use the API instance instead of fetch for consistent auth headers
+      const [usersRes, transactionsRes, storesRes] = await Promise.all([
+        // Get user stats - use existing /api/admin/users endpoint
+        api.get('/api/admin/users').catch(() => ({ data: { users: [], count: 0 } })),
+        
+        // Get transaction metrics - use existing endpoint or create new one
+        api.get('/api/admin/metrics?timeframe=30d').catch(() => ({ data: { data: {} } })),
+        
+        // Get store stats - use existing /api/admin/stores endpoint
+        api.get('/api/admin/stores').catch(() => ({ data: { stores: [], count: 0 } }))
+      ]);
 
-        const usersData = await usersRes.json();
-        const tokensData = await tokensRes.json();
+      const users = usersRes.data.users || [];
+      const userCount = usersRes.data.count || users.length;
+      const activeUsers = users.filter(u => u.isActive !== false).length;
 
-        setMetrics({
-          users: {
-            total: usersData.stats?.totalUsers || 2847,
-            active: usersData.stats?.activeUsers || 412
-          },
-          tokens: {
-            issued: tokensData.stats?.totalGambinoIssued || 125000000,
-            price: tokensData.stats?.currentPrice || 0.001
-          },
-          transactions: {
-            total: usersData.stats?.totalTransactions || 15623,
-            volume: tokensData.stats?.volume24h || 12500
-          },
-          stores: {
-            active: 12, // Mock data - replace with real API
-            revenue: 45000
-          }
-        });
-      } else if (adminData.role === 'store_owner' || adminData.role === 'store_manager') {
-        // Load store-specific metrics
-        const storeMetrics = {
-          users: { total: 156, active: 23 },
-          tokens: { issued: 850000, price: 0.001 },
-          transactions: { total: 1240, volume: 2800 },
-          stores: { active: 1, revenue: 4200 }
-        };
-        setMetrics(storeMetrics);
-      }
+      const transactionData = transactionsRes.data.data || {};
+      const stores = storesRes.data.stores || [];
+      const activeStores = stores.filter(s => s.status === 'active').length;
+
+      // Calculate actual metrics from your database
+      const totalGambinoBalance = users.reduce((sum, user) => {
+        return sum + (user.gambinoBalance || 0);
+      }, 0);
+
+      setMetrics({
+        users: {
+          total: userCount,
+          active: activeUsers
+        },
+        tokens: {
+          issued: totalGambinoBalance,
+          price: 0.001 // You can make this dynamic later
+        },
+        transactions: {
+          total: transactionData.totalTransactions || 0,
+          volume: transactionData.totalVolume || 0
+        },
+        stores: {
+          active: activeStores,
+          revenue: transactionData.totalVolume || 0 // Use transaction volume as revenue for now
+        }
+      });
+
     } catch (error) {
       setError('Failed to load dashboard data');
       console.error('Dashboard error:', error);
@@ -96,7 +95,8 @@ export default function AdminDashboardPage() {
   const logout = () => {
     localStorage.removeItem('adminToken');
     localStorage.removeItem('adminData');
-    window.location.href = '/';
+    localStorage.removeItem('role');
+    window.location.href = '/login';
   };
 
   if (loading) {
@@ -122,13 +122,13 @@ export default function AdminDashboardPage() {
                 <a href="/admin/metrics" className="text-gray-300 hover:text-white px-3 py-2 rounded-md text-sm font-medium">
                   Metrics
                 </a>
-                <a href="/admin/settings" className="text-gray-300 hover:text-white px-3 py-2 rounded-md text-sm font-medium">
-                  Settings
-                </a>
                 {admin?.role === 'super_admin' && (
                   <>
                     <a href="/admin/users" className="text-gray-300 hover:text-white px-3 py-2 rounded-md text-sm font-medium">
                       Users
+                    </a>
+                    <a href="/admin/stores" className="text-gray-300 hover:text-white px-3 py-2 rounded-md text-sm font-medium">
+                      Stores
                     </a>
                     <a href="/admin/treasury" className="text-gray-300 hover:text-white px-3 py-2 rounded-md text-sm font-medium">
                       Treasury
@@ -170,8 +170,8 @@ export default function AdminDashboardPage() {
             {admin?.role === 'super_admin' 
               ? 'System overview and global metrics' 
               : admin?.role === 'store_owner'
-              ? `Managing your store: ${admin?.storeName || admin?.storeId}`
-              : `Store operations for: ${admin?.storeName || admin?.storeId}`
+              ? `Managing your store operations`
+              : `Store operations dashboard`
             }
           </p>
         </div>
@@ -193,7 +193,7 @@ export default function AdminDashboardPage() {
             <div className="flex items-center justify-between">
               <div>
                 <h3 className="text-blue-300 font-semibold text-sm uppercase tracking-wide">
-                  {admin?.role === 'super_admin' ? 'Total Users' : 'Store Users'}
+                  Total Users
                 </h3>
                 <p className="text-3xl font-bold text-white mt-2">
                   {formatNumber(metrics.users.total)}
@@ -217,7 +217,7 @@ export default function AdminDashboardPage() {
                   {formatNumber(metrics.tokens.issued)}
                 </p>
                 <p className="text-yellow-200 text-sm mt-1">
-                  @ ${metrics.tokens.price}
+                  In circulation
                 </p>
               </div>
               <div className="text-4xl text-yellow-400">🪙</div>
@@ -242,12 +242,12 @@ export default function AdminDashboardPage() {
             </div>
           </div>
 
-          {/* Revenue/Performance */}
+          {/* Stores/Revenue */}
           <div className="bg-gradient-to-br from-purple-900 to-purple-800 border border-purple-500 rounded-xl p-6">
             <div className="flex items-center justify-between">
               <div>
                 <h3 className="text-purple-300 font-semibold text-sm uppercase tracking-wide">
-                  {admin?.role === 'super_admin' ? 'Active Stores' : 'Monthly Revenue'}
+                  {admin?.role === 'super_admin' ? 'Active Stores' : 'Revenue'}
                 </h3>
                 <p className="text-3xl font-bold text-white mt-2">
                   {admin?.role === 'super_admin' 
@@ -257,8 +257,8 @@ export default function AdminDashboardPage() {
                 </p>
                 <p className="text-purple-200 text-sm mt-1">
                   {admin?.role === 'super_admin' 
-                    ? `$${formatNumber(metrics.stores.revenue)} revenue`
-                    : 'This month'
+                    ? 'System wide'
+                    : 'Total volume'
                   }
                 </p>
               </div>
@@ -308,14 +308,28 @@ export default function AdminDashboardPage() {
                   </a>
 
                   <a 
+                    href="/admin/stores" 
+                    className="flex items-center justify-between p-3 bg-gray-700 hover:bg-gray-600 rounded-lg transition-colors"
+                  >
+                    <div className="flex items-center">
+                      <span className="text-2xl mr-3">🏪</span>
+                      <div>
+                        <div className="font-semibold text-white">Manage Stores</div>
+                        <div className="text-sm text-gray-400">Store locations and settings</div>
+                      </div>
+                    </div>
+                    <span className="text-gray-400">→</span>
+                  </a>
+
+                  <a 
                     href="/admin/treasury" 
                     className="flex items-center justify-between p-3 bg-gray-700 hover:bg-gray-600 rounded-lg transition-colors"
                   >
                     <div className="flex items-center">
-                      <span className="text-2xl mr-3">🏦</span>
+                      <span className="text-2xl mr-3">💰</span>
                       <div>
                         <div className="font-semibold text-white">Treasury Management</div>
-                        <div className="text-sm text-gray-400">Blockchain accounts and balances</div>
+                        <div className="text-sm text-gray-400">Wallet and token management</div>
                       </div>
                     </div>
                     <span className="text-gray-400">→</span>
@@ -326,62 +340,35 @@ export default function AdminDashboardPage() {
               {(admin?.role === 'store_owner' || admin?.role === 'store_manager') && (
                 <>
                   <a 
-                    href="/admin/store/users" 
-                    className="flex items-center justify-between p-3 bg-gray-700 hover:bg-gray-600 rounded-lg transition-colors"
-                  >
-                    <div className="flex items-center">
-                      <span className="text-2xl mr-3">👥</span>
-                      <div>
-                        <div className="font-semibold text-white">Store Users</div>
-                        <div className="text-sm text-gray-400">Customers and conversions</div>
-                      </div>
-                    </div>
-                    <span className="text-gray-400">→</span>
-                  </a>
-
-                  <a 
-                    href="/admin/store/machines" 
+                    href="/admin/machines" 
                     className="flex items-center justify-between p-3 bg-gray-700 hover:bg-gray-600 rounded-lg transition-colors"
                   >
                     <div className="flex items-center">
                       <span className="text-2xl mr-3">🎰</span>
                       <div>
-                        <div className="font-semibold text-white">Machine Management</div>
-                        <div className="text-sm text-gray-400">Status and cash conversions</div>
+                        <div className="font-semibold text-white">Manage Machines</div>
+                        <div className="text-sm text-gray-400">Machine status and operations</div>
                       </div>
                     </div>
                     <span className="text-gray-400">→</span>
                   </a>
                 </>
               )}
-              
-              <a 
-                href="/admin/settings" 
-                className="flex items-center justify-between p-3 bg-gray-700 hover:bg-gray-600 rounded-lg transition-colors"
-              >
-                <div className="flex items-center">
-                  <span className="text-2xl mr-3">⚙️</span>
-                  <div>
-                    <div className="font-semibold text-white">Settings</div>
-                    <div className="text-sm text-gray-400">Account and security settings</div>
-                  </div>
-                </div>
-                <span className="text-gray-400">→</span>
-              </a>
+
             </div>
           </div>
 
-          {/* Recent Activity */}
+          {/* System Status */}
           <div className="bg-gray-800 border border-gray-700 rounded-xl p-6">
             <h3 className="text-xl font-bold text-white mb-4">System Status</h3>
-            <div className="space-y-4">
-              
+            <div className="space-y-3">
+
               <div className="flex items-center justify-between p-3 bg-green-900/20 border border-green-500/30 rounded-lg">
                 <div className="flex items-center">
                   <div className="w-3 h-3 bg-green-500 rounded-full mr-3"></div>
                   <div>
-                    <div className="font-semibold text-green-200">System Online</div>
-                    <div className="text-sm text-green-400">All services operational</div>
+                    <div className="font-semibold text-green-200">Database Connected</div>
+                    <div className="text-sm text-green-400">MongoDB operational</div>
                   </div>
                 </div>
                 <span className="text-green-400 font-bold">✓</span>
@@ -398,26 +385,15 @@ export default function AdminDashboardPage() {
                 <span className="text-blue-400 font-bold">✓</span>
               </div>
 
-              <div className="flex items-center justify-between p-3 bg-yellow-900/20 border border-yellow-500/30 rounded-lg">
-                <div className="flex items-center">
-                  <div className="w-3 h-3 bg-yellow-500 rounded-full mr-3"></div>
-                  <div>
-                    <div className="font-semibold text-yellow-200">API Performance</div>
-                    <div className="text-sm text-yellow-400">Response time: ~120ms</div>
-                  </div>
-                </div>
-                <span className="text-yellow-400 font-bold">○</span>
-              </div>
-
               <div className="flex items-center justify-between p-3 bg-purple-900/20 border border-purple-500/30 rounded-lg">
                 <div className="flex items-center">
                   <div className="w-3 h-3 bg-purple-500 rounded-full mr-3"></div>
                   <div>
                     <div className="font-semibold text-purple-200">
-                      {admin?.role === 'super_admin' ? 'Treasury Healthy' : 'Store Active'}
+                      {admin?.role === 'super_admin' ? 'System Healthy' : 'Store Active'}
                     </div>
                     <div className="text-sm text-purple-400">
-                      {admin?.role === 'super_admin' ? 'All accounts secure' : 'Machines operational'}
+                      {admin?.role === 'super_admin' ? 'All services operational' : 'Operations running'}
                     </div>
                   </div>
                 </div>
@@ -443,16 +419,16 @@ export default function AdminDashboardPage() {
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div className="text-center">
               <div className="text-2xl font-bold text-green-400">
-                {((metrics.users.active / metrics.users.total) * 100).toFixed(1)}%
+                {metrics.users.total > 0 ? ((metrics.users.active / metrics.users.total) * 100).toFixed(1) : 0}%
               </div>
               <div className="text-sm text-gray-400">User Activity Rate</div>
             </div>
             
             <div className="text-center">
               <div className="text-2xl font-bold text-yellow-400">
-                {((metrics.tokens.issued / 777000000) * 100).toFixed(1)}%
+                {formatNumber(metrics.tokens.issued)}
               </div>
-              <div className="text-sm text-gray-400">Token Supply Issued</div>
+              <div className="text-sm text-gray-400">Total Tokens Issued</div>
             </div>
             
             <div className="text-center">
@@ -464,10 +440,10 @@ export default function AdminDashboardPage() {
             
             <div className="text-center">
               <div className="text-2xl font-bold text-purple-400">
-                ${formatNumber(metrics.stores.revenue)}
+                {metrics.stores.active}
               </div>
               <div className="text-sm text-gray-400">
-                {admin?.role === 'super_admin' ? 'System Revenue' : 'Store Revenue'}
+                {admin?.role === 'super_admin' ? 'Active Stores' : 'Store Count'}
               </div>
             </div>
           </div>
