@@ -1,565 +1,463 @@
-// app/admin/stores/page.js
 'use client';
-
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { getToken } from '@/lib/auth';
 import api from '@/lib/api';
 import Link from 'next/link';
 
 
-const DEFAULT_LIMIT = 20;
-const ADMIN_CAN_EDIT = true; // toggle if you want to gate later
-
 export default function AdminStoresPage() {
-  // list state
+  const router = useRouter();
+  const [mounted, setMounted] = useState(false);
   const [stores, setStores] = useState([]);
-  const [count, setCount] = useState(0);
   const [loading, setLoading] = useState(true);
-  const [err, setErr] = useState('');
+  const [error, setError] = useState('');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [editingStore, setEditingStore] = useState(null);
+  const [adminRole, setAdminRole] = useState('');
 
-  // query/pagination
-  const [q, setQ] = useState('');
-  const [page, setPage] = useState(1);
-  const limit = DEFAULT_LIMIT;
-
-  // create form
-  const [form, setForm] = useState({
+  // Create/Edit form state
+  const [storeForm, setStoreForm] = useState({
     storeId: '',
     storeName: '',
+    address: '',
     city: '',
     state: '',
-    address: '',
     zipCode: '',
     phone: '',
     feePercentage: 5,
-    ownerUserId: '' // optional
-  });
-  const [creating, setCreating] = useState(false);
-  const [createMsg, setCreateMsg] = useState('');
-
-  // edit modal
-  const [editOpen, setEditOpen] = useState(false);
-  const [editSaving, setEditSaving] = useState(false);
-  const [editErr, setEditErr] = useState('');
-  const [editMsg, setEditMsg] = useState('');
-  const [editTarget, setEditTarget] = useState(null);
-  const [editForm, setEditForm] = useState({
-    storeId: '',
-    storeName: '',
-    city: '',
-    state: '',
-    address: '',
-    zipCode: '',
-    phone: '',
-    feePercentage: 5,
-    ownerUserId: '',
-    status: 'active',
+    status: 'active'
   });
 
-  // helpers
-  const debounceRef = useRef(null);
-  const totalPages = useMemo(
-    () => Math.max(1, Math.ceil((count || 0) / limit)),
-    [count, limit]
-  );
-  const slugify = (s) =>
-    String(s || '')
-      .trim()
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/(^-|-$)/g, '');
-  const clampFee = (n) => {
-    const v = Number(n);
-    if (Number.isNaN(v)) return 0;
-    return Math.min(100, Math.max(0, v));
-  };
-
-  // fetch
-  const fetchStores = async ({ query = q, pageNum = page } = {}) => {
-    setLoading(true);
-    setErr('');
-    try {
-      const { data } = await api.get('/api/admin/stores', {
-        params: { q: query, page: pageNum, limit }
-      });
-      setStores(data?.stores || data?.data || []);
-      setCount(
-        data?.count ??
-          (typeof data?.total === 'number' ? data.total : (data?.stores?.length || 0))
-      );
-    } catch (e) {
-      setErr(e?.response?.data?.error || 'Failed to load stores');
-      setStores([]);
-      setCount(0);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // init
-  useEffect(() => { fetchStores({ query: '', pageNum: 1 }); }, []);
-
-  // debounced search
   useEffect(() => {
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => {
-      setPage(1);
-      fetchStores({ query: q, pageNum: 1 });
-    }, 300);
-    return () => clearTimeout(debounceRef.current);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [q]);
-
-  // create
-  const onCreate = async (e) => {
-    e.preventDefault();
-    if (creating) return;
-
-    setCreating(true);
-    setErr('');
-    setCreateMsg('');
-
-    const payload = {
-      ...form,
-      storeId: slugify(form.storeId),
-      feePercentage: clampFee(form.feePercentage)
-    };
-
-    if (!payload.storeId || !payload.storeName || !payload.city || !payload.state) {
-      setErr('Please fill Store ID, Store Name, City, and State.');
-      setCreating(false);
+    setMounted(true);
+    const token = getToken();
+    if (!token) {
+      router.push('/admin/login');
       return;
     }
+    setAdminRole(localStorage.getItem('adminRole') || 'admin');
+  }, [router]);
+
+  useEffect(() => {
+    if (!mounted || !getToken()) return;
+
+    const fetchStores = async () => {
+      try {
+        setLoading(true);
+        setError('');
+        
+        // Use GET request to fetch stores list - this should prevent the infinite loop
+        const response = await api.get('/api/admin/stores');
+        
+        // Handle the response properly
+        if (response.data?.success && Array.isArray(response.data.stores)) {
+          setStores(response.data.stores);
+        } else {
+          setStores([]);
+        }
+      } catch (err) {
+        console.error('Stores fetch error:', err);
+        setError(err?.response?.data?.error || 'Failed to load stores');
+        
+        // Handle auth errors
+        if (err?.response?.status === 403 || err?.response?.status === 401) {
+          router.push('/admin/login');
+        }
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchStores();
+  }, [mounted, router]);
+
+  const handleCreateStore = async (e) => {
+    e.preventDefault();
+    setError('');
 
     try {
-      await api.post('/api/admin/stores', payload);
-      setCreateMsg('Store created successfully.');
-      setForm({
-        storeId: '',
-        storeName: '',
-        city: '',
-        state: '',
-        address: '',
-        zipCode: '',
-        phone: '',
-        feePercentage: 5,
-        ownerUserId: ''
-      });
-      setPage(1);
-      await fetchStores({ query: q, pageNum: 1 });
-    } catch (inner) {
-      if (inner?.response?.status === 409) {
-        setErr('A store with that ID already exists.');
-      } else if (inner?.response?.status === 404) {
-        // optional fallback
-        try {
-          await api.post('/api/admin/create-store', {
-            storeId: payload.storeId,
-            storeName: payload.storeName,
-            city: payload.city,
-            state: payload.state,
-            address: payload.address,
-            zipCode: payload.zipCode,
-            phone: payload.phone
-          });
-          setCreateMsg('Store created successfully.');
-          setForm({
-            storeId: '',
-            storeName: '',
-            city: '',
-            state: '',
-            address: '',
-            zipCode: '',
-            phone: '',
-            feePercentage: 5,
-            ownerUserId: ''
-          });
-          setPage(1);
-          await fetchStores({ query: q, pageNum: 1 });
-        } catch (fallbackErr) {
-          setErr(fallbackErr?.response?.data?.error || 'Failed to create store (fallback).');
+      // Use POST to a different endpoint for creating stores
+      const response = await api.post('/api/admin/stores/create', storeForm);
+      
+      if (response.data?.success) {
+        // Refresh the stores list
+        const updatedStores = await api.get('/api/admin/stores');
+        if (updatedStores.data?.success && Array.isArray(updatedStores.data.stores)) {
+          setStores(updatedStores.data.stores);
         }
-      } else {
-        setErr(inner?.response?.data?.error || 'Failed to create store');
+        
+        // Reset form and close modal
+        setStoreForm({
+          storeId: '',
+          storeName: '',
+          address: '',
+          city: '',
+          state: '',
+          zipCode: '',
+          phone: '',
+          feePercentage: 5,
+          status: 'active'
+        });
+        setShowCreateModal(false);
       }
-    } finally {
-      setCreating(false);
-      if (!err) setTimeout(() => setCreateMsg(''), 2500);
+    } catch (err) {
+      setError(err?.response?.data?.error || 'Failed to create store');
     }
   };
 
-  // edit controls
-  const openEdit = (store) => {
-    if (!ADMIN_CAN_EDIT) return;
-    setEditErr('');
-    setEditMsg('');
-    setEditTarget(store);
-    setEditForm({
+  const handleEditStore = async (e) => {
+    e.preventDefault();
+    if (!editingStore) return;
+    
+    setError('');
+    try {
+      const response = await api.put(`/api/admin/stores/${editingStore.storeId}`, storeForm);
+      
+      if (response.data?.success) {
+        // Update the store in our local state
+        setStores(prev => prev.map(store => 
+          store.storeId === editingStore.storeId 
+            ? { ...store, ...storeForm }
+            : store
+        ));
+        
+        // Reset form and close modal
+        setEditingStore(null);
+        setStoreForm({
+          storeId: '',
+          storeName: '',
+          address: '',
+          city: '',
+          state: '',
+          zipCode: '',
+          phone: '',
+          feePercentage: 5,
+          status: 'active'
+        });
+      }
+    } catch (err) {
+      setError(err?.response?.data?.error || 'Failed to update store');
+    }
+  };
+
+  const startEdit = (store) => {
+    setEditingStore(store);
+    setStoreForm({
       storeId: store.storeId || '',
-      storeName: store.storeName || '',
+      storeName: store.storeName || store.name || '',
+      address: store.address || '',
       city: store.city || '',
       state: store.state || '',
-      address: store.address || '',
       zipCode: store.zipCode || '',
       phone: store.phone || '',
-      feePercentage: store.feePercentage ?? 0,
-      ownerUserId: store.ownerUserId || store.owner?._id || '',
-      status: store.status || 'active',
+      feePercentage: store.feePercentage || 5,
+      status: store.status || 'active'
     });
-    setEditOpen(true);
   };
 
-  const saveEdit = async (e) => {
-    e?.preventDefault?.();
-    if (!editTarget || editSaving) return;
+  const cancelEdit = () => {
+    setEditingStore(null);
+    setStoreForm({
+      storeId: '',
+      storeName: '',
+      address: '',
+      city: '',
+      state: '',
+      zipCode: '',
+      phone: '',
+      feePercentage: 5,
+      status: 'active'
+    });
+  };
 
-    setEditSaving(true);
-    setEditErr('');
-    setEditMsg('');
-
-    const id = editTarget.storeId || editTarget._id;
-    if (!id) {
-      setEditErr('Missing store identifier.');
-      setEditSaving(false);
-      return;
-    }
-
-    // Normalize & validate
-    const payload = {
-      storeName: String(editForm.storeName || '').trim(),
-      city: String(editForm.city || '').trim(),
-      state: String(editForm.state || '').trim(),
-      address: String(editForm.address || '').trim(),
-      zipCode: String(editForm.zipCode || '').trim(),
-      phone: String(editForm.phone || '').trim(),
-      feePercentage: clampFee(editForm.feePercentage),
-      ownerUserId: String(editForm.ownerUserId || '').trim() || undefined,
-      status: (editForm.status || 'active').toLowerCase(),
-    };
-
-    if (!payload.storeName || !payload.city || !payload.state) {
-      setEditErr('Please fill Store Name, City, and State.');
-      setEditSaving(false);
-      return;
-    }
-    if (!['active','inactive','suspended'].includes(payload.status)) {
-      payload.status = 'active';
-    }
-
-    // Optimistic UI update
-    const prev = stores;
-    const next = prev.map(s =>
-      (s.storeId === editTarget.storeId || s._id === editTarget._id)
-        ? { ...s, ...payload }
-        : s
+  // Filter stores based on search term
+  const filteredStores = stores.filter(store => {
+    const searchLower = searchTerm.toLowerCase();
+    return (
+      (store.storeName || store.name || '').toLowerCase().includes(searchLower) ||
+      (store.storeId || '').toLowerCase().includes(searchLower) ||
+      (store.city || '').toLowerCase().includes(searchLower) ||
+      (store.state || '').toLowerCase().includes(searchLower)
     );
-    setStores(next);
+  });
 
-    try {
-      // Prefer PATCH /api/admin/stores/:idOrSlug
-      try {
-        await api.patch(`/api/admin/stores/${encodeURIComponent(id)}`, payload);
-      } catch (inner) {
-        if (inner?.response?.status === 404) {
-          // Fallback legacy route
-          await api.post('/api/admin/update-store', { id, ...payload });
-        } else {
-          throw inner;
-        }
-      }
+  if (!mounted || !getToken()) {
+    return null;
+  }
 
-      setEditMsg('Store updated.');
-      setTimeout(() => setEditMsg(''), 1800);
-      // refresh this page silently to get canonical data
-      await fetchStores({ query: q, pageNum: page });
-      setEditOpen(false);
-    } catch (e2) {
-      // Revert optimistic update
-      setStores(prev);
-      setEditErr(e2?.response?.data?.error || 'Failed to update store');
-    } finally {
-      setEditSaving(false);
-    }
-  };
-
-  const go = async (p) => {
-    const next = Math.min(totalPages, Math.max(1, p));
-    if (next === page) return;
-    setPage(next);
-    await fetchStores({ query: q, pageNum: next });
-  };
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="flex items-center gap-3 text-neutral-400">
+          <div className="loading-spinner w-5 h-5 text-yellow-500"></div>
+          <span>Loading stores...</span>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="p-6 max-w-7xl mx-auto">
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold">Stores</h1>
-        <div className="flex gap-2">
-          <input
-            className="input"
-            placeholder="Search by id/name/city…"
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-          />
-          <button className="btn btn-ghost" type="button" onClick={() => fetchStores({ query: q, pageNum: 1 })}>
-            Search
+    <div className="max-w-7xl mx-auto px-4 py-6 md:py-8">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-6 md:mb-8 gap-4">
+        <div>
+          <h1 className="text-2xl md:text-3xl font-bold text-white mb-2">
+            Store Management
+          </h1>
+          <p className="text-neutral-400 text-sm md:text-base">
+            Manage all stores in the Gambino network
+          </p>
+        </div>
+        {(adminRole === 'super_admin' || adminRole === 'store_owner') && (
+          <button 
+            onClick={() => setShowCreateModal(true)}
+            className="btn btn-gold"
+          >
+            Create New Store
           </button>
-        </div>
-      </div>
-
-      {err && (
-        <div className="bg-red-900/20 border border-red-500 text-red-300 p-3 rounded-lg text-sm mb-4">
-          {err}
-        </div>
-      )}
-      {createMsg && (
-        <div className="bg-green-900/20 border border-green-500 text-green-300 p-3 rounded-lg text-sm mb-4">
-          {createMsg}
-        </div>
-      )}
-
-      {/* Create Store */}
-      <div className="card p-5 mb-8">
-        <h2 className="font-semibold mb-4">Add a new store</h2>
-        <form onSubmit={onCreate} className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div>
-            <label className="label">Store ID (slug)</label>
-            <input
-              className="input"
-              value={form.storeId}
-              onChange={(e) => setForm({ ...form, storeId: slugify(e.target.value) })}
-              placeholder="e.g. vegas-strip-01"
-              required
-            />
-          </div>
-          <div>
-            <label className="label">Store Name</label>
-            <input className="input" value={form.storeName} onChange={(e) => setForm({ ...form, storeName: e.target.value })} required />
-          </div>
-          <div>
-            <label className="label">City</label>
-            <input className="input" value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} required />
-          </div>
-          <div>
-            <label className="label">State</label>
-            <input className="input" value={form.state} onChange={(e) => setForm({ ...form, state: e.target.value })} required />
-          </div>
-          <div>
-            <label className="label">Address</label>
-            <input className="input" value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} />
-          </div>
-          <div>
-            <label className="label">Zip</label>
-            <input className="input" value={form.zipCode} onChange={(e) => setForm({ ...form, zipCode: e.target.value })} />
-          </div>
-          <div>
-            <label className="label">Phone</label>
-            <input className="input" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="555-555-5555" />
-          </div>
-          <div>
-            <label className="label">Fee %</label>
-            <input
-              type="number"
-              step="0.1"
-              min="0"
-              max="100"
-              className="input"
-              value={form.feePercentage}
-              onChange={(e) => setForm({ ...form, feePercentage: e.target.value })}
-            />
-          </div>
-          <div>
-            <label className="label">Owner User ID (optional)</label>
-            <input className="input" value={form.ownerUserId} onChange={(e) => setForm({ ...form, ownerUserId: e.target.value })} placeholder="mongo id or UUID" />
-          </div>
-
-          <div className="md:col-span-3">
-            <button className="btn btn-gold" disabled={creating}>
-              {creating ? 'Creating…' : 'Create Store'}
-            </button>
-          </div>
-        </form>
-      </div>
-
-      {/* Stores Table */}
-      <div className="card overflow-x-auto">
-        <div className="p-4 text-sm text-neutral-400">
-          Total: {count} {loading && <span className="ml-2">· Loading…</span>}
-        </div>
-
-        {loading ? (
-          <div className="p-6 flex items-center gap-3">
-            <div className="animate-spin rounded-full h-5 w-5 border-2 border-current border-r-transparent" />
-            <div className="text-neutral-400 text-sm">Loading stores…</div>
-          </div>
-        ) : (
-          <>
-            <table className="w-full text-sm">
-              <thead className="text-left text-neutral-400 border-b border-neutral-800">
-                <tr>
-                  <th className="p-3">Store</th>
-                  <th className="p-3">Location</th>
-                  <th className="p-3">Fee %</th>
-                  <th className="p-3">Status</th>
-                  <th className="p-3">Owner</th>
-                  <th className="p-3">Created</th>
-                  <th className="p-3">ID</th>
-                  <th className="p-3 w-32">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {stores.length === 0 ? (
-                  <tr>
-                    <td className="p-4 text-neutral-500" colSpan={8}>
-                      No stores found.
-                    </td>
-                  </tr>
-                ) : (
-                  stores.map((s) => (
-                    <tr key={s._id || s.storeId} className="border-b border-neutral-900 hover:bg-neutral-900/30">
-                      {/* NAME → LINK TO DETAILS */}
-                      <td className="p-3">
-                        <div className="font-medium">
-                          <Link
-                            href={`/admin/stores/${encodeURIComponent(s.storeId || s._id)}`}
-                            className="hover:text-yellow-400"
-                          >
-                            {s.storeName || s.storeId}
-                          </Link>
-                        </div>
-                        <div className="text-neutral-500 text-xs">{s.address || '—'}</div>
-                      </td>
-                  
-                      <td className="p-3">{[s.city, s.state].filter(Boolean).join(', ')}</td>
-                      <td className="p-3">{s.feePercentage ?? 0}%</td>
-                      <td className="p-3 capitalize">{s.status || 'active'}</td>
-                      <td className="p-3 text-xs">{s.owner?.email || s.ownerUserId || '—'}</td>
-                      <td className="p-3">{s.createdAt ? new Date(s.createdAt).toLocaleDateString() : '—'}</td>
-                      <td className="p-3"><Copyable mono text={s.storeId || s._id} /></td>
-                      <td className="p-3">
-                        {ADMIN_CAN_EDIT ? (
-                          <button className="btn btn-ghost btn-sm" onClick={() => openEdit(s)}>
-                            Edit
-                          </button>
-                        ) : (
-                          <span className="text-neutral-600">—</span>
-                        )}
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            
-            </table>
-
-            {/* Pagination */}
-            <div className="flex items-center justify-between p-4 text-sm">
-              <div className="text-neutral-500">Page {page} of {totalPages}</div>
-              <div className="flex gap-2">
-                <button className="btn btn-ghost" disabled={page <= 1} onClick={() => go(page - 1)}>
-                  ← Prev
-                </button>
-                <button className="btn btn-ghost" disabled={page >= totalPages} onClick={() => go(page + 1)}>
-                  Next →
-                </button>
-              </div>
-            </div>
-          </>
         )}
       </div>
 
-      {/* Edit Modal */}
-      {editOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-          <div className="w-full max-w-2xl rounded-lg border border-neutral-800 bg-neutral-950">
-            <div className="flex items-center justify-between p-4 border-b border-neutral-800">
-              <div>
-                <div className="font-semibold">Edit Store</div>
-                <div className="text-xs text-neutral-500 mt-0.5">{editForm.storeId}</div>
-              </div>
-              <button
-                className="text-neutral-500 hover:text-neutral-300"
-                onClick={() => { setEditOpen(false); setEditErr(''); setEditMsg(''); }}
-                disabled={editSaving}
-              >
-                ✕
-              </button>
+      {/* Error Display */}
+      {error && (
+        <div className="bg-red-900/20 border border-red-500 text-red-300 p-3 md:p-4 rounded-lg mb-6 backdrop-blur-sm text-sm">
+          <div className="flex items-center gap-2">
+            <svg className="w-4 h-4 text-red-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            {error}
+          </div>
+        </div>
+      )}
+
+      {/* Search and Filters */}
+      <div className="card mb-6">
+        <div className="flex flex-col sm:flex-row gap-4">
+          <div className="flex-1">
+            <input
+              type="text"
+              placeholder="Search stores by name, ID, city, or state..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="input"
+            />
+          </div>
+          <div className="flex items-center gap-2 text-sm text-neutral-400">
+            <span>{filteredStores.length} of {stores.length} stores</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Stores List */}
+      <div className="card">
+        {filteredStores.length === 0 ? (
+          <div className="text-center py-12">
+            <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-neutral-800 flex items-center justify-center">
+              <svg className="w-8 h-8 text-neutral-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+              </svg>
             </div>
-
-            {editErr && (
-              <div className="mx-4 mt-4 bg-red-900/20 border border-red-500 text-red-300 p-3 rounded-lg text-sm">
-                {editErr}
-              </div>
+            <h3 className="text-lg font-semibold text-white mb-2">No Stores Found</h3>
+            <p className="text-neutral-400 text-sm mb-6">
+              {searchTerm ? 'No stores match your search criteria.' : 'No stores have been created yet.'}
+            </p>
+            {!searchTerm && (adminRole === 'super_admin' || adminRole === 'store_owner') && (
+              <button 
+                onClick={() => setShowCreateModal(true)}
+                className="btn btn-gold"
+              >
+                Create First Store
+              </button>
             )}
-            {editMsg && (
-              <div className="mx-4 mt-4 bg-green-900/20 border border-green-500 text-green-300 p-3 rounded-lg text-sm">
-                {editMsg}
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {filteredStores.map((store) => (
+              <div key={store._id || store.storeId} className="p-4 rounded-lg border border-neutral-700 bg-neutral-900/50">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-3 mb-2">
+                      <h3 className="text-lg font-semibold text-white">
+                        {store.storeName || store.name || 'Unnamed Store'}
+                      </h3>
+                      <span className={`px-2 py-1 text-xs rounded-full ${
+                        store.status === 'active' 
+                          ? 'bg-green-900/30 text-green-400 border border-green-500/30'
+                          : 'bg-red-900/30 text-red-400 border border-red-500/30'
+                      }`}>
+                        {store.status || 'unknown'}
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm text-neutral-400">
+                      <div>Store ID: {store.storeId || 'N/A'}</div>
+                      <div>Location: {store.city}, {store.state}</div>
+                      <div>Address: {store.address || 'N/A'}</div>
+                      <div>Phone: {store.phone || 'N/A'}</div>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                      <Link href={`/admin/stores/${encodeURIComponent(store.storeId)}`} className="btn btn-ghost text-sm">
+                        Open
+                      </Link>
+                    <button 
+                      onClick={() => startEdit(store)}
+                      className="btn btn-ghost text-sm"
+                    >
+                      Edit
+                    </button>
+                  </div>
+                </div>
               </div>
-            )}
+            ))}
+          </div>
+        )}
+      </div>
 
-            <form onSubmit={saveEdit} className="p-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+      {/* Create Store Modal */}
+      {showCreateModal && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="bg-neutral-900/95 border border-neutral-700 rounded-xl p-6 max-w-md w-full backdrop-blur-sm">
+            <h3 className="text-lg font-semibold text-white mb-4">Create New Store</h3>
+            
+            <form onSubmit={handleCreateStore} className="space-y-4">
               <div>
-                <label className="label">Store Name</label>
-                <input className="input" value={editForm.storeName} onChange={(e) => setEditForm({ ...editForm, storeName: e.target.value })} required />
-              </div>
-              <div>
-                <label className="label">Status</label>
-                <select
-                  className="input"
-                  value={editForm.status}
-                  onChange={(e) => setEditForm({ ...editForm, status: e.target.value })}
-                >
-                  <option value="active">Active</option>
-                  <option value="inactive">Inactive</option>
-                  <option value="suspended">Suspended</option>
-                </select>
-              </div>
-              <div>
-                <label className="label">City</label>
-                <input className="input" value={editForm.city} onChange={(e) => setEditForm({ ...editForm, city: e.target.value })} required />
-              </div>
-              <div>
-                <label className="label">State</label>
-                <input className="input" value={editForm.state} onChange={(e) => setEditForm({ ...editForm, state: e.target.value })} required />
-              </div>
-              <div className="md:col-span-2">
-                <label className="label">Address</label>
-                <input className="input" value={editForm.address} onChange={(e) => setEditForm({ ...editForm, address: e.target.value })} />
-              </div>
-              <div>
-                <label className="label">Zip</label>
-                <input className="input" value={editForm.zipCode} onChange={(e) => setEditForm({ ...editForm, zipCode: e.target.value })} />
-              </div>
-              <div>
-                <label className="label">Phone</label>
-                <input className="input" value={editForm.phone} onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })} />
-              </div>
-              <div>
-                <label className="label">Fee %</label>
-                <input
-                  type="number"
-                  step="0.1"
-                  min="0"
-                  max="100"
-                  className="input"
-                  value={editForm.feePercentage}
-                  onChange={(e) => setEditForm({ ...editForm, feePercentage: e.target.value })}
+                <label className="label">Store ID</label>
+                <input 
+                  type="text" 
+                  className="input mt-1"
+                  value={storeForm.storeId}
+                  onChange={(e) => setStoreForm(prev => ({...prev, storeId: e.target.value}))}
+                  required
+                  placeholder="ST001"
                 />
               </div>
+              
               <div>
-                <label className="label">Owner User ID</label>
-                <input className="input" value={editForm.ownerUserId} onChange={(e) => setEditForm({ ...editForm, ownerUserId: e.target.value })} />
+                <label className="label">Store Name</label>
+                <input 
+                  type="text" 
+                  className="input mt-1"
+                  value={storeForm.storeName}
+                  onChange={(e) => setStoreForm(prev => ({...prev, storeName: e.target.value}))}
+                  required
+                  placeholder="Downtown Gaming"
+                />
               </div>
-
-              <div className="md:col-span-2 flex items-center justify-end gap-2 mt-2">
-                <button
-                  type="button"
-                  className="btn btn-ghost"
-                  onClick={() => { setEditOpen(false); setEditErr(''); setEditMsg(''); }}
-                  disabled={editSaving}
+              
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="label">City</label>
+                  <input 
+                    type="text" 
+                    className="input mt-1"
+                    value={storeForm.city}
+                    onChange={(e) => setStoreForm(prev => ({...prev, city: e.target.value}))}
+                    required
+                    placeholder="Nashville"
+                  />
+                </div>
+                <div>
+                  <label className="label">State</label>
+                  <input 
+                    type="text" 
+                    className="input mt-1"
+                    value={storeForm.state}
+                    onChange={(e) => setStoreForm(prev => ({...prev, state: e.target.value}))}
+                    required
+                    placeholder="TN"
+                  />
+                </div>
+              </div>
+              
+              <div>
+                <label className="label">Address (Optional)</label>
+                <input 
+                  type="text" 
+                  className="input mt-1"
+                  value={storeForm.address}
+                  onChange={(e) => setStoreForm(prev => ({...prev, address: e.target.value}))}
+                  placeholder="123 Main St"
+                />
+              </div>
+              
+              <div className="flex gap-2">
+                <button type="submit" className="btn btn-gold flex-1">Create Store</button>
+                <button 
+                  type="button" 
+                  onClick={() => setShowCreateModal(false)}
+                  className="btn btn-ghost flex-1"
                 >
                   Cancel
                 </button>
-                <button className="btn btn-gold" disabled={editSaving}>
-                  {editSaving ? 'Saving…' : 'Save Changes'}
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Store Modal */}
+      {editingStore && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="bg-neutral-900/95 border border-neutral-700 rounded-xl p-6 max-w-md w-full backdrop-blur-sm">
+            <h3 className="text-lg font-semibold text-white mb-4">Edit Store</h3>
+            
+            <form onSubmit={handleEditStore} className="space-y-4">
+              <div>
+                <label className="label">Store Name</label>
+                <input 
+                  type="text" 
+                  className="input mt-1"
+                  value={storeForm.storeName}
+                  onChange={(e) => setStoreForm(prev => ({...prev, storeName: e.target.value}))}
+                  required
+                />
+              </div>
+              
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="label">City</label>
+                  <input 
+                    type="text" 
+                    className="input mt-1"
+                    value={storeForm.city}
+                    onChange={(e) => setStoreForm(prev => ({...prev, city: e.target.value}))}
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="label">State</label>
+                  <input 
+                    type="text" 
+                    className="input mt-1"
+                    value={storeForm.state}
+                    onChange={(e) => setStoreForm(prev => ({...prev, state: e.target.value}))}
+                    required
+                  />
+                </div>
+              </div>
+              
+              <div>
+                <label className="label">Status</label>
+                <select 
+                  className="input mt-1"
+                  value={storeForm.status}
+                  onChange={(e) => setStoreForm(prev => ({...prev, status: e.target.value}))}
+                >
+                  <option value="active">Active</option>
+                  <option value="inactive">Inactive</option>
+                </select>
+              </div>
+              
+              <div className="flex gap-2">
+                <button type="submit" className="btn btn-gold flex-1">Update Store</button>
+                <button 
+                  type="button" 
+                  onClick={cancelEdit}
+                  className="btn btn-ghost flex-1"
+                >
+                  Cancel
                 </button>
               </div>
             </form>
@@ -567,33 +465,5 @@ export default function AdminStoresPage() {
         </div>
       )}
     </div>
-  );
-}
-
-/* small helpers */
-function Copyable({ text, mono }) {
-  const [copied, setCopied] = useState(false);
-  return (
-    <button
-      type="button"
-      onClick={async () => {
-        try {
-          await navigator.clipboard.writeText(String(text || ''));
-          setCopied(true);
-          setTimeout(() => setCopied(false), 1200);
-        } catch {}
-      }}
-      className="inline-flex items-center gap-2 px-2 py-1 rounded border border-neutral-800 hover:bg-neutral-900/50"
-      title="Copy to clipboard"
-    >
-      <span className={mono ? 'font-mono text-xs' : ''}>{text || '—'}</span>
-      <svg className={`w-3.5 h-3.5 ${copied ? 'text-green-400' : 'text-neutral-500'}`} viewBox="0 0 24 24" fill="none" stroke="currentColor">
-        {copied ? (
-          <path strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-        ) : (
-          <path strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" d="M8 7h8a2 2 0 012 2v8m-6 0H8a2 2 0 01-2-2V7m6 12l6-6" />
-        )}
-      </svg>
-    </button>
   );
 }

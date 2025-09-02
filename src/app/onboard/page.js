@@ -17,16 +17,11 @@ export default function OnboardPage() {
     email: '', 
     phone: '', 
     password: '',
-    
     // Step 2: Legal agreements
     agreedToTerms: false,
     agreedToPrivacy: false,
     agreedToMarketing: false,
-    readWhitepaper: false,
-    
-    // Step 3: Optional deposit
-    depositAmount: 0, 
-    paymentMethod: 'cash'
+    readWhitepaper: false
   });
 
   const router = useRouter();
@@ -46,9 +41,9 @@ export default function OnboardPage() {
         });
         setTempToken(data.tempToken);
         setStep(2);
-        
+
       } else if (step === 2) {
-        // STEP 2: Terms & Privacy
+        // STEP 2: Terms & Privacy (FINALIZES ACCOUNT)
         if (!form.agreedToTerms) { 
           setError('You must agree to the Terms of Service'); 
           return; 
@@ -57,32 +52,25 @@ export default function OnboardPage() {
           setError('You must agree to the Privacy Policy'); 
           return; 
         }
-        
-        setLoading(true);
-         await api.post('/api/onboarding/step2', {
-         tempToken, // ✅ must send in body
-         acceptTerms: form.agreedToTerms,
-         acceptPrivacy: form.agreedToPrivacy,
-         marketingOptIn: form.agreedToMarketing,
-         readWhitepaper: form.readWhitepaper
-       });
-        setStep(3);
-        
-      } else if (step === 3) {
-        // STEP 3: Complete Account (with optional deposit)
-        setLoading(true);
-          // step === 3 case
-          const { data } = await api.post(
-            '/api/onboarding/step3',
-            { initialDeposit: Number(form.depositAmount || 0), paymentMethod: form.paymentMethod },
-            { headers: { Authorization: `Bearer ${tempToken}` } }
-          );
-          
 
-          const token = data.accessToken || data.token;
-          if (token) setToken(token);
-          setStep(4);
-          setTimeout(() => router.push('/dashboard'), 2000);
+        setLoading(true);
+        const { data } = await api.post('/api/onboarding/step2', {
+          tempToken, // required
+          acceptTerms: form.agreedToTerms,
+          acceptPrivacy: form.agreedToPrivacy,
+          marketingOptIn: form.agreedToMarketing,
+          readWhitepaper: form.readWhitepaper
+        });
+
+        // Backend returns token/accessToken when account is created
+        const token = data.accessToken || data.token;
+        if (token) setToken(token);
+
+        // Success screen (now Step 3)
+        setStep(3);
+
+        // Optional: quick redirect after a short pause
+        setTimeout(() => router.push('/dashboard'), 1500);
       }
     } catch (e) {
       setError(e?.response?.data?.error || 'Failed to continue');
@@ -102,15 +90,14 @@ export default function OnboardPage() {
         <p className="text-zinc-400">Farm Luck. Mine Destiny.</p>
       </div>
 
-      {/* Progress Bar */}
+      {/* Progress Bar (2 steps now) */}
       <div className="flex items-center justify-center gap-2 mb-6">
-        {[1,2,3].map(n => (
+        {[1,2].map(n => (
           <div key={n} className={`h-2 w-16 rounded-full ${step >= n ? 'bg-gold' : 'bg-zinc-800'}`} />
         ))}
       </div>
 
       <div className="card space-y-4">
-        
         {/* STEP 1: Personal Information */}
         {step === 1 && (
           <div>
@@ -157,12 +144,11 @@ export default function OnboardPage() {
           </div>
         )}
 
-        {/* STEP 2: Terms & Privacy */}
+        {/* STEP 2: Terms & Privacy (finalizes) */}
         {step === 2 && (
           <div>
             <h2 className="text-xl font-bold text-white mb-4">Legal Agreements</h2>
             <div className="space-y-4">
-              
               {/* Required Agreements */}
               <div className="border border-zinc-700 rounded-lg p-4">
                 <h3 className="font-semibold text-white mb-3">Required</h3>
@@ -246,65 +232,11 @@ export default function OnboardPage() {
           </div>
         )}
 
-        {/* STEP 3: Optional Deposit */}
+        {/* STEP 3: Success */}
         {step === 3 && (
-          <div>
-            <h2 className="text-xl font-bold text-white mb-4">Optional Initial Deposit</h2>
-            <div className="text-center mb-4">
-              <p className="text-zinc-400 mb-2">
-                You can add funds now or skip and deposit later in your dashboard
-              </p>
-            </div>
-            
-            <div className="space-y-4">
-              <div>
-                <label className="label">Deposit Amount (USD)</label>
-                <input 
-                  className="input" 
-                  type="number" 
-                  min="0" 
-                  step="1"
-                  placeholder="0 (skip for now)"
-                  value={form.depositAmount || ''} 
-                  onChange={e => updateForm('depositAmount', e.target.value)}
-                />
-                <p className="text-xs text-zinc-500 mt-1">
-                  ${form.depositAmount || 0} = {Math.floor((form.depositAmount || 0) / 0.001).toLocaleString()} GAMBINO tokens
-                </p>
-              </div>
-              
-              {form.depositAmount > 0 && (
-                <div>
-                  <label className="label">Payment Method</label>
-                  <select 
-                    className="input"
-                    value={form.paymentMethod} 
-                    onChange={e => updateForm('paymentMethod', e.target.value)}
-                  >
-                    <option value="cash">Cash</option>
-                    <option value="card">Card</option>
-                  </select>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* STEP 4: Success */}
-        {step === 4 && (
           <div className="text-center">
             <div className="text-emerald-400 text-2xl font-bold mb-2">Account Created! 🎉</div>
             <div className="text-zinc-400 mb-4">Welcome to Gambino Coin</div>
-            
-            {form.depositAmount > 0 && (
-              <div className="card border-emerald-600 mb-4">
-                <div className="text-3xl font-extrabold text-gold">
-                  {Math.floor((form.depositAmount || 0) / 0.001).toLocaleString()}
-                </div>
-                <div className="text-zinc-400">GAMBINO Tokens Ready</div>
-              </div>
-            )}
-            
             <div className="text-sm text-zinc-500">
               <p>✅ No wallet created yet - generate one in your dashboard</p>
               <p>✅ Select your location later when you're ready to play</p>
@@ -319,7 +251,7 @@ export default function OnboardPage() {
         )}
 
         {/* Navigation Buttons */}
-        {step < 4 && (
+        {step < 3 && (
           <div className="flex justify-between pt-4 border-t border-zinc-700">
             <button 
               className="btn btn-ghost" 
@@ -340,13 +272,13 @@ export default function OnboardPage() {
                   Working...
                 </div>
               ) : (
-                step === 3 ? 'Complete Account' : 'Continue →'
+                'Continue →'
               )}
             </button>
           </div>
         )}
 
-        {step === 4 && (
+        {step === 3 && (
           <div className="text-center pt-4 border-t border-zinc-700">
             <button 
               className="btn btn-gold" 
@@ -359,7 +291,7 @@ export default function OnboardPage() {
       </div>
 
       {/* Risk Warning */}
-      {(step === 2 || step === 3) && (
+      {(step === 2) && (
         <div className="mt-4 p-3 bg-yellow-900/20 border border-yellow-600 rounded text-xs text-yellow-300">
           <strong>Risk Warning:</strong> Cryptocurrency involves substantial risk. Only invest what you can afford to lose.
         </div>

@@ -98,15 +98,16 @@ export default function StoreDetailsPage() {
       if (!s) {
         setErr('Store not found');
         setStore(null);
-        return;
+        return null;
       }
       setStore(s);
       setFromStore(s);
+      return s;
     } catch (e) {
       const status = e?.response?.status;
       if (status === 401) {
         router.replace('/login?next=' + encodeURIComponent(`/admin/stores/${storeId}`));
-        return;
+        return null;
       }
       if (e?.name !== 'AbortError' && e?.name !== 'CanceledError') {
         setErr(e?.response?.data?.error || 'Failed to load store');
@@ -117,73 +118,88 @@ export default function StoreDetailsPage() {
   }, [router, storeId]);
 
   // ----- fetch wallet -----
-const fetchWallet = useCallback(async () => {
+const fetchWallet = useCallback(async (s) => {
   if (!CAN_WALLET) return;
   try {
     setWLoading(true);
     setWErr('');
 
-    // Try main route
+    // Try admin endpoints first (optional)
     let data;
     try {
-      const res = await api.get(`/api/admin/wallet/${encodeURIComponent(storeId)}`);
-      data = res?.data;
+      const r = await api.get(`/api/admin/wallet/${encodeURIComponent(storeId)}`);
+      data = r?.data;
     } catch (e) {
-      // Optional alternate shapes/endpoints if your server uses these:
       if (e?.response?.status === 404) {
         try {
           const alt = await api.get(`/api/admin/stores/${encodeURIComponent(storeId)}/wallet`);
           data = alt?.data;
-        } catch {
-          data = null; // fallback to store.walletAddress below
-        }
+        } catch {/* ignore, we’ll fallback */}
       } else {
         throw e;
       }
     }
 
-    // Normalize shapes:
-    // acceptable: { publicKey }, { walletAddress }, { address }, { wallet: { publicKey } }, { balances }, etc.
     const node = data?.wallet || data || {};
-    const publicKey =
-      node.publicKey ||
-      node.walletAddress ||
-      node.address ||
-      null;
+    const apiKey = node.publicKey || node.walletAddress || node.address || null;
+    const fallbackKey = s?.walletAddress || s?.publicKey || null;
+    const finalKey = apiKey || fallbackKey;
 
-    const balances =
-      node.balances ||
-      node.tokens ||
-      null;
+    if (!finalKey) {
+      setWallet({ exists: false, publicKey: null, balances: null });
+      setWErr('No wallet on file for this store');
+      return;
+    }
 
-    // If endpoint didn’t return a key, but store has one, use it as a fallback
-    const fallbackKey = store?.walletAddress || store?.publicKey || null;
+    // Start with balances from admin endpoint if any
+    let balances = node.balances || node.tokens || null;
 
-    setWallet({
-      exists: Boolean(publicKey || fallbackKey),
-      publicKey: publicKey || fallbackKey || null,
-      balances: balances || null,
-    });
+    // If we don't have balances yet, fetch from public balance endpoint
+    if (!balances) {
+      try {
+        const br = await api.get(`/api/wallet/balance/${encodeURIComponent(finalKey)}`);
+        const b = br?.data?.balances || {};
+        // Normalize keys (server sends GG; UI expects GAMB)
+        balances = {
+          SOL:  b.SOL ?? 0,
+          USDC: b.USDC ?? 0,
+          GAMB: (b.GAMB ?? b.GAMBINO ?? b.GG ?? 0),
+        };
+      } catch {
+        // no balances found; leave null
+        balances = null;
+      }
+    } else {
+      // Normalize any shape from admin route too
+      balances = {
+        SOL:  balances.SOL ?? balances.sol ?? 0,
+        USDC: balances.USDC ?? balances.usdc ?? 0,
+        GAMB: balances.GAMB ?? balances.GAMBINO ?? balances.GG ?? balances.gamb ?? 0,
+      };
+    }
+
+    setWallet({ exists: true, publicKey: finalKey, balances });
   } catch (e) {
-    setWallet({
-      exists: Boolean(store?.walletAddress),
-      publicKey: store?.walletAddress || null,
-      balances: null,
-    });
-    setWErr(e?.response?.data?.error || 'Failed to load wallet');
+    const pk = s?.walletAddress || s?.publicKey || null;
+    setWallet({ exists: Boolean(pk), publicKey: pk, balances: null });
+    // Only show error if we truly have nothing to show
+    if (!pk) setWErr(e?.response?.data?.error || 'Failed to load wallet');
   } finally {
     setWLoading(false);
   }
-}, [storeId, store]);
+}, [storeId]);
+
 
 
   // initial load
   useEffect(() => {
-    fetchStore().then(() => fetchWallet());
-    return () => {
-      if (abortRef.current) abortRef.current.abort();
-    };
+  (async () => {
+    const s = await fetchStore();
+    if (s) await fetchWallet(s);
+  })();
+  return () => { abortRef.current?.abort(); };
   }, [fetchStore, fetchWallet]);
+
 
   // ----- save edits -----
   const save = async (e) => {
@@ -258,7 +274,7 @@ const fetchWallet = useCallback(async () => {
     }
   };
 
-  const refreshWallet = () => fetchWallet();
+  const refreshWallet = () => fetchWallet(store);
 
   const submitTransfer = async (e) => {
     e.preventDefault();
@@ -464,6 +480,7 @@ const fetchWallet = useCallback(async () => {
                   <li className="py-2 flex items-center justify-between">
                     <span>GAMB</span><span>{wallet?.balances?.GAMB ?? 0}</span>
                   </li>
+                            
                 </ul>
               </div>
 

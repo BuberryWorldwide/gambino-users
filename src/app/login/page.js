@@ -164,10 +164,9 @@ export default function LoginPage() {
           </div>
         )}
 
-        {/* Login Form */}
+        {/* Login Form (wallet connect removed) */}
         <form onSubmit={onSubmit} className="card space-y-6">
           <div className="space-y-4">
-            {/* Email */}
             <div>
               <label className="label block mb-2">Email Address</label>
               <input
@@ -179,8 +178,6 @@ export default function LoginPage() {
                 required
               />
             </div>
-
-            {/* Password */}
             <div>
               <label className="label block mb-2">Password</label>
               <input
@@ -197,7 +194,7 @@ export default function LoginPage() {
           <button disabled={loading} className="btn btn-gold w-full">
             {loading ? (
               <div className="flex items-center justify-center gap-2">
-                <div className="animate-spin rounded-full h-4 w-4 border-2 border-current border-r-transparent"></div>
+                <div className="animate-spin rounded-full h-4 w-4 border-2 border-current border-r-transparent" />
                 Signing In...
               </div>
             ) : (
@@ -209,83 +206,8 @@ export default function LoginPage() {
               </div>
             )}
           </button>
-
-          {/* Divider */}
-          <div className="relative">
-            <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-neutral-800"></div>
-            </div>
-            <div className="relative flex justify-center text-xs uppercase">
-              <span className="bg-neutral-950 px-2 text-neutral-500">Or connect with</span>
-            </div>
-          </div>
-
-          {/* Wallet Connection */}
-          <div className="space-y-4">
-            {!showWallet ? (
-              <button
-                type="button"
-                onClick={() => setShowWallet(true)}
-                className="btn btn-ghost w-full"
-              >
-                <div className="flex items-center justify-center gap-2">
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
-                  </svg>
-                  Connect Wallet
-                </div>
-              </button>
-            ) : (
-              <div className="space-y-3">
-                <button
-                  type="button"
-                  onClick={connectWallet}
-                  disabled={walletLoading}
-                  className="btn btn-ghost w-full"
-                >
-                  {walletLoading ? (
-                    <div className="flex items-center justify-center gap-2">
-                      <div className="animate-spin rounded-full h-4 w-4 border-2 border-current border-r-transparent"></div>
-                      Connecting...
-                    </div>
-                  ) : (
-                    <div className="flex items-center justify-center gap-2">
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                      </svg>
-                      Connect MetaMask / Phantom
-                    </div>
-                  )}
-                </button>
-
-                {walletAccount && (
-                  <div className="bg-green-900/20 border border-green-500 text-green-300 p-3 rounded-lg text-sm">
-                    <div className="flex items-start gap-2">
-                      <svg className="w-4 h-4 text-green-400 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
-                      <div>
-                        <div className="font-medium">Wallet Connected</div>
-                        <div className="break-all text-xs opacity-90">{walletAccount}</div>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {walletError && (
-                  <div className="bg-red-900/20 border border-red-500 text-red-300 p-3 rounded-lg text-sm">
-                    <div className="flex items-center gap-2">
-                      <svg className="w-4 h-4 text-red-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
-                      {walletError}
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
         </form>
+          
 
         {/* Footer Links */}
         <div className="text-center mt-6 space-y-4">

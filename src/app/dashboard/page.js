@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation';
 import { getToken } from '@/lib/auth';
 import api from '@/lib/api';
 
-// StatBox component matching homepage style
+// StatBox component matching your existing style
 function StatBox({ label, value, sub }) {
   return (
     <div className="stat-box">
@@ -15,7 +15,14 @@ function StatBox({ label, value, sub }) {
   );
 }
 
-export default function Dashboard() {
+// LoadingSpinner component
+function LoadingSpinner() {
+  return (
+    <div className="loading-spinner w-5 h-5 text-yellow-500"></div>
+  );
+}
+
+export default function UserDashboard() {
   const router = useRouter();
   const pollerRef = useRef(null);
   const [mounted, setMounted] = useState(false);
@@ -23,8 +30,21 @@ export default function Dashboard() {
   const [balances, setBalances] = useState(null);
   const [qr, setQr] = useState(null);
   const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
+
+  // Profile editing state
+  const [showEditProfile, setShowEditProfile] = useState(false);
+  const [profileForm, setProfileForm] = useState({
+    firstName: '',
+    lastName: '',
+    email: '',
+    phone: ''
+  });
+  const [profileError, setProfileError] = useState('');
+  const [profileSuccess, setProfileSuccess] = useState('');
+
+  // Password change state
   const [showChangePassword, setShowChangePassword] = useState(false);
-  const [showPrivateKey, setShowPrivateKey] = useState(false);
   const [passwordForm, setPasswordForm] = useState({
     currentPassword: '',
     newPassword: '',
@@ -32,6 +52,17 @@ export default function Dashboard() {
   });
   const [passwordError, setPasswordError] = useState('');
   const [passwordSuccess, setPasswordSuccess] = useState('');
+
+  // Wallet state
+  const [showPrivateKey, setShowPrivateKey] = useState(false);
+  const [showQRModal, setShowQRModal] = useState(false);
+  const [privateKey, setPrivateKey] = useState('');
+  const [generatingWallet, setGeneratingWallet] = useState(false);
+  const [revealingKey, setRevealingKey] = useState(false);
+  const [copySuccess, setCopySuccess] = useState('');
+  const [showQr, setShowQr] = useState(false);
+  const [copied, setCopied] = useState(false);
+
 
   useEffect(() => {
     setMounted(true);
@@ -53,6 +84,12 @@ export default function Dashboard() {
         
         if (!cancelled) {
           setProfile(profileData);
+          setProfileForm({
+            firstName: profileData?.firstName || '',
+            lastName: profileData?.lastName || '',
+            email: profileData?.email || '',
+            phone: profileData?.phone || ''
+          });
           setError('');
 
           const addr = profileData?.walletAddress;
@@ -64,54 +101,130 @@ export default function Dashboard() {
 
             if (balRes.status === 'fulfilled') {
               setBalances(balRes.value.data?.balances ?? null);
-            } else {
-              setBalances(null);
             }
 
             if (qrRes.status === 'fulfilled') {
               setQr(qrRes.value.data?.qr ?? null);
-            } else {
-              setQr(null);
             }
-          } else {
-            setBalances(null);
-            setQr(null);
           }
         }
-      } catch (e) {
+      } catch (err) {
         if (!cancelled) {
-          setError(e?.response?.data?.error || 'Failed to load profile');
+          setError(err?.response?.data?.error || 'Failed to load profile');
         }
       }
     };
 
     fetchAll();
-    pollerRef.current = setInterval(fetchAll, 30000);
+    
+    // Set up polling for balance updates
+    if (pollerRef.current) clearInterval(pollerRef.current);
+    pollerRef.current = setInterval(() => {
+      if (profile?.walletAddress) {
+        api.get(`/api/wallet/balance/${profile.walletAddress}`)
+          .then(res => setBalances(res.data?.balances))
+          .catch(() => {}); // Silent fail for background polling
+      }
+    }, 30000); // Poll every 30 seconds
 
     return () => {
       cancelled = true;
       if (pollerRef.current) clearInterval(pollerRef.current);
     };
-  }, [mounted, router]);
+  }, [mounted, profile?.walletAddress]);
 
   const handleGenerateWallet = async () => {
+    setGeneratingWallet(true);
+    setError('');
     try {
-      setError('');
-      const { data } = await api.post('/api/wallet/generate');
-      const addr = data?.walletAddress;
-
-      setProfile((prev) => ({ ...(prev || {}), walletAddress: addr }));
-
-      if (addr) {
-        const [balRes, qrRes] = await Promise.allSettled([
-          api.get(`/api/wallet/balance/${addr}`),
-          api.get(`/api/wallet/qrcode/${addr}`)
-        ]);
-        if (balRes.status === 'fulfilled') setBalances(balRes.value.data?.balances ?? null);
-        if (qrRes.status === 'fulfilled') setQr(qrRes.value.data?.qr ?? null);
+      const res = await api.post('/api/wallet/generate');
+      if (res.data?.success) {
+        setSuccess('Wallet generated successfully! Refreshing profile...');
+        // Refresh profile to show new wallet
+        const profileRes = await api.get('/api/users/profile');
+        setProfile(profileRes.data?.user);
+        setTimeout(() => setSuccess(''), 3000);
       }
-    } catch (e) {
-      setError(e?.response?.data?.error || 'Failed to generate wallet');
+    } catch (err) {
+      setError(err?.response?.data?.error || 'Failed to generate wallet');
+    } finally {
+      setGeneratingWallet(false);
+    }
+  };
+
+  const handleRevealPrivateKey = async () => {
+    if (!profile?.walletAddress) return;
+    
+    setRevealingKey(true);
+    setError('');
+    try {
+      const res = await api.get('/api/wallet/private-key');
+      if (res.data?.success) {
+        setPrivateKey(res.data.privateKey);
+        setShowPrivateKey(true);
+      }
+    } catch (err) {
+      setError(err?.response?.data?.error || 'Failed to reveal private key');
+    } finally {
+      setRevealingKey(false);
+    }
+  };
+
+  const handleCopyToClipboard = async (text, type = 'text') => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopySuccess(`${type} copied to clipboard!`);
+      setTimeout(() => setCopySuccess(''), 2000);
+    } catch (err) {
+      // Fallback for older browsers
+      const textArea = document.createElement('textarea');
+      textArea.value = text;
+      textArea.style.position = 'fixed';
+      textArea.style.left = '-999999px';
+      textArea.style.top = '-999999px';
+      document.body.appendChild(textArea);
+      textArea.focus();
+      textArea.select();
+      try {
+        document.execCommand('copy');
+        setCopySuccess(`${type} copied to clipboard!`);
+        setTimeout(() => setCopySuccess(''), 2000);
+      } catch (err) {
+        setError('Failed to copy to clipboard');
+      }
+      document.body.removeChild(textArea);
+    }
+  };
+
+  const handleProfileUpdate = async (e) => {
+    e.preventDefault();
+    setProfileError('');
+    setProfileSuccess('');
+
+    try {
+      const res = await api.put('/api/users/profile', profileForm);
+      if (res.data?.success) {
+        // Refetch the profile to ensure we have the latest server data
+        const profileRes = await api.get('/api/users/profile');
+        const updatedProfile = profileRes.data?.user;
+        
+        if (updatedProfile) {
+          setProfile(updatedProfile);
+          // Update form with server data to stay in sync
+          setProfileForm({
+            firstName: updatedProfile.firstName || '',
+            lastName: updatedProfile.lastName || '',
+            email: updatedProfile.email || '',
+            phone: updatedProfile.phone || ''
+          });
+        }
+        
+        setProfileSuccess('Profile updated successfully!');
+        setShowEditProfile(false);
+        setTimeout(() => setProfileSuccess(''), 3000);
+      }
+    } catch (err) {
+      setProfileError(err?.response?.data?.error || 'Failed to update profile');
     }
   };
 
@@ -126,147 +239,243 @@ export default function Dashboard() {
     }
 
     if (passwordForm.newPassword.length < 6) {
-      setPasswordError('Password must be at least 6 characters');
+      setPasswordError('New password must be at least 6 characters');
       return;
     }
 
     try {
-      await api.post('/api/users/change-password', {
+      const res = await api.post('/api/users/change-password', {
         currentPassword: passwordForm.currentPassword,
         newPassword: passwordForm.newPassword
       });
       
-      setPasswordSuccess('Password updated successfully!');
-      setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
-      setShowChangePassword(false);
-    } catch (e) {
-      setPasswordError(e?.response?.data?.error || 'Failed to change password');
-    }
-  };
-
-  const handleRevealPrivateKey = async () => {
-    try {
-      setError('');
-      const { data } = await api.get('/api/wallet/private-key');
-      setProfile((prev) => ({ ...prev, privateKey: data.privateKey }));
-      setShowPrivateKey(true);
-    } catch (e) {
-      setError(e?.response?.data?.error || 'Failed to retrieve private key');
-    }
-  };
-
-  const copyToClipboard = async (text) => {
-    if (typeof navigator !== 'undefined' && navigator.clipboard) {
-      try {
-        await navigator.clipboard.writeText(text);
-        // You could add a toast notification here
-      } catch (err) {
-        // Fallback for mobile devices
-        const textArea = document.createElement('textarea');
-        textArea.value = text;
-        document.body.appendChild(textArea);
-        textArea.select();
-        document.execCommand('copy');
-        document.body.removeChild(textArea);
+      if (res.data?.success) {
+        setPasswordSuccess('Password changed successfully!');
+        setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
+        setShowChangePassword(false);
+        setTimeout(() => setPasswordSuccess(''), 3000);
       }
+    } catch (err) {
+      setPasswordError(err?.response?.data?.error || 'Failed to change password');
     }
   };
 
-  // avoid hydration flashes
-  if (!mounted) return (
-    <div className="min-h-screen flex items-center justify-center">
-      <div className="loading-spinner text-yellow-400"></div>
-    </div>
-  );
+  // Don't render on server or if not authenticated
+  if (!mounted || !getToken()) return null;
 
-  const gBal = Number(profile?.gambinoBalance ?? 0);
-  const gluck = Number(profile?.gluckScore ?? 0);
-  const tier = gluck < 100 ? 'Bronze' : gluck < 500 ? 'Silver' : gluck < 1000 ? 'Gold' : 'Diamond';
-  
-  const jackMajor = Number(profile?.jackpotsMajor ?? 0);
-  const jackMinor = Number(profile?.jackpotsMinor ?? 0);
-  const jackTotal = jackMajor + jackMinor;
+  if (!profile) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="flex items-center gap-3 text-neutral-400">
+          <LoadingSpinner />
+          <span>Loading your dashboard...</span>
+        </div>
+      </div>
+    );
+  }
 
-  const sol = Number(balances?.SOL ?? 0);
-  const gg = Number(balances?.GG ?? 0);
-  const usdc = Number(balances?.USDC ?? 0);
+  // Calculate stats
+  const gBal = profile?.gambinoBalance || 0;
+  const gluck = profile?.gluckScore || 0;
+  const tier = profile?.tier || 'none';
+  const jackMajor = profile?.majorJackpots || 0;
+  const jackMinor = profile?.minorJackpots || 0;
+  const jackTotal = (jackMajor + jackMinor).toLocaleString();
 
   return (
-    <div className="min-h-screen relative">
-      {/* Minimal background particles for mobile performance */}
-      <div className="hidden md:block fixed inset-0 pointer-events-none z-0">
-        <div className="absolute top-20 left-10 w-3 h-3 bg-yellow-400/20 rounded-full animate-pulse"></div>
-        <div className="absolute top-40 right-20 w-2 h-2 bg-yellow-300/30 rounded-full animate-pulse delay-1000"></div>
-        <div className="absolute bottom-40 right-10 w-3 h-3 bg-yellow-500/20 rounded-full animate-pulse delay-3000"></div>
-        <div className="absolute bottom-20 left-20 w-2 h-2 bg-yellow-400/30 rounded-full animate-pulse delay-500"></div>
-      </div>
-
-      {/* Mobile-optimized background shapes */}
-      <div className="fixed inset-0 pointer-events-none z-0 opacity-40 md:opacity-60">
-        <div className="absolute top-0 right-0 w-64 h-64 md:w-96 md:h-96 bg-gradient-to-br from-yellow-500/8 to-amber-600/5 rounded-full blur-3xl transform translate-x-16 -translate-y-16 md:translate-x-32 md:-translate-y-32"></div>
-        <div className="absolute bottom-0 left-0 w-56 h-56 md:w-80 md:h-80 bg-gradient-to-tr from-amber-600/10 to-yellow-500/5 rounded-full blur-3xl transform -translate-x-12 translate-y-12 md:-translate-x-24 md:translate-y-24"></div>
-      </div>
-
-      <div className="mx-auto max-w-6xl px-4 py-4 md:py-8 relative z-10">
-        {/* Header */}
-        <div className="mb-6 md:mb-8">
-          <h1 className="text-2xl md:text-3xl font-bold text-white mb-2">
-            Welcome back, <span className="text-gradient-gold">{profile?.email || 'Member'}</span>
-          </h1>
-          <p className="text-neutral-400 text-sm md:text-base">
-            Manage your account, track your progress, and monitor your wallet.
-          </p>
+    <div className="max-w-6xl mx-auto px-4 py-6 md:py-8">
+      {/* Header */}
+      <div className="mb-6 md:mb-8">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 gap-4">
+          <div>
+            <h1 className="text-2xl md:text-3xl font-bold text-white mb-2">
+              Dashboard
+            </h1>
+            <p className="text-neutral-400 text-sm md:text-base">
+              Welcome back, {profile?.firstName || 'Player'}! Manage your account and track your progress.
+            </p>
+          </div>
+          <div className="flex items-center gap-2 text-xs md:text-sm text-neutral-400">
+            <div className="status-live h-2 w-2"></div>
+            Account Active
+          </div>
         </div>
+      </div>
 
-        {error && (
-          <div className="bg-red-900/20 border border-red-500 text-red-300 p-3 md:p-4 rounded-lg mb-4 md:mb-6 backdrop-blur-sm text-sm">
+      {/* Success/Error Messages */}
+      {error && (
+        <div className="bg-red-900/20 border border-red-500 text-red-300 p-3 md:p-4 rounded-lg mb-4 md:mb-6 backdrop-blur-sm text-sm">
+          <div className="flex items-center gap-2">
+            <svg className="w-4 h-4 text-red-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
             {error}
           </div>
-        )}
+        </div>
+      )}
 
-        {/* Account Management */}
-        <div className="card mb-6 md:mb-8">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 md:mb-6 gap-4">
-            <h2 className="text-lg md:text-xl font-bold text-white">Account Settings</h2>
-            <div className="flex items-center gap-2 text-xs md:text-sm text-neutral-400">
-              <div className="status-live h-2 w-2"></div>
-              Account Active
-            </div>
+      {success && (
+        <div className="bg-green-900/20 border border-green-500 text-green-300 p-3 md:p-4 rounded-lg mb-4 md:mb-6 backdrop-blur-sm text-sm">
+          <div className="flex items-center gap-2">
+            <svg className="w-4 h-4 text-green-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            {success}
           </div>
-          
-          <div className="grid gap-4 md:gap-6 lg:grid-cols-2">
+        </div>
+      )}
+
+      {profileSuccess && (
+        <div className="bg-green-900/20 border border-green-500 text-green-300 p-3 md:p-4 rounded-lg mb-4 md:mb-6 backdrop-blur-sm text-sm">
+          {profileSuccess}
+        </div>
+      )}
+
+      {passwordSuccess && (
+        <div className="bg-green-900/20 border border-green-500 text-green-300 p-3 md:p-4 rounded-lg mb-4 md:mb-6 backdrop-blur-sm text-sm">
+          {passwordSuccess}
+        </div>
+      )}
+
+      {/* Stats Grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6 mb-6 md:mb-8">
+        <StatBox 
+          label="GAMBINO Balance" 
+          value={gBal.toLocaleString()} 
+          sub={profile?.walletAddress ? 'Wallet Connected' : 'No Wallet Yet'} 
+        />
+        <StatBox 
+          label="Glück Score" 
+          value={gluck.toLocaleString()} 
+          sub={`Tier: ${tier.toUpperCase()}`} 
+        />
+        <StatBox 
+          label="Jackpots Won" 
+          value={jackTotal} 
+          sub={`Major ${jackMajor} • Minor ${jackMinor}`} 
+        />
+      </div>
+
+      {/* Profile Management */}
+      <div className="card mb-6 md:mb-8">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 md:mb-6 gap-4">
+          <h2 className="text-lg md:text-xl font-bold text-white">Profile Information</h2>
+          <button 
+            onClick={() => setShowEditProfile(!showEditProfile)}
+            className="btn btn-ghost text-sm"
+          >
+            {showEditProfile ? 'Cancel Edit' : 'Edit Profile'}
+          </button>
+        </div>
+        
+        {!showEditProfile ? (
+          <div className="grid gap-4 md:gap-6 sm:grid-cols-2">
+            <div>
+              <div className="label mb-2">Full Name</div>
+              <div className="bg-neutral-800/50 p-3 rounded border border-neutral-700 text-neutral-300 text-sm md:text-base">
+                {`${profile?.firstName || ''} ${profile?.lastName || ''}`.trim() || 'Not set'}
+              </div>
+            </div>
             <div>
               <div className="label mb-2">Email Address</div>
               <div className="bg-neutral-800/50 p-3 rounded border border-neutral-700 text-neutral-300 text-sm md:text-base break-all">
                 {profile?.email || 'Loading...'}
               </div>
             </div>
-            
             <div>
-              <div className="label mb-2">Account Actions</div>
-              <button 
-                onClick={() => setShowChangePassword(!showChangePassword)}
-                className="btn btn-ghost w-full text-sm"
-              >
-                Change Password
-              </button>
+              <div className="label mb-2">Phone Number</div>
+              <div className="bg-neutral-800/50 p-3 rounded border border-neutral-700 text-neutral-300 text-sm md:text-base">
+                {profile?.phone || 'Not set'}
+              </div>
+            </div>
+            <div>
+              <div className="label mb-2">Member Since</div>
+              <div className="bg-neutral-800/50 p-3 rounded border border-neutral-700 text-neutral-300 text-sm md:text-base">
+                {new Date(profile?.createdAt).toLocaleDateString()}
+              </div>
             </div>
           </div>
+        ) : (
+          <form onSubmit={handleProfileUpdate} className="space-y-4">
+            {profileError && (
+              <div className="bg-red-900/20 border border-red-500 text-red-300 p-3 rounded text-sm">
+                {profileError}
+              </div>
+            )}
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div>
+                <label className="label">First Name</label>
+                <input 
+                  type="text" 
+                  className="input mt-1"
+                  value={profileForm.firstName}
+                  onChange={(e) => setProfileForm(prev => ({...prev, firstName: e.target.value}))}
+                  placeholder="Enter first name"
+                />
+              </div>
+              <div>
+                <label className="label">Last Name</label>
+                <input 
+                  type="text" 
+                  className="input mt-1"
+                  value={profileForm.lastName}
+                  onChange={(e) => setProfileForm(prev => ({...prev, lastName: e.target.value}))}
+                  placeholder="Enter last name"
+                />
+              </div>
+              <div>
+                <label className="label">Email Address</label>
+                <input 
+                  type="email" 
+                  className="input mt-1"
+                  value={profileForm.email}
+                  onChange={(e) => setProfileForm(prev => ({...prev, email: e.target.value}))}
+                  placeholder="Enter email address"
+                />
+              </div>
+              <div>
+                <label className="label">Phone Number</label>
+                <input 
+                  type="tel" 
+                  className="input mt-1"
+                  value={profileForm.phone}
+                  onChange={(e) => setProfileForm(prev => ({...prev, phone: e.target.value}))}
+                  placeholder="Enter phone number"
+                />
+              </div>
+            </div>
+            <div className="flex flex-col sm:flex-row gap-2">
+              <button type="submit" className="btn btn-gold">Update Profile</button>
+              <button type="button" onClick={() => setShowEditProfile(false)} className="btn btn-ghost">
+                Cancel
+              </button>
+            </div>
+          </form>
+        )}
+      </div>
+
+      {/* Security Settings */}
+      <div className="card mb-6 md:mb-8">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 md:mb-6 gap-4">
+          <h2 className="text-lg md:text-xl font-bold text-white">Security Settings</h2>
+        </div>
+        
+        <div className="space-y-4">
+          <button 
+            onClick={() => setShowChangePassword(!showChangePassword)}
+            className="btn btn-ghost w-full sm:w-auto text-sm"
+          >
+            {showChangePassword ? 'Cancel Password Change' : 'Change Password'}
+          </button>
 
           {/* Password Change Form */}
           {showChangePassword && (
-            <div className="mt-4 md:mt-6 p-4 border border-neutral-700 rounded-lg bg-neutral-900/50">
+            <div className="mt-4 p-4 border border-neutral-700 rounded-lg bg-neutral-900/50">
               <h3 className="text-base md:text-lg font-semibold mb-4 text-white">Change Password</h3>
               
               {passwordError && (
                 <div className="bg-red-900/20 border border-red-500 text-red-300 p-3 rounded mb-4 text-sm">
                   {passwordError}
-                </div>
-              )}
-              
-              {passwordSuccess && (
-                <div className="bg-green-900/20 border border-green-500 text-green-300 p-3 rounded mb-4 text-sm">
-                  {passwordSuccess}
                 </div>
               )}
               
@@ -279,6 +488,7 @@ export default function Dashboard() {
                     value={passwordForm.currentPassword}
                     onChange={(e) => setPasswordForm(prev => ({...prev, currentPassword: e.target.value}))}
                     required
+                    placeholder="Enter current password"
                   />
                 </div>
                 <div>
@@ -289,6 +499,7 @@ export default function Dashboard() {
                     value={passwordForm.newPassword}
                     onChange={(e) => setPasswordForm(prev => ({...prev, newPassword: e.target.value}))}
                     required
+                    placeholder="Enter new password"
                   />
                 </div>
                 <div>
@@ -299,6 +510,7 @@ export default function Dashboard() {
                     value={passwordForm.confirmPassword}
                     onChange={(e) => setPasswordForm(prev => ({...prev, confirmPassword: e.target.value}))}
                     required
+                    placeholder="Confirm new password"
                   />
                 </div>
                 <div className="flex flex-col sm:flex-row gap-2">
@@ -311,151 +523,267 @@ export default function Dashboard() {
             </div>
           )}
         </div>
+      </div>
 
-        {/* Stats Grid - Mobile optimized */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6 mb-6 md:mb-8">
-          <StatBox 
-            label="GAMBINO Balance" 
-            value={gBal.toLocaleString()} 
-            sub={profile?.walletAddress ? 'Wallet Connected' : 'No Wallet Yet'} 
-          />
-          <StatBox 
-            label="Glück Score" 
-            value={gluck.toLocaleString()} 
-            sub={`Tier: ${tier}`} 
-          />
-          <StatBox 
-            label="Jackpots Won" 
-            value={jackTotal} 
-            sub={`Major ${jackMajor} • Minor ${jackMinor}`} 
-          />
-        </div>
-
-        {/* Machines Played - Mobile friendly */}
-        <div className="card mb-6 md:mb-8">
-          <div className="text-neutral-400 text-sm mb-3">Machines Played</div>
-          <div className="flex flex-wrap gap-2">
-            {profile?.machinesPlayed?.length
-              ? profile.machinesPlayed.map((m) => (
-                  <span key={m} className="px-3 py-1 rounded-full bg-yellow-500/10 border border-yellow-500/30 text-yellow-400 text-xs font-medium">
-                    {m}
-                  </span>
-                ))
-              : <span className="text-neutral-500 text-sm">No machines played yet</span>}
+      {/* Wallet Management */}
+      <div className="card mb-6 md:mb-8">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 md:mb-6 gap-4">
+          <h2 className="text-lg md:text-xl font-bold text-white">Wallet Management</h2>
+          <div className="flex items-center gap-2 text-xs md:text-sm text-neutral-400">
+            <div className={`h-2 w-2 rounded-full ${profile?.walletAddress ? 'bg-green-500 animate-pulse' : 'bg-gray-500'}`}></div>
+            {profile?.walletAddress ? 'Wallet Connected' : 'No Wallet'}
           </div>
         </div>
 
-        {/* Wallet Section - Mobile optimized */}
-        <div className="card">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 md:mb-6 gap-4">
-            <h2 className="text-lg md:text-xl font-bold text-white">Wallet Management</h2>
-            {profile?.walletAddress && (
-              <div className="flex items-center gap-2 text-xs md:text-sm text-green-400">
-                <div className="status-live h-2 w-2"></div>
-                Wallet Active
+        {!profile?.walletAddress ? (
+          <div className="text-center py-8">
+            <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-yellow-500/20 flex items-center justify-center">
+              <svg className="w-8 h-8 text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+              </svg>
+            </div>
+            <h3 className="text-lg font-semibold text-white mb-2">No Wallet Detected</h3>
+            <p className="text-neutral-400 text-sm mb-6 max-w-md mx-auto">
+              Generate a secure wallet to start receiving and managing your GAMBINO tokens.
+            </p>
+            <button 
+              onClick={handleGenerateWallet}
+              disabled={generatingWallet}
+              className="btn btn-gold"
+            >
+              {generatingWallet ? (
+                <div className="flex items-center gap-2">
+                  <LoadingSpinner />
+                  Generating Wallet...
+                </div>
+              ) : (
+                'Generate Wallet'
+              )}
+            </button>
+          </div>
+        ) : (
+          <div>
+            {/* Wallet Address */}
+            <div className="mb-6">
+              <div className="label mb-2">Wallet Address</div>
+              <div className="wallet-address text-xs md:text-sm">
+                {profile.walletAddress}
+              </div>
+            </div>
+
+            {/* Balances */}
+            {balances && (
+              <div className="mb-6">
+                <div className="label mb-3">Current Balances</div>
+                <div className="balance-grid">
+                  <div className="balance-item">
+                    <div className="text-xs text-neutral-400 mb-1">SOL</div>
+                    <div className="text-lg font-semibold text-white">
+                      {balances.SOL?.toFixed(4) || '0.0000'}
+                    </div>
+                  </div>
+                  <div className="balance-item">
+                    <div className="text-xs text-neutral-400 mb-1">GAMBINO</div>
+                    <div className="text-lg font-semibold text-yellow-500">
+                      {balances.GG?.toLocaleString() || '0'}
+                    </div>
+                  </div>
+                  <div className="balance-item">
+                    <div className="text-xs text-neutral-400 mb-1">USDC</div>
+                    <div className="text-lg font-semibold text-white">
+                      ${balances.USDC?.toFixed(2) || '0.00'}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Wallet Actions */}
+            <div className="flex flex-col sm:flex-row gap-3">
+              <button 
+                onClick={handleRevealPrivateKey}
+                disabled={revealingKey}
+                className="btn btn-ghost text-sm"
+              >
+                {revealingKey ? (
+                  <div className="flex items-center gap-2">
+                    <LoadingSpinner />
+                    Retrieving Key...
+                  </div>
+                ) : (
+                  'Reveal Private Key'
+                )}
+              </button>
+              
+              <button 
+                onClick={() => setShowQRModal(true)}
+                className="btn btn-ghost text-sm"
+              >
+                Show QR Code
+              </button>
+
+              <button 
+                onClick={() => handleCopyToClipboard(profile.walletAddress, 'Wallet address')}
+                className="btn btn-ghost text-sm"
+              >
+                Copy Address
+              </button>
+            </div>
+
+            {/* Copy Success Message */}
+            {copySuccess && (
+              <div className="mt-3 text-sm text-green-400 flex items-center gap-2">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                {copySuccess}
+              </div>
+            )}
+
+            {/* Private Key Reveal Modal */}
+            {showPrivateKey && (
+              <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+                <div className="private-key-warning max-w-md w-full">
+                  <div className="flex items-center gap-2 mb-4">
+                    <svg className="w-6 h-6 text-red-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                    </svg>
+                    <h3 className="text-lg font-semibold text-red-300">Private Key Warning</h3>
+                  </div>
+                  <p className="text-red-200 text-sm mb-4">
+                    Never share your private key with anyone. Anyone with access to this key can control your wallet and steal your funds.
+                  </p>
+                  <div className="bg-black p-3 rounded font-mono text-xs break-all text-yellow-400 mb-4 border border-red-500/30">
+                    {privateKey}
+                  </div>
+                  <div className="flex flex-col sm:flex-row gap-2">
+                    <button 
+                      onClick={() => handleCopyToClipboard(privateKey, 'Private key')}
+                      className="btn btn-ghost text-sm"
+                    >
+                      Copy to Clipboard
+                    </button>
+                    <button 
+                      onClick={() => {
+                        setShowPrivateKey(false);
+                        setPrivateKey('');
+                      }}
+                      className="btn btn-gold text-sm"
+                    >
+                      Close
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* QR Code Modal */}
+            {showQRModal && (
+              <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+                <div className="bg-neutral-900/95 border border-neutral-700 rounded-xl p-6 max-w-sm w-full backdrop-blur-sm">
+                  <div className="flex items-center gap-2 mb-4">
+                    <svg className="w-6 h-6 text-yellow-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v1m6 11h1M6 16H5m9-9h.01M9 21v-1m3-4a2 2 0 11-4 0 2 2 0 014 0zM21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <h3 className="text-lg font-semibold text-white">Wallet QR Code</h3>
+                  </div>
+                  <p className="text-neutral-300 text-sm mb-4">
+                    Scan this QR code to share your wallet address or import it into other applications.
+                  </p>
+                  
+                  {qr ? (
+                    <div className="text-center mb-4">
+                      <img 
+                        src={qr} 
+                        alt="Wallet QR Code" 
+                        className="mx-auto rounded-lg border border-neutral-700 bg-white p-2"
+                        style={{ maxWidth: '200px', height: 'auto' }}
+                      />
+                    </div>
+                  ) : (
+                    <div className="text-center py-8 mb-4">
+                      <LoadingSpinner />
+                      <p className="text-neutral-400 text-sm mt-2">Loading QR code...</p>
+                    </div>
+                  )}
+                  
+                  <div className="bg-neutral-800 p-3 rounded font-mono text-xs break-all text-yellow-400 mb-4 border border-neutral-700">
+                    {profile.walletAddress}
+                  </div>
+                  
+                  <div className="flex flex-col sm:flex-row gap-2">
+                    <button 
+                      onClick={() => handleCopyToClipboard(profile.walletAddress, 'Wallet address')}
+                      className="btn btn-ghost text-sm"
+                    >
+                      Copy Address
+                    </button>
+                    <button 
+                      onClick={() => setShowQRModal(false)}
+                      className="btn btn-gold text-sm"
+                    >
+                      Close
+                    </button>
+                  </div>
+                </div>
               </div>
             )}
           </div>
+        )}
+      </div>
+
+      {/* Game Statistics */}
+      <div className="card">
+        <h2 className="text-lg md:text-xl font-bold text-white mb-4 md:mb-6">Game Statistics</h2>
+        
+        <div className="grid gap-4 md:gap-6 sm:grid-cols-2 lg:grid-cols-3">
+          <div>
+            <div className="label mb-2">Current Tier</div>
+            <div className="bg-neutral-800/50 p-3 rounded border border-neutral-700">
+              <div className="text-lg font-semibold text-yellow-500 capitalize">
+                {tier === 'none' ? 'Unranked' : tier}
+              </div>
+            </div>
+          </div>
           
-          {!profile?.walletAddress ? (
-            <div className="text-center py-8 md:py-12">
-              <div className="w-12 h-12 md:w-16 md:h-16 mx-auto mb-4 rounded-full bg-yellow-500/10 flex items-center justify-center">
-                <div className="w-6 h-6 md:w-8 md:h-8 rounded-full border-2 border-yellow-500/50"></div>
-              </div>
-              <p className="text-neutral-400 mb-4 md:mb-6 text-sm md:text-base">No wallet generated yet</p>
-              <button onClick={handleGenerateWallet} className="btn btn-gold">
-                Generate Wallet
-              </button>
-            </div>
-          ) : (
-            <div className="space-y-4 md:space-y-6">
-              {/* Wallet Address - Mobile friendly */}
-              <div>
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-3 gap-2">
-                  <p className="label">Wallet Address</p>
-                  <button 
-                    onClick={() => copyToClipboard(profile.walletAddress)}
-                    className="text-xs text-yellow-400 hover:text-yellow-300 transition-colors self-start sm:self-auto"
-                  >
-                    Copy Address
-                  </button>
-                </div>
-                <p className="wallet-address text-xs md:text-sm">
-                  {profile.walletAddress}
-                </p>
-              </div>
-
-              {/* Private Key Section - Mobile friendly */}
-              <div className="private-key-warning">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-3 gap-2">
-                  <p className="text-sm text-red-400 font-semibold">⚠️ Private Key (Keep Secret!)</p>
-                  {!showPrivateKey ? (
-                    <button 
-                      onClick={handleRevealPrivateKey}
-                      className="text-xs text-red-400 hover:text-red-300 transition-colors self-start sm:self-auto"
-                    >
-                      Reveal Private Key
-                    </button>
-                  ) : null}
-                </div>
-                
-                <div className="min-h-[60px] flex items-center">
-                  {showPrivateKey && profile.privateKey ? (
-                    <div className="w-full">
-                      <p className="font-mono text-xs md:text-sm break-all text-red-300 bg-neutral-900/70 p-3 rounded border border-red-600/50 backdrop-blur-sm">
-                        {profile.privateKey}
-                      </p>
-                      <p className="text-xs text-red-400 mt-2">
-                        Never share this with anyone! Anyone with this key can access your wallet.
-                      </p>
-                    </div>
-                  ) : showPrivateKey ? (
-                    <p className="text-red-400 text-sm">Private key not available</p>
-                  ) : (
-                    <p className="text-neutral-500 text-sm">Click "Reveal Private Key" to show your wallet's private key</p>
-                  )}
-                </div>
-              </div>
-
-              {/* Balances and QR - Mobile optimized layout */}
-              <div className="flex flex-col lg:flex-row items-start gap-4 md:gap-6">
-                {qr && (
-                  <div className="text-center w-full lg:w-auto">
-                    <p className="label mb-3">Wallet QR Code</p>
-                    <div className="p-2 bg-white rounded-lg inline-block">
-                      <img src={qr} alt="Wallet QR" className="w-24 h-24 md:w-32 md:h-32" />
-                    </div>
-                  </div>
-                )}
-                
-                <div className="flex-1 w-full">
-                  <p className="label mb-3 md:mb-4">Current Balances</p>
-                  <div className="balance-grid">
-                    <div className="balance-item">
-                      <p className="text-xs text-neutral-400 uppercase tracking-wider">SOL</p>
-                      <p className="text-lg md:text-2xl font-bold text-white mt-1">{sol.toLocaleString()}</p>
-                    </div>
-                    <div className="balance-item">
-                      <p className="text-xs text-neutral-400 uppercase tracking-wider">GAMBINO</p>
-                      <p className="text-lg md:text-2xl font-bold text-yellow-500 mt-1">{gg.toLocaleString()}</p>
-                    </div>
-                    <div className="balance-item">
-                      <p className="text-xs text-neutral-400 uppercase tracking-wider">USDC</p>
-                      <p className="text-lg md:text-2xl font-bold text-white mt-1">{usdc.toLocaleString()}</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Wallet Actions - Mobile friendly */}
-              <div className="flex flex-col sm:flex-row flex-wrap gap-2 sm:gap-3 pt-4 md:pt-6 border-t border-neutral-700">
-                <button className="btn btn-ghost flex-1 sm:flex-none">Send Tokens</button>
-                <button className="btn btn-ghost flex-1 sm:flex-none">Transaction History</button>
-                <button className="btn btn-ghost flex-1 sm:flex-none">Export Wallet</button>
+          <div>
+            <div className="label mb-2">Total Machines Played</div>
+            <div className="bg-neutral-800/50 p-3 rounded border border-neutral-700">
+              <div className="text-lg font-semibold text-white">
+                {new Set(profile?.machinesPlayed || []).size}
               </div>
             </div>
-          )}
+          </div>
+          
+          <div>
+            <div className="label mb-2">Last Activity</div>
+            <div className="bg-neutral-800/50 p-3 rounded border border-neutral-700">
+              <div className="text-sm text-neutral-300">
+                {profile?.lastActivity 
+                  ? new Date(profile.lastActivity).toLocaleDateString()
+                  : 'Never'
+                }
+              </div>
+            </div>
+          </div>
         </div>
+
+        {/* Machines Played */}
+        {profile?.machinesPlayed?.length > 0 && (
+          <div className="mt-6">
+            <div className="label mb-3">Machines Played</div>
+            <div className="flex flex-wrap gap-2">
+              {profile.machinesPlayed.map((machineId, i) => (
+                <span 
+                  key={i}
+                  className="px-3 py-1 bg-neutral-800 rounded-full text-xs text-neutral-300 border border-neutral-700"
+                >
+                  {machineId}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
