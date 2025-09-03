@@ -32,7 +32,7 @@ function MachineBinder() {
   const validateTokenAndLoadMachine = async () => {
     try {
       // Decode and validate the binding token to get machine info
-      const response = await api.post('/api/machine/validate-binding', { token });
+      const response = await api.post('/api/machines/validate-binding', { token });
       setMachineInfo(response.data.machine);
     } catch (err) {
       if (err.response?.status === 401) {
@@ -67,7 +67,7 @@ function MachineBinder() {
       setBinding(true);
       setError('');
 
-      const response = await api.post('/api/machine/bind', { 
+      const response = await api.post('/api/machines/bind', { 
         token,
         machineId: machineInfo.machineId,
         storeId: machineInfo.storeId
