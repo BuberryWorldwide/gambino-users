@@ -31,6 +31,7 @@ export default function UserDashboard() {
   const [qr, setQr] = useState(null);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [currentSession, setCurrentSession] = useState(null);
 
   // Profile editing state
   const [showEditProfile, setShowEditProfile] = useState(false);
@@ -63,6 +64,8 @@ export default function UserDashboard() {
   const [showQr, setShowQr] = useState(false);
   const [copied, setCopied] = useState(false);
 
+  
+
 
   useEffect(() => {
     setMounted(true);
@@ -81,6 +84,7 @@ export default function UserDashboard() {
       try {
         const profileRes = await api.get('/api/users/profile');
         const profileData = profileRes.data?.user;
+        
         
         if (!cancelled) {
           setProfile(profileData);
@@ -115,7 +119,23 @@ export default function UserDashboard() {
       }
     };
 
+       const checkActiveSession = async () => {
+      try {
+        const sessionRes = await api.get('/api/users/current-session');
+        if (!cancelled) {
+          setCurrentSession(sessionRes.data.session);
+        }
+      } catch (err) {
+        // No active session is fine, don't set error
+        if (!cancelled) {
+          setCurrentSession(null);
+        }
+      }
+    };
+  
     fetchAll();
+    checkActiveSession(); 
+
     
     // Set up polling for balance updates
     if (pollerRef.current) clearInterval(pollerRef.current);
@@ -355,6 +375,44 @@ export default function UserDashboard() {
           sub={`Major ${jackMajor} • Minor ${jackMinor}`} 
         />
       </div>
+
+      {/* Current Machine Session */}
+      {currentSession && (
+        <div className="card mb-6 md:mb-8">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-bold text-white">Currently Playing</h2>
+            <div className="flex items-center gap-2 text-sm text-green-400">
+              <div className="h-2 w-2 bg-green-500 rounded-full animate-pulse"></div>
+              Active Session
+            </div>
+          </div>
+          <div className="bg-green-900/20 border border-green-500/30 p-4 rounded-lg">
+            <div className="flex justify-between items-start">
+              <div>
+                <h3 className="font-medium text-white">{currentSession.machineName || currentSession.machineId}</h3>
+                <p className="text-sm text-green-300">{currentSession.storeName}</p>
+                <p className="text-xs text-green-400 mt-1">
+                  Started: {new Date(currentSession.startedAt).toLocaleTimeString()}
+                </p>
+              </div>
+              <button
+                onClick={async () => {
+                  try {
+                    await api.post('/api/users/end-session');
+                    setCurrentSession(null);
+                    setSuccess('Session ended successfully');
+                  } catch (err) {
+                    setError('Failed to end session');
+                  }
+                }}
+                className="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded text-sm"
+              >
+                End Session
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Profile Management */}
       <div className="card mb-6 md:mb-8">
