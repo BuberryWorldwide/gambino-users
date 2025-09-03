@@ -17,6 +17,7 @@ function MachineBinder() {
   const [binding, setBinding] = useState(false);
   const [bound, setBound] = useState(false);
   const [existingSession, setExistingSession] = useState(null);
+  const [sessionInfo, setSessionInfo] = useState(null);
 
   useEffect(() => {
     if (!token) {
@@ -75,12 +76,22 @@ function MachineBinder() {
 
       if (response.data.success) {
         setBound(true);
+        // Store session info for success display
+        setSessionInfo(response.data.session);
       }
     } catch (err) {
       if (err.response?.status === 409) {
-        // Machine already in use
-        setExistingSession(err.response.data.session);
-        setError('This machine is currently in use by another player');
+        // Machine already in use or user has active session
+        if (err.response.data.currentSession) {
+          // User has active session elsewhere
+          setError(`You already have an active session on machine ${err.response.data.currentSession.machineId}. Please end that session first.`);
+        } else if (err.response.data.session) {
+          // Machine in use by someone else
+          setExistingSession(err.response.data.session);
+          setError('This machine is currently in use by another player');
+        } else {
+          setError(err.response.data.error || 'Machine or user conflict');
+        }
       } else {
         setError(err.response?.data?.error || 'Failed to bind to machine');
       }
@@ -126,25 +137,42 @@ function MachineBinder() {
         <div className="max-w-md w-full">
           <div className="bg-gray-800 rounded-lg p-6 text-center">
             <div className="text-4xl mb-4">🎰</div>
-            <h1 className="text-xl font-bold text-white mb-2">Successfully Bound!</h1>
+            <h1 className="text-xl font-bold text-white mb-2">Successfully Connected!</h1>
             <p className="text-gray-400 mb-4">
-              You're now connected to <strong className="text-white">{machineInfo?.name || machineInfo?.machineId}</strong>
+              You're now bound to <strong className="text-white">{machineInfo?.name || machineInfo?.machineId}</strong>
             </p>
-            <div className="bg-green-900/20 border border-green-500/30 p-4 rounded-lg mb-4">
-              <p className="text-green-300 text-sm">
-                Your gaming session has started. You can now play on this machine.
+            
+            {sessionInfo && (
+              <div className="bg-green-900/20 border border-green-500/30 p-4 rounded-lg mb-4">
+                <div className="text-left">
+                  <p className="text-green-300 text-sm font-medium mb-2">Session Details:</p>
+                  <div className="space-y-1 text-xs text-green-400">
+                    <p>Machine: {sessionInfo.machineName}</p>
+                    <p>Location: {sessionInfo.storeName}</p>
+                    <p>Started: {new Date(sessionInfo.startedAt).toLocaleTimeString()}</p>
+                    <p>Session ID: {sessionInfo.sessionId}</p>
+                  </div>
+                </div>
+              </div>
+            )}
+            
+            <div className="bg-blue-900/20 border border-blue-500/30 p-4 rounded-lg mb-4">
+              <p className="text-blue-300 text-sm">
+                Your gaming session is now active. The machine is reserved for you. 
+                You can view your session status anytime from your dashboard.
               </p>
             </div>
+            
             <div className="flex gap-3">
               <Link 
                 href="/dashboard"
-                className="flex-1 bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded-lg text-center"
+                className="flex-1 bg-yellow-600 hover:bg-yellow-700 text-white px-4 py-2 rounded-lg text-center font-medium"
               >
-                Dashboard
+                View Dashboard
               </Link>
               <Link 
                 href="/account"
-                className="flex-1 bg-yellow-600 hover:bg-yellow-700 text-white px-4 py-2 rounded-lg text-center"
+                className="flex-1 bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded-lg text-center"
               >
                 My Account
               </Link>

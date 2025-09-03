@@ -31,7 +31,6 @@ export default function UserDashboard() {
   const [qr, setQr] = useState(null);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
-  const [currentSession, setCurrentSession] = useState(null);
 
   // Profile editing state
   const [showEditProfile, setShowEditProfile] = useState(false);
@@ -64,7 +63,9 @@ export default function UserDashboard() {
   const [showQr, setShowQr] = useState(false);
   const [copied, setCopied] = useState(false);
 
-  
+  // Current session state
+  const [currentSession, setCurrentSession] = useState(null);
+  const [sessionLoading, setSessionLoading] = useState(false);
 
 
   useEffect(() => {
@@ -119,17 +120,16 @@ export default function UserDashboard() {
       }
     };
 
-       const checkActiveSession = async () => {
+    const checkActiveSession = async () => {
       try {
+        setSessionLoading(true);
         const sessionRes = await api.get('/api/users/current-session');
-        if (!cancelled) {
-          setCurrentSession(sessionRes.data.session);
-        }
+        setCurrentSession(sessionRes.data.session);
       } catch (err) {
-        // No active session is fine, don't set error
-        if (!cancelled) {
-          setCurrentSession(null);
-        }
+        console.error('Session check failed:', err);
+        setCurrentSession(null);
+      } finally {
+        setSessionLoading(false);
       }
     };
   
@@ -137,7 +137,7 @@ export default function UserDashboard() {
     checkActiveSession(); 
 
     
-    // Set up polling for balance updates
+    // Set up polling for balance AND session updates
     if (pollerRef.current) clearInterval(pollerRef.current);
     pollerRef.current = setInterval(() => {
       if (profile?.walletAddress) {
@@ -145,6 +145,12 @@ export default function UserDashboard() {
           .then(res => setBalances(res.data?.balances))
           .catch(() => {}); // Silent fail for background polling
       }
+      
+      // Add session polling
+      api.get('/api/users/current-session')
+        .then(res => setCurrentSession(res.data.session))
+        .catch(() => setCurrentSession(null));
+        
     }, 30000); // Poll every 30 seconds
 
     return () => {
