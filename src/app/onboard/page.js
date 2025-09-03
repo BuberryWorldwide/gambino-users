@@ -62,15 +62,20 @@ export default function OnboardPage() {
           readWhitepaper: form.readWhitepaper
         });
 
-        // Backend returns token/accessToken when account is created
-        const token = data.accessToken || data.token;
-        if (token) setToken(token);
-
-        // Success screen (now Step 3)
-        setStep(3);
-
-        // Optional: quick redirect after a short pause
-        setTimeout(() => router.push('/dashboard'), 1500);
+         // FINALIZE (old step3) — this actually creates the user in Mongo
+         const finalize = await api.post(
+           '/api/onboarding/step3',
+           {},
+           { headers: { Authorization: `Bearer ${tempToken}` } }
+         );
+         const token = finalize.data?.accessToken || finalize.data?.token;
+         if (!token) {
+           setError('Account was not finalized. Please try again.');
+           return;
+         }
+         setToken(token);
+         setStep(3);
+         setTimeout(() => router.push('/dashboard'), 1500);
       }
     } catch (e) {
       setError(e?.response?.data?.error || 'Failed to continue');
