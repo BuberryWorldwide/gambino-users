@@ -67,6 +67,17 @@ export default function UserDashboard() {
   const [currentSession, setCurrentSession] = useState(null);
   const [sessionLoading, setSessionLoading] = useState(false);
 
+  // Token transfer state (add this with your other state variables)
+  const [transferForm, setTransferForm] = useState({
+    toAddress: '',
+    amount: '',
+    memo: ''
+  });
+  const [transferError, setTransferError] = useState('');
+  const [transferSuccess, setTransferSuccess] = useState('');
+  const [transferring, setTransferring] = useState(false);
+  const [recentTransfers, setRecentTransfers] = useState([]);
+
 
   useEffect(() => {
     setMounted(true);
@@ -81,44 +92,57 @@ export default function UserDashboard() {
     if (!mounted || !getToken()) return;
 
     let cancelled = false;
-    const fetchAll = async () => {
-      try {
-        const profileRes = await api.get('/api/users/profile');
-        const profileData = profileRes.data?.user;
-        
-        
-        if (!cancelled) {
-          setProfile(profileData);
-          setProfileForm({
-            firstName: profileData?.firstName || '',
-            lastName: profileData?.lastName || '',
-            email: profileData?.email || '',
-            phone: profileData?.phone || ''
-          });
-          setError('');
+    // In your dashboard, update the balance fetching logic in the main useEffect
 
-          const addr = profileData?.walletAddress;
-          if (addr) {
-            const [balRes, qrRes] = await Promise.allSettled([
-              api.get(`/api/wallet/balance/${addr}`),
-              api.get(`/api/wallet/qrcode/${addr}`)
-            ]);
+const fetchAll = async () => {
+  try {
+    const profileRes = await api.get('/api/users/profile');
+    const profileData = profileRes.data?.user;
+    
+    if (!cancelled) {
+      setProfile(profileData);
+      setProfileForm({
+        firstName: profileData?.firstName || '',
+        lastName: profileData?.lastName || '',
+        email: profileData?.email || '',
+        phone: profileData?.phone || ''
+      });
+      setError('');
 
-            if (balRes.status === 'fulfilled') {
-              setBalances(balRes.value.data?.balances ?? null);
-            }
+      const addr = profileData?.walletAddress;
+      if (addr) {
+        const [balRes, qrRes] = await Promise.allSettled([
+          api.get(`/api/wallet/balance/${addr}?updateDB=true`), // Add updateDB flag
+          api.get(`/api/wallet/qrcode/${addr}`)
+        ]);
 
-            if (qrRes.status === 'fulfilled') {
-              setQr(qrRes.value.data?.qr ?? null);
-            }
+        if (balRes.status === 'fulfilled') {
+          setBalances(balRes.value.data?.balances ?? null);
+          
+          // If balance fetch succeeded, refresh profile to get updated DB values
+          if (balRes.value.data?.balances) {
+            setTimeout(async () => {
+              try {
+                const updatedProfileRes = await api.get('/api/users/profile');
+                setProfile(updatedProfileRes.data?.user);
+              } catch (err) {
+                console.error('Failed to refresh profile after balance update:', err);
+              }
+            }, 1000); // Small delay to allow DB update
           }
         }
-      } catch (err) {
-        if (!cancelled) {
-          setError(err?.response?.data?.error || 'Failed to load profile');
+
+        if (qrRes.status === 'fulfilled') {
+          setQr(qrRes.value.data?.qr ?? null);
         }
       }
-    };
+    }
+  } catch (err) {
+    if (!cancelled) {
+      setError(err?.response?.data?.error || 'Failed to load profile');
+    }
+  }
+};
 
     const checkActiveSession = async () => {
       try {
@@ -145,12 +169,12 @@ export default function UserDashboard() {
           .then(res => setBalances(res.data?.balances))
           .catch(() => {}); // Silent fail for background polling
       }
-      
+
       // Add session polling
       api.get('/api/users/current-session')
         .then(res => setCurrentSession(res.data.session))
         .catch(() => setCurrentSession(null));
-        
+
     }, 30000); // Poll every 30 seconds
 
     return () => {
@@ -158,6 +182,12 @@ export default function UserDashboard() {
       if (pollerRef.current) clearInterval(pollerRef.current);
     };
   }, [mounted, profile?.walletAddress]);
+
+    useEffect(() => {
+    if (profile?.walletAddress && mounted) {
+      loadRecentTransfers();
+    }
+  }, [profile?.walletAddress, mounted]);
 
   const handleGenerateWallet = async () => {
     setGeneratingWallet(true);
@@ -286,6 +316,61 @@ export default function UserDashboard() {
     }
   };
 
+    const handleTransfer = async (e) => {
+    e.preventDefault();
+    setTransferError('');
+    setTransferSuccess('');
+
+    if (!transferForm.toAddress || !transferForm.amount) {
+      setTransferError('Recipient address and amount are required');
+      return;
+    }
+
+    if (parseFloat(transferForm.amount) <= 0) {
+      setTransferError('Amount must be greater than 0');
+      return;
+    }
+
+    try {
+      setTransferring(true);
+      
+      const res = await api.post('/api/wallet/transfer', {
+        toAddress: transferForm.toAddress,
+        amount: parseFloat(transferForm.amount),
+        memo: transferForm.memo || undefined
+      });
+
+      if (res.data?.success) {
+        setTransferSuccess(`Transfer of ${transferForm.amount} GAMBINO initiated successfully!`);
+        setTransferForm({ toAddress: '', amount: '', memo: '' });
+        
+        // Refresh balances
+        if (profile?.walletAddress) {
+          const balRes = await api.get(`/api/wallet/balance/${profile.walletAddress}`);
+          setBalances(balRes.data?.balances);
+        }
+        
+        // Load recent transfers
+        loadRecentTransfers();
+        
+        setTimeout(() => setTransferSuccess(''), 5000);
+      }
+    } catch (err) {
+      setTransferError(err?.response?.data?.error || 'Transfer failed');
+    } finally {
+      setTransferring(false);
+    }
+  };
+
+  const loadRecentTransfers = async () => {
+    try {
+      const res = await api.get('/api/wallet/transfers/history');
+      setRecentTransfers(res.data?.transfers || []);
+    } catch (err) {
+      console.error('Failed to load transfer history:', err);
+    }
+  };
+
   // Don't render on server or if not authenticated
   if (!mounted || !getToken()) return null;
 
@@ -300,13 +385,24 @@ export default function UserDashboard() {
     );
   }
 
-  // Calculate stats
-  const gBal = profile?.gambinoBalance || 0;
+  // Calculate stats from DATABASE values (not live RPC)
+  const cachedGambinoBalance = profile?.cachedGambinoBalance || 0;
+  const cachedSolBalance = profile?.cachedSolBalance || 0;
+  const cachedUsdcBalance = profile?.cachedUsdcBalance || 0;
   const gluck = profile?.gluckScore || 0;
   const tier = profile?.tier || 'none';
   const jackMajor = profile?.majorJackpots || 0;
   const jackMinor = profile?.minorJackpots || 0;
   const jackTotal = (jackMajor + jackMinor).toLocaleString();
+
+  // Check when balances were last updated
+  const balanceLastUpdated = profile?.balanceLastUpdated;
+  const isBalanceStale = !balanceLastUpdated || 
+    (Date.now() - new Date(balanceLastUpdated).getTime() > 5 * 60 * 1000); // 5 minutes
+
+  const walletStatus = profile?.walletAddress ? 
+    (isBalanceStale ? 'Syncing...' : 'Connected') : 
+    'No Wallet Yet';
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-6 md:py-8">
@@ -363,12 +459,22 @@ export default function UserDashboard() {
         </div>
       )}
 
-      {/* Stats Grid */}
+      {/* Stats Grid - Database-backed values */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6 mb-6 md:mb-8">
         <StatBox 
           label="GAMBINO Balance" 
-          value={gBal.toLocaleString()} 
-          sub={profile?.walletAddress ? 'Wallet Connected' : 'No Wallet Yet'} 
+          value={cachedGambinoBalance.toLocaleString()} 
+          sub={walletStatus}
+        />
+        <StatBox 
+          label="SOL Balance" 
+          value={cachedSolBalance.toFixed(4)} 
+          sub={walletStatus}
+        />
+        <StatBox 
+          label="USDC Balance" 
+          value={`$${cachedUsdcBalance.toFixed(2)}`} 
+          sub={walletStatus}
         />
         <StatBox 
           label="Glück Score" 
@@ -379,6 +485,11 @@ export default function UserDashboard() {
           label="Jackpots Won" 
           value={jackTotal} 
           sub={`Major ${jackMajor} • Minor ${jackMinor}`} 
+        />
+        <StatBox 
+          label="Machines Played" 
+          value={new Set(profile?.machinesPlayed || []).size} 
+          sub="Total unique machines" 
         />
       </div>
 
@@ -795,6 +906,144 @@ export default function UserDashboard() {
           </div>
         )}
       </div>
+
+      {/* Token Transfer */}
+      {profile?.walletAddress && (
+        <div className="card mb-6 md:mb-8">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 md:mb-6 gap-4">
+            <h2 className="text-lg md:text-xl font-bold text-white">Transfer Tokens</h2>
+            <div className="flex items-center gap-2 text-xs md:text-sm text-neutral-400">
+              <div className="h-2 w-2 rounded-full bg-blue-500 animate-pulse"></div>
+              Send GAMBINO
+            </div>
+          </div>
+
+          <form onSubmit={handleTransfer} className="space-y-4">
+            {transferError && (
+              <div className="bg-red-900/20 border border-red-500 text-red-300 p-3 rounded text-sm">
+                {transferError}
+              </div>
+            )}
+            
+            {transferSuccess && (
+              <div className="bg-green-900/20 border border-green-500 text-green-300 p-3 rounded text-sm">
+                {transferSuccess}
+              </div>
+            )}
+
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div>
+                <label className="label">Recipient Address</label>
+                <input 
+                  type="text" 
+                  className="input mt-1"
+                  value={transferForm.toAddress}
+                  onChange={(e) => setTransferForm(prev => ({...prev, toAddress: e.target.value}))}
+                  placeholder="Enter wallet address"
+                  required
+                />
+              </div>
+              <div>
+                <label className="label">Amount (GAMBINO)</label>
+                <input 
+                  type="number" 
+                  step="0.01"
+                  min="0.01"
+                  className="input mt-1"
+                  value={transferForm.amount}
+                  onChange={(e) => setTransferForm(prev => ({...prev, amount: e.target.value}))}
+                  placeholder="0.00"
+                  required
+                />
+              </div>
+            </div>
+            
+            <div>
+              <label className="label">Memo (Optional)</label>
+              <input 
+                type="text" 
+                className="input mt-1"
+                value={transferForm.memo}
+                onChange={(e) => setTransferForm(prev => ({...prev, memo: e.target.value}))}
+                placeholder="Add a note..."
+                maxLength={100}
+              />
+              <div className="text-xs text-neutral-500 mt-1">
+                {transferForm.memo.length}/100 characters
+              </div>
+            </div>
+
+            <div className="bg-yellow-900/20 border border-yellow-500/30 p-3 rounded text-sm text-yellow-200">
+              <div className="flex items-start gap-2">
+                <svg className="w-4 h-4 text-yellow-400 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                </svg>
+                <div>
+                  <strong>Important:</strong> Transfers are permanent and cannot be reversed. 
+                  Double-check the recipient address before sending.
+                </div>
+              </div>
+            </div>
+
+            <div className="flex flex-col sm:flex-row gap-2">
+              <button 
+                type="submit" 
+                disabled={transferring || !transferForm.toAddress || !transferForm.amount}
+                className="btn btn-gold"
+              >
+                {transferring ? (
+                  <div className="flex items-center gap-2">
+                    <LoadingSpinner />
+                    Processing Transfer...
+                  </div>
+                ) : (
+                  'Send Tokens'
+                )}
+              </button>
+              <button 
+                type="button" 
+                onClick={() => setTransferForm({ toAddress: '', amount: '', memo: '' })}
+                className="btn btn-ghost"
+              >
+                Clear Form
+              </button>
+            </div>
+          </form>
+
+          {/* Recent Transfers */}
+          {recentTransfers.length > 0 && (
+            <div className="mt-6 pt-6 border-t border-neutral-700">
+              <h3 className="text-base font-semibold text-white mb-3">Recent Transfers</h3>
+              <div className="space-y-2">
+                {recentTransfers.slice(0, 5).map((transfer) => (
+                  <div key={transfer._id} className="flex items-center justify-between p-3 bg-neutral-800/50 rounded border border-neutral-700">
+                    <div className="flex-1">
+                      <div className="text-sm text-white">
+                        To: {transfer.toAddress.slice(0, 8)}...{transfer.toAddress.slice(-6)}
+                      </div>
+                      <div className="text-xs text-neutral-400">
+                        {new Date(transfer.createdAt).toLocaleString()}
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-sm font-semibold text-yellow-500">
+                        -{transfer.amount} GG
+                      </div>
+                      <div className={`text-xs px-2 py-1 rounded ${
+                        transfer.status === 'completed' ? 'bg-green-900/50 text-green-300' :
+                        transfer.status === 'failed' ? 'bg-red-900/50 text-red-300' :
+                        'bg-yellow-900/50 text-yellow-300'
+                      }`}>
+                        {transfer.status}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Game Statistics */}
       <div className="card">
