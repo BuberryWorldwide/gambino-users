@@ -3,52 +3,20 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import api from '@/lib/api';           // axios instance with interceptor
-import { setToken } from '@/lib/auth'; // unified token writer
+import api from '@/lib/api';
+import { setToken } from '@/lib/auth';
 
 export default function LoginPage() {
   const router = useRouter();
-
-  // form state
+  
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-
-  // ui state
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
 
-  // wallet state
-  const [walletAccount, setWalletAccount] = useState('');
-  const [walletError, setWalletError] = useState('');
-  const [walletLoading, setWalletLoading] = useState(false);
-  const [showWallet, setShowWallet] = useState(false);
-
-  const connectWallet = async () => {
-    setWalletLoading(true);
-    setWalletError('');
-    try {
-      if (typeof window !== 'undefined' && window?.ethereum) {
-        const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
-        setWalletAccount(accounts?.[0] || '');
-      } else if (typeof window !== 'undefined' && window?.solana?.isPhantom) {
-        const resp = await window.solana.connect();
-        setWalletAccount(resp?.publicKey?.toString() || '');
-      } else {
-        setWalletError(
-          "No wallet detected. Use MetaMask/Phantom or open this in the wallet's in-app browser."
-        );
-      }
-    } catch (e) {
-      setWalletError(e?.message || 'Wallet connection failed');
-    } finally {
-      setWalletLoading(false);
-    }
-  };
-
-  const onSubmit = async (e) => {
-    e.preventDefault();
+  const handleLogin = async () => {
     if (loading) return;
 
     setLoading(true);
@@ -57,48 +25,61 @@ export default function LoginPage() {
     setIsAdmin(false);
 
     try {
-      // 1) Regular user login
+      // User login
       const userRes = await api.post('/api/users/login', { email, password });
       const userData = userRes?.data;
-
+      
       if (!userData?.success || !userData?.token) {
         setError(userData?.error || 'Login failed');
-        setLoading(false);
         return;
       }
 
-      // 2) Try admin login (same creds). If it fails, fall back to user.
+      // Try admin login
+      let isAdminUser = false;
       try {
         const adminRes = await api.post('/api/admin/login', { email, password });
-        const adminData = adminRes?.data;
-
-        if (adminData?.success && adminData?.token) {
-          setToken(adminData.token, { remember: true, isAdmin: true });
+        if (adminRes?.data?.success && adminRes?.data?.token) {
+          setToken(adminRes.data.token, { remember: true, isAdmin: true });
           localStorage.setItem('role', 'admin');
-          localStorage.setItem('adminData', JSON.stringify(adminData.admin || {}));
+          localStorage.setItem('adminData', JSON.stringify(adminRes.data.admin || {}));
           setIsAdmin(true);
           setSuccess(true);
-          setTimeout(() => { window.location.href = '/admin'; }, 600);
+          isAdminUser = true;
+          
+          // Use window.location for admin redirect
+          setTimeout(() => {
+            window.location.href = '/admin';
+          }, 100);
           return;
         }
-      } catch {
-        // ignore; proceed to user path
+      } catch (adminError) {
+        // Admin login failed, continue with user login
       }
 
-      // Regular user path
-      setToken(userData.token, { remember: true, isAdmin: false });
-      localStorage.setItem('role', 'user');
-      localStorage.setItem('gambino_user', JSON.stringify(userData.user || {}));
-      setSuccess(true);
-      setTimeout(() => { window.location.href = '/dashboard'; }, 600);
+      // Regular user login
+      if (!isAdminUser) {
+        setToken(userData.token, { remember: true, isAdmin: false });
+        localStorage.setItem('role', 'user');
+        localStorage.setItem('gambino_user', JSON.stringify(userData.user || {}));
+        setSuccess(true);
+        
+        // Use window.location for user redirect
+        setTimeout(() => {
+          window.location.href = '/dashboard';
+        }, 100);
+      }
+
     } catch (err) {
-      const msg =
-        err?.response?.data?.error ||
-        err?.message ||
-        'Network error. Please try again.';
+      const msg = err?.response?.data?.error || err?.message || 'Network error. Please try again.';
       setError(msg);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleKeyPress = (e) => {
+    if (e.key === 'Enter') {
+      handleLogin();
     }
   };
 
@@ -106,13 +87,10 @@ export default function LoginPage() {
     <div className="min-h-screen relative flex items-center justify-center py-8">
       {/* Background Elements */}
       <div className="fixed inset-0 pointer-events-none z-0">
-        {/* Floating particles */}
         <div className="absolute top-20 left-10 w-2 h-2 bg-yellow-400/30 rounded-full animate-pulse"></div>
         <div className="absolute top-40 right-20 w-1.5 h-1.5 bg-amber-300/40 rounded-full animate-pulse delay-1000"></div>
         <div className="absolute bottom-40 right-10 w-2 h-2 bg-yellow-500/30 rounded-full animate-pulse delay-2000"></div>
         <div className="absolute bottom-20 left-20 w-1.5 h-1.5 bg-yellow-400/40 rounded-full animate-pulse delay-500"></div>
-
-        {/* Background gradients */}
         <div className="absolute top-0 right-0 w-96 h-96 bg-gradient-to-br from-yellow-500/8 to-amber-600/5 rounded-full blur-3xl transform translate-x-32 -translate-y-32"></div>
         <div className="absolute bottom-0 left-0 w-80 h-80 bg-gradient-to-tr from-amber-600/10 to-yellow-500/5 rounded-full blur-3xl transform -translate-x-24 translate-y-24"></div>
       </div>
@@ -125,7 +103,7 @@ export default function LoginPage() {
             Member Login
           </div>
 
-        <h1 className="text-3xl md:text-4xl font-extrabold mb-4">
+          <h1 className="text-3xl md:text-4xl font-extrabold mb-4">
             Welcome to{' '}
             <span className="bg-gradient-to-r from-yellow-400 via-yellow-500 to-amber-600 bg-clip-text text-transparent">
               GAMBINO
@@ -134,7 +112,7 @@ export default function LoginPage() {
           <p className="text-neutral-400 text-sm">Sign in to access your dashboard and wallet</p>
         </div>
 
-        {/* Success / Error banners */}
+        {/* Success Message */}
         {success && (
           <div className="mb-4 bg-green-900/20 border border-green-500 text-green-300 p-3 rounded-lg text-sm">
             <div className="flex items-start gap-2">
@@ -146,13 +124,14 @@ export default function LoginPage() {
                   {isAdmin ? 'Admin login successful' : 'Login successful'}
                 </div>
                 <div className="text-xs opacity-90">
-                  Redirecting to {isAdmin ? 'admin' : 'dashboard'}…
+                  Redirecting to {isAdmin ? 'admin' : 'dashboard'}...
                 </div>
               </div>
             </div>
           </div>
         )}
 
+        {/* Error Message */}
         {error && (
           <div className="mb-4 bg-red-900/20 border border-red-500 text-red-300 p-3 rounded-lg text-sm">
             <div className="flex items-center gap-2">
@@ -164,34 +143,47 @@ export default function LoginPage() {
           </div>
         )}
 
-        {/* Login Form (wallet connect removed) */}
-        <form onSubmit={onSubmit} className="card space-y-6">
+        {/* Login Card - NO FORM */}
+        <div className="card space-y-6">
           <div className="space-y-4">
             <div>
-              <label className="label block mb-2">Email Address</label>
+              <label className="label block mb-2" htmlFor="email">Email Address</label>
               <input
+                id="email"
+                name="email"
                 className="input"
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
+                onKeyPress={handleKeyPress}
                 placeholder="you@example.com"
-                required
+                autoComplete="email"
+                disabled={loading}
               />
             </div>
             <div>
-              <label className="label block mb-2">Password</label>
+              <label className="label block mb-2" htmlFor="password">Password</label>
               <input
+                id="password" 
+                name="password"
                 className="input"
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
+                onKeyPress={handleKeyPress}
                 placeholder="Enter your password"
-                required
+                autoComplete="current-password"
+                disabled={loading}
               />
             </div>
           </div>
 
-          <button disabled={loading} className="btn btn-gold w-full">
+          <button 
+            disabled={loading || !email || !password} 
+            className="btn btn-gold w-full"
+            onClick={handleLogin}
+            type="button"
+          >
             {loading ? (
               <div className="flex items-center justify-center gap-2">
                 <div className="animate-spin rounded-full h-4 w-4 border-2 border-current border-r-transparent" />
@@ -206,8 +198,7 @@ export default function LoginPage() {
               </div>
             )}
           </button>
-        </form>
-          
+        </div>
 
         {/* Footer Links */}
         <div className="text-center mt-6 space-y-4">
