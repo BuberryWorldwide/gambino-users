@@ -4,6 +4,13 @@ import { getToken } from './auth';
 // Get API URL from environment or default
 const API_URL = process.env.NEXT_PUBLIC_BACKEND_URL || process.env.NEXT_PUBLIC_API_URL;
 
+// TEMPORARY DEBUG - Remove after fixing
+console.log('=== API DEBUG ===');
+console.log('NEXT_PUBLIC_BACKEND_URL:', process.env.NEXT_PUBLIC_BACKEND_URL);
+console.log('NEXT_PUBLIC_API_URL:', process.env.NEXT_PUBLIC_API_URL);
+console.log('Final API_URL:', API_URL);
+console.log('Window location:', typeof window !== 'undefined' ? window.location.href : 'server-side');
+
 if (!API_URL && typeof window !== 'undefined') {
   console.warn('NEXT_PUBLIC_BACKEND_URL is not set; requests will use same-origin.');
 }
@@ -11,57 +18,37 @@ if (!API_URL && typeof window !== 'undefined') {
 const api = axios.create({
   baseURL: API_URL || '',
   withCredentials: false,
-  timeout: 30000, // 30 second timeout
+  timeout: 30000,
 });
 
-// Request interceptor to add auth headers
+// Debug interceptor to log all requests
 api.interceptors.request.use((config) => {
-  // Skip auth for onboarding endpoints
-  const isOnboarding = config.url?.includes('/onboarding/');
-  if (isOnboarding) {
-    return config;
-  }
-
-  // Don't override existing Authorization header
-  if (config.headers?.Authorization) {
-    return config;
-  }
-
-  // Try to get admin token first, then regular token
-  const adminToken = localStorage.getItem('adminToken');
-  const userToken = getToken(); // This gets 'gambino_token' from your auth.js
+  console.log('=== API REQUEST ===');
+  console.log('URL:', config.baseURL + config.url);
+  console.log('Method:', config.method);
+  console.log('Headers:', config.headers);
   
-  const token = adminToken || userToken;
+  // ... rest of your existing interceptor code
   
-  if (token) {
-    config.headers = config.headers || {};
-    config.headers.Authorization = `Bearer ${token}`;
-  }
-
   return config;
 });
 
-// Response interceptor to handle auth errors
+// Debug interceptor to log all responses
 api.interceptors.response.use(
   (response) => {
+    console.log('=== API RESPONSE SUCCESS ===');
+    console.log('Status:', response.status);
+    console.log('Data:', response.data);
     return response;
   },
   (error) => {
-    // Handle 401/403 errors
-    if (error.response?.status === 401 || error.response?.status === 403) {
-      // If we're in an admin context and get unauthorized, redirect to admin login
-      if (window.location.pathname.startsWith('/admin')) {
-        localStorage.removeItem('adminToken');
-        localStorage.removeItem('adminData');
-        window.location.href = '/login';
-      } else {
-        // Regular user context
-        localStorage.removeItem('gambino_token');
-        localStorage.removeItem('gambino_user');
-        window.location.href = '/login';
-      }
-    }
-
+    console.log('=== API RESPONSE ERROR ===');
+    console.log('Status:', error.response?.status);
+    console.log('Error:', error.response?.data);
+    console.log('Full error:', error);
+    
+    // ... rest of your existing error handling
+    
     return Promise.reject(error);
   }
 );
