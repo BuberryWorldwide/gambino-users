@@ -31,6 +31,8 @@ export default function UserDashboard() {
   const [qr, setQr] = useState(null);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [sessionHistory, setSessionHistory] = useState([]);
+  const [sessionHistoryLoading, setSessionHistoryLoading] = useState(false);
 
   // Profile editing state
   const [showEditProfile, setShowEditProfile] = useState(false);
@@ -156,9 +158,23 @@ const fetchAll = async () => {
         setSessionLoading(false);
       }
     };
+
+    const loadSessionHistory = async () => {
+      try {
+        setSessionHistoryLoading(true);
+        const historyRes = await api.get('/api/users/session-history?limit=10');
+        setSessionHistory(historyRes.data?.sessions || []);
+      } catch (err) {
+        console.error('Failed to load session history:', err);
+        setSessionHistory([]);
+      } finally {
+        setSessionHistoryLoading(false);
+      }
+    };
   
     fetchAll();
-    checkActiveSession(); 
+    checkActiveSession();
+    loadSessionHistory(); 
 
     
     // Set up polling for balance AND session updates
@@ -1042,6 +1058,38 @@ const fetchAll = async () => {
               </div>
             </div>
           )}
+        </div>
+      )}
+
+      {/* Recent Machine Sessions section */}
+      {sessionHistory && sessionHistory.length > 0 && (
+        <div className="card mb-6">
+          <h2 className="text-lg font-bold text-white mb-4">Recent Gaming Sessions</h2>
+          <div className="space-y-3">
+            {sessionHistory.map(session => (
+              <div key={session.sessionId} className="bg-gray-700 p-3 rounded">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <p className="text-white font-medium">{session.machineName}</p>
+                    <p className="text-sm text-gray-400">{session.storeName}</p>
+                    <p className="text-xs text-gray-500">
+                      {new Date(session.startedAt).toLocaleString()}
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-sm text-gray-300">
+                      {session.duration ? `${session.duration}m` : 'Active'}
+                    </p>
+                    {session.totalBets > 0 && (
+                      <p className="text-xs text-gray-400">
+                        Played: {session.totalBets} GAMB
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 
