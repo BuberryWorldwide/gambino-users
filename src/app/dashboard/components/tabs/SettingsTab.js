@@ -6,7 +6,8 @@ export default function SettingsTab({
   currentSession, 
   setError, 
   setSuccess, 
-  refreshSession 
+  refreshSession,
+  refreshProfile
 }) {
   const [passwordForm, setPasswordForm] = useState({
     currentPassword: '',
@@ -16,10 +17,12 @@ export default function SettingsTab({
   const [showChangePassword, setShowChangePassword] = useState(false);
   const [changingPassword, setChangingPassword] = useState(false);
   const [passwordError, setPasswordError] = useState('');
+  const [passwordSuccess, setPasswordSuccess] = useState('');
 
   const handlePasswordChange = async (e) => {
     e.preventDefault();
     setPasswordError('');
+    setPasswordSuccess('');
 
     if (passwordForm.newPassword !== passwordForm.confirmPassword) {
       setPasswordError('New passwords do not match');
@@ -40,10 +43,10 @@ export default function SettingsTab({
       });
       
       if (res.data?.success) {
-        setSuccess('Password changed successfully!');
+        setPasswordSuccess('Password changed successfully!');
         setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
         setShowChangePassword(false);
-        setTimeout(() => setSuccess(''), 3000);
+        setTimeout(() => setPasswordSuccess(''), 3000);
       }
     } catch (err) {
       setPasswordError(err?.response?.data?.error || 'Failed to change password');
@@ -64,6 +67,13 @@ export default function SettingsTab({
 
   return (
     <div className="space-y-6">
+      {/* Password Success Message */}
+      {passwordSuccess && (
+        <div className="bg-green-900/20 border border-green-500 text-green-300 p-3 rounded-lg backdrop-blur-sm text-sm">
+          {passwordSuccess}
+        </div>
+      )}
+
       {/* Account Information */}
       <div className="card p-6">
         <div className="flex items-center justify-between mb-4">
@@ -197,7 +207,7 @@ export default function SettingsTab({
               </div>
               <button
                 onClick={handleEndSession}
-                className="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded text-sm"
+                className="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded text-sm transition-colors"
               >
                 End Session
               </button>
@@ -206,7 +216,7 @@ export default function SettingsTab({
         </div>
       )}
 
-      {/* Account Status */}
+      {/* Account Status & Statistics */}
       <div className="card p-6">
         <h2 className="text-lg font-bold text-white mb-4">Account Status</h2>
         
@@ -238,6 +248,13 @@ export default function SettingsTab({
           </div>
           
           <div className="flex justify-between items-center">
+            <span className="text-neutral-400">Wallet Status:</span>
+            <span className={`font-medium ${profile?.walletAddress ? 'text-green-400' : 'text-yellow-400'}`}>
+              {profile?.walletAddress ? 'Connected' : 'No Wallet'}
+            </span>
+          </div>
+          
+          <div className="flex justify-between items-center">
             <span className="text-neutral-400">Last Activity:</span>
             <span className="text-white">
               {profile?.lastActivity ? 
@@ -245,6 +262,66 @@ export default function SettingsTab({
                 'Never'
               }
             </span>
+          </div>
+        </div>
+      </div>
+
+      {/* Gaming Statistics Summary */}
+      <div className="card p-6">
+        <h2 className="text-lg font-bold text-white mb-4">Gaming Statistics</h2>
+        
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="bg-neutral-800/50 p-4 rounded border border-neutral-700">
+            <div className="text-sm text-neutral-400 mb-1">Glück Score</div>
+            <div className="text-2xl font-bold text-yellow-500">
+              {(profile?.gluckScore || 0).toLocaleString()}
+            </div>
+          </div>
+          
+          <div className="bg-neutral-800/50 p-4 rounded border border-neutral-700">
+            <div className="text-sm text-neutral-400 mb-1">Total Jackpots</div>
+            <div className="text-2xl font-bold text-green-400">
+              {((profile?.majorJackpots || 0) + (profile?.minorJackpots || 0)).toLocaleString()}
+            </div>
+          </div>
+          
+          <div className="bg-neutral-800/50 p-4 rounded border border-neutral-700">
+            <div className="text-sm text-neutral-400 mb-1">Machines Played</div>
+            <div className="text-2xl font-bold text-blue-400">
+              {new Set(profile?.machinesPlayed || []).size}
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-4 text-xs text-neutral-500">
+          View detailed gaming statistics in the Gaming tab
+        </div>
+      </div>
+
+      {/* Data & Privacy */}
+      <div className="card p-6">
+        <h2 className="text-lg font-bold text-white mb-4">Data & Privacy</h2>
+        
+        <div className="space-y-4">
+          <div className="bg-neutral-800/30 p-4 rounded-lg border border-neutral-700">
+            <h3 className="text-sm font-semibold text-white mb-2">Data Storage</h3>
+            <p className="text-xs text-neutral-400">
+              Your gaming data, wallet information, and account details are securely stored and encrypted.
+            </p>
+          </div>
+          
+          <div className="bg-neutral-800/30 p-4 rounded-lg border border-neutral-700">
+            <h3 className="text-sm font-semibold text-white mb-2">Privacy Settings</h3>
+            <p className="text-xs text-neutral-400">
+              Your gaming sessions and transaction history are private to your account.
+            </p>
+          </div>
+          
+          <div className="bg-neutral-800/30 p-4 rounded-lg border border-neutral-700">
+            <h3 className="text-sm font-semibold text-white mb-2">Account Security</h3>
+            <p className="text-xs text-neutral-400">
+              We recommend changing your password regularly and keeping your wallet information secure.
+            </p>
           </div>
         </div>
       </div>
