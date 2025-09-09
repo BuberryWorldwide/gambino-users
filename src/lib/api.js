@@ -1,77 +1,469 @@
+// src/lib/api.js - Updated API client for RBAC system
 import axios from 'axios';
-import { getToken } from './auth';
+import { getToken, clearToken, getUserRedirectUrl, getUser } from './auth';
 
-// Get API URL from environment or default
-const API_URL = process.env.NEXT_PUBLIC_BACKEND_URL || process.env.NEXT_PUBLIC_API_URL;
-
+// Get API URL from environment
+const API_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 
+               process.env.NEXT_PUBLIC_API_URL || 
+               '';
 
 if (!API_URL && typeof window !== 'undefined') {
-  console.warn('NEXT_PUBLIC_BACKEND_URL is not set; requests will use same-origin.');
+  console.warn('NEXT_PUBLIC_BACKEND_URL not set; using same-origin requests');
 }
 
+// Create axios instance with updated configuration
 const api = axios.create({
-  baseURL: API_URL || '',
+  baseURL: API_URL,
   withCredentials: false,
-  timeout: 30000, // 30 second timeout
+  timeout: 30000,
+  headers: {
+    'Content-Type': 'application/json',
+  }
 });
 
-// Request interceptor to add auth headers
-api.interceptors.request.use((config) => {
-  
-  // Skip auth for onboarding endpoints
-  const isOnboarding = config.url?.includes('/onboarding/');
-  if (isOnboarding) {
-    console.log('Headers (onboarding - no auth):', config.headers);
+// Request interceptor for authentication
+api.interceptors.request.use(
+  (config) => {
+    // Skip auth for public endpoints
+    const publicEndpoints = [
+      '/api/auth/login',
+      '/api/users/register', 
+      '/api/leaderboard',
+      '/health'
+    ];
+    
+    const isPublic = publicEndpoints.some(endpoint => 
+      config.url?.includes(endpoint)
+    );
+
+    if (isPublic) {
+      console.log('📡 Public API request:', config.url);
+      return config;
+    }
+
+    // Don't override existing Authorization header
+    if (config.headers?.Authorization) {
+      console.log('📡 API request with existing auth:', config.url);
+      return config;
+    }
+
+    // Add authentication token
+    const token = getToken();
+    if (token) {
+      config.headers = config.headers || {};
+      config.headers.Authorization = `Bearer ${token}`;
+      console.log('📡 Authenticated API request:', config.url);
+    } else {
+      console.log('📡 Unauthenticated API request:', config.url);
+    }
+
     return config;
+  },
+  (error) => {
+    console.error('Request interceptor error:', error);
+    return Promise.reject(error);
   }
+);
 
-  // Don't override existing Authorization header
-  if (config.headers?.Authorization) {
-    console.log('Headers (existing auth):', config.headers);
-    return config;
-  }
-
-  // FIXED: Use the unified getToken() function instead of manual localStorage checks
-  const token = getToken();
-  
-  if (token) {
-    config.headers = config.headers || {};
-    config.headers.Authorization = `Bearer ${token}`;
-    console.log('Headers (with token):', config.headers);
-  } else {
-    console.log('Headers (no token found):', config.headers);
-  }
-
-  return config;
-});
-
-// Response interceptor to handle auth errors
+// Response interceptor for error handling and redirects
 api.interceptors.response.use(
   (response) => {
-    
+    // Log successful responses in development
+    if (process.env.NODE_ENV === 'development') {
+      console.log('✅ API Response:', {
+        url: response.config.url,
+        status: response.status,
+        method: response.config.method?.toUpperCase()
+      });
+    }
     return response;
   },
   (error) => {
-  
+    const { response, config } = error;
     
-    // Handle 401/403 errors
-    if (error.response?.status === 401 || error.response?.status === 403) {
-      // If we're in an admin context and get unauthorized, redirect to admin login
-      if (window.location.pathname.startsWith('/admin')) {
-        localStorage.removeItem('adminToken');
-        localStorage.removeItem('adminData');
-        window.location.href = '/login';
-      } else {
-        // Regular user context
-        localStorage.removeItem('gambino_token');
-        localStorage.removeItem('gambino_user');
-        localStorage.removeItem('accessToken'); // Also clear the canonical token
+    console.error('❌ API Error:', {
+      url: config?.url,
+      method: config?.method?.toUpperCase(),
+      status: response?.status,
+      error: response?.data?.error || error.message,
+      code: response?.data?.code
+    });
+
+    // Handle authentication errors (401)
+    if (response?.status === 401) {
+      console.warn('🔒 Authentication failed - clearing auth data');
+      clearToken();
+      
+      // Redirect to login unless already there
+      if (typeof window !== 'undefined' && 
+          !window.location.pathname.includes('/login')) {
         window.location.href = '/login';
       }
+    }
+    
+    // Handle authorization errors (403)
+    else if (response?.status === 403) {
+      const errorCode = response?.data?.code;
+      
+      if (errorCode === 'INSUFFICIENT_PERMISSIONS') {
+        console.warn('🚫 Insufficient permissions for this action');
+        
+        // Redirect admin users to appropriate area based on their role
+        const user = getUser();
+        if (user && ['venue_staff', 'venue_manager'].includes(user.role)) {
+          const redirectUrl = getUserRedirectUrl(user);
+          if (window.location.pathname !== redirectUrl) {
+            window.location.href = redirectUrl;
+          }
+        }
+      }
+      
+      if (errorCode === 'VENUE_ACCESS_DENIED') {
+        console.warn('🏪 Venue access denied');
+        // Show user-friendly error or redirect to their allowed venues
+      }
+    }
+    
+    // Handle server errors (5xx)
+    else if (response?.status >= 500) {
+      console.error('🔥 Server error occurred');
+      // Could trigger error boundary or notification
     }
 
     return Promise.reject(error);
   }
 );
 
+// --- Enhanced API Methods ---
+
+/**
+ * Authentication API methods (using unified endpoint)
+ */
+export const authAPI = {
+  /**
+   * Login user with unified endpoint
+   */
+  login: async (email, password) => {
+    const response = await api.post('/api/auth/login', { 
+      email: email.toLowerCase().trim(), 
+      password 
+    });
+    return response.data;
+  },
+
+  /**
+   * Refresh authentication token
+   */
+  refresh: async () => {
+    const response = await api.post('/api/auth/refresh');
+    return response.data;
+  },
+
+  /**
+   * Get current user profile
+   */
+  getProfile: async () => {
+    const response = await api.get('/api/auth/profile');
+    return response.data;
+  },
+
+  /**
+   * Logout (optional server-side cleanup)
+   */
+  logout: async () => {
+    try {
+      const response = await api.post('/api/auth/logout');
+      return response.data;
+    } catch (error) {
+      // Don't throw on logout errors
+      console.warn('Logout API call failed:', error);
+      return { success: true };
+    }
+  }
+};
+
+/**
+ * User management API methods
+ */
+export const userAPI = {
+  /**
+   * Get current user profile (updated endpoint)
+   */
+  getProfile: async () => {
+    const response = await api.get('/api/users/profile');
+    return response.data;
+  },
+
+  /**
+   * Update user profile
+   */
+  updateProfile: async (updates) => {
+    const response = await api.put('/api/users/profile', updates);
+    return response.data;
+  },
+
+  /**
+   * Change password
+   */
+  changePassword: async (currentPassword, newPassword) => {
+    const response = await api.post('/api/users/change-password', {
+      currentPassword,
+      newPassword
+    });
+    return response.data;
+  },
+
+  /**
+   * Get user's venue access summary
+   */
+  getVenueAccess: async () => {
+    const response = await api.get('/api/user/venue-access');
+    return response.data;
+  },
+
+  /**
+   * Get user's current gaming session
+   */
+  getCurrentSession: async () => {
+    const response = await api.get('/api/users/current-session');
+    return response.data;
+  },
+
+  /**
+   * Get user's session history
+   */
+  getSessionHistory: async (limit = 20) => {
+    const response = await api.get('/api/users/session-history', { 
+      params: { limit } 
+    });
+    return response.data;
+  },
+
+  /**
+   * End current gaming session
+   */
+  endSession: async () => {
+    const response = await api.post('/api/users/end-session');
+    return response.data;
+  }
+};
+
+/**
+ * Admin user management API methods
+ */
+export const adminAPI = {
+  /**
+   * Get all users (admin only)
+   */
+  getUsers: async (params = {}) => {
+    const response = await api.get('/api/admin/users', { params });
+    return response.data;
+  },
+
+  /**
+   * Create new user (admin only)
+   */
+  createUser: async (userData) => {
+    const response = await api.post('/api/admin/users/create', userData);
+    return response.data;
+  },
+
+  /**
+   * Update user (admin only)
+   */
+  updateUser: async (userId, updates) => {
+    const response = await api.put(`/api/admin/users/${userId}`, updates);
+    return response.data;
+  },
+
+  /**
+   * Get admin metrics
+   */
+  getMetrics: async (timeframe = '30d') => {
+    const response = await api.get('/api/admin/metrics', { 
+      params: { timeframe } 
+    });
+    return response.data;
+  }
+};
+
+/**
+ * Store/Venue management API methods
+ */
+export const storeAPI = {
+  /**
+   * Get all stores accessible to current user
+   */
+  getStores: async (params = {}) => {
+    const response = await api.get('/api/admin/stores', { params });
+    return response.data;
+  },
+
+  /**
+   * Get specific store details
+   */
+  getStore: async (storeId) => {
+    const response = await api.get(`/api/admin/stores/${storeId}`);
+    return response.data;
+  },
+
+  /**
+   * Update store (requires management access)
+   */
+  updateStore: async (storeId, updates) => {
+    const response = await api.put(`/api/admin/stores/${storeId}`, updates);
+    return response.data;
+  },
+
+  /**
+   * Create new store
+   */
+  createStore: async (storeData) => {
+    const response = await api.post('/api/admin/stores/create', storeData);
+    return response.data;
+  },
+
+  /**
+   * Get store wallet information
+   */
+  getStoreWallet: async (storeId) => {
+    const response = await api.get(`/api/admin/wallet/${storeId}`);
+    return response.data;
+  },
+
+  /**
+   * Generate store wallet
+   */
+  generateStoreWallet: async (storeId) => {
+    const response = await api.post(`/api/admin/wallet/${storeId}/generate`);
+    return response.data;
+  }
+};
+
+/**
+ * Wallet API methods
+ */
+export const walletAPI = {
+  /**
+   * Generate new wallet
+   */
+  generate: async () => {
+    const response = await api.post('/api/wallet/generate');
+    return response.data;
+  },
+
+  /**
+   * Get wallet balance
+   */
+  getBalance: async (walletAddress, updateDB = false) => {
+    const response = await api.get(`/api/wallet/balance/${walletAddress}`, {
+      params: updateDB ? { updateDB: 'true' } : {}
+    });
+    return response.data;
+  },
+
+  /**
+   * Get wallet QR code
+   */
+  getQRCode: async (walletAddress) => {
+    const response = await api.get(`/api/wallet/qrcode/${walletAddress}`);
+    return response.data;
+  },
+
+  /**
+   * Get private key
+   */
+  getPrivateKey: async () => {
+    const response = await api.get('/api/wallet/private-key');
+    return response.data;
+  },
+
+  /**
+   * Connect external wallet
+   */
+  connect: async (publicKey, message, signatureBase64) => {
+    const response = await api.post('/api/wallet/connect', {
+      publicKey,
+      message,
+      signatureBase64
+    });
+    return response.data;
+  }
+};
+
+/**
+ * Public API methods (no auth required)
+ */
+export const publicAPI = {
+  /**
+   * Get leaderboard
+   */
+  getLeaderboard: async (limit = 50) => {
+    const response = await api.get('/api/leaderboard', { 
+      params: { limit } 
+    });
+    return response.data;
+  },
+
+  /**
+   * Health check
+   */
+  health: async () => {
+    const response = await api.get('/health');
+    return response.data;
+  },
+
+  /**
+   * User registration
+   */
+  register: async (userData) => {
+    const response = await api.post('/api/users/register', userData);
+    return response.data;
+  }
+};
+
+/**
+ * Helper function to check if request failed due to permission issues
+ */
+export function isPermissionError(error) {
+  return error?.response?.status === 403 && 
+         ['INSUFFICIENT_PERMISSIONS', 'VENUE_ACCESS_DENIED'].includes(
+           error?.response?.data?.code
+         );
+}
+
+/**
+ * Helper function to check if request failed due to authentication
+ */
+export function isAuthError(error) {
+  return error?.response?.status === 401;
+}
+
+/**
+ * Helper function to extract error message from API response
+ */
+export function getErrorMessage(error, defaultMessage = 'An error occurred') {
+  if (error?.response?.data?.error) {
+    return error.response.data.error;
+  }
+  
+  if (error?.message) {
+    return error.message;
+  }
+  
+  return defaultMessage;
+}
+
+/**
+ * Helper function to check if user has permission for an API call
+ * This can prevent unnecessary API calls that will fail
+ */
+export function canMakeRequest(permission) {
+  const user = getUser();
+  if (!user || !user.permissions) return false;
+  
+  return user.permissions.includes(permission);
+}
+
+// Export the configured axios instance as default
 export default api;

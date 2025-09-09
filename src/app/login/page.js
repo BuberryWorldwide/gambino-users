@@ -1,252 +1,187 @@
+// src/app/login/page.js - Updated for RBAC system
 'use client';
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import api from '@/lib/api';
-import { setToken } from '@/lib/auth';
+import { useAuth } from '@/lib/auth';
 
 export default function LoginPage() {
-  const router = useRouter();
-  
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState(false);
-  const [isAdmin, setIsAdmin] = useState(false);
+  const [remember, setRemember] = useState(true);
+  
+  const { 
+    login, 
+    loading, 
+    error, 
+    isAuthenticated, 
+    clearError 
+  } = useAuth();
 
-  const handleLogin = async () => {
-  if (loading) return;
+  // Redirect if already authenticated
+  useEffect(() => {
+    if (isAuthenticated) {
+      // Let the login flow handle the redirect
+      return;
+    }
+  }, [isAuthenticated]);
 
-  setLoading(true);
-  setError('');
-  setSuccess(false);
-  setIsAdmin(false);
-
-  try {
-    // User login
-    const userRes = await api.post('/api/users/login', { email, password });
-    const userData = userRes?.data;
+  const handleSubmit = async (e) => {
+    e.preventDefault();
     
-    if (!userData?.success || !userData?.token) {
-      setError(userData?.error || 'Login failed');
+    if (!email.trim() || !password) {
       return;
     }
 
-    // Try admin login regardless of user login success
-    let isAdminUser = false;
     try {
-      const adminRes = await api.post('/api/admin/login', { email, password });
-      if (adminRes?.data?.success && adminRes?.data?.token) {
-        setToken(adminRes.data.token, { remember: true, isAdmin: true });
-        localStorage.setItem('role', 'admin');
-        localStorage.setItem('adminData', JSON.stringify(adminRes.data.admin || {}));
-        setIsAdmin(true);
-        setSuccess(true);
-        isAdminUser = true;
-        
-        // Admin login successful - check role for redirect
-        const adminUser = adminRes.data.admin || {};
-        const userRole = adminUser.role;
-
-        console.log('Admin login data:', adminRes.data);
-        console.log('User role:', userRole);
-
-        if (userRole === 'venue_manager') {
-          console.log('Venue manager detected, fetching profile...');
-          try {
-            const profileRes = await api.get('/api/users/profile');
-            const assignedVenues = profileRes.data?.user?.assignedVenues || [];
-            
-            console.log('Assigned venues:', assignedVenues);
-            
-            if (assignedVenues.length > 0) {
-              console.log('Redirecting to store:', assignedVenues[0]);
-              setTimeout(() => {
-                window.location.href = '/admin/venue';  // Changed this line
-              }, 100);
-              return;
-            }
-          } catch (err) {
-            console.log('Could not fetch profile for venue redirect:', err);
-          }
-        }
-
-        // Default admin redirect for other roles
-        setTimeout(() => {
-          window.location.href = '/admin';
-        }, 100);
-      }
-    } catch (adminError) {
-      // Admin login failed, continue with user login
-      console.log('Admin login failed, using regular user login');
+      clearError();
+      await login(email.trim(), password, remember);
+      // Redirect is handled automatically by the login function
+    } catch (err) {
+      // Error is handled by useAuth hook
+      console.error('Login failed:', err);
     }
+  };
 
-    // Regular user login (only if not admin)
-    if (!isAdminUser) {
-      setToken(userData.token, { remember: true, isAdmin: false });
-      localStorage.setItem('role', 'user');
-      localStorage.setItem('gambino_user', JSON.stringify(userData.user || {}));
-      setSuccess(true);
-      
-      setTimeout(() => {
-        window.location.href = '/dashboard';
-      }, 100);
-    }
-
-  } catch (err) {
-    const msg = err?.response?.data?.error || err?.message || 'Network error. Please try again.';
-    setError(msg);
-  } finally {
-    setLoading(false);
-  }
-};
-
-  const handleKeyPress = (e) => {
-    if (e.key === 'Enter') {
-      handleLogin();
+  const handleInputChange = () => {
+    if (error) {
+      clearError();
     }
   };
 
   return (
-    <div className="min-h-screen relative flex items-center justify-center py-8">
-      {/* Background Elements */}
-      <div className="fixed inset-0 pointer-events-none z-0">
-        <div className="absolute top-20 left-10 w-2 h-2 bg-yellow-400/30 rounded-full animate-pulse"></div>
-        <div className="absolute top-40 right-20 w-1.5 h-1.5 bg-amber-300/40 rounded-full animate-pulse delay-1000"></div>
-        <div className="absolute bottom-40 right-10 w-2 h-2 bg-yellow-500/30 rounded-full animate-pulse delay-2000"></div>
-        <div className="absolute bottom-20 left-20 w-1.5 h-1.5 bg-yellow-400/40 rounded-full animate-pulse delay-500"></div>
-        <div className="absolute top-0 right-0 w-96 h-96 bg-gradient-to-br from-yellow-500/8 to-amber-600/5 rounded-full blur-3xl transform translate-x-32 -translate-y-32"></div>
-        <div className="absolute bottom-0 left-0 w-80 h-80 bg-gradient-to-tr from-amber-600/10 to-yellow-500/5 rounded-full blur-3xl transform -translate-x-24 translate-y-24"></div>
-      </div>
-
-      <div className="w-full max-w-md mx-auto px-4 relative z-10">
+    <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 flex items-center justify-center p-4">
+      <div className="max-w-md w-full space-y-8">
         {/* Header */}
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center gap-2 rounded-full border border-neutral-800 bg-neutral-900/50 px-4 py-2 text-sm text-neutral-300 mb-6">
-            <div className="h-2 w-2 rounded-full bg-green-500"></div>
-            Member Login
+        <div className="text-center">
+          <div className="mx-auto h-12 w-12 bg-gradient-to-r from-purple-400 to-blue-400 rounded-lg flex items-center justify-center mb-4">
+            <span className="text-white font-bold text-xl">G</span>
           </div>
-
-          <h1 className="text-3xl md:text-4xl font-extrabold mb-4">
-            Welcome to{' '}
-            <span className="bg-gradient-to-r from-yellow-400 via-yellow-500 to-amber-600 bg-clip-text text-transparent">
-              GAMBINO
-            </span>
-          </h1>
-          <p className="text-neutral-400 text-sm">Sign in to access your dashboard and wallet</p>
+          <h2 className="text-3xl font-bold text-white mb-2">Welcome Back</h2>
+          <p className="text-gray-300">Sign in to your Gambino account</p>
         </div>
 
-        {/* Success Message */}
-        {success && (
-          <div className="mb-4 bg-green-900/20 border border-green-500 text-green-300 p-3 rounded-lg text-sm">
-            <div className="flex items-start gap-2">
-              <svg className="w-4 h-4 text-green-400 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              <div>
-                <div className="font-medium">
-                  {isAdmin ? 'Admin login successful' : 'Login successful'}
-                </div>
-                <div className="text-xs opacity-90">
-                  Redirecting to {isAdmin ? 'admin' : 'dashboard'}...
-                </div>
+        {/* Login Form */}
+        <div className="bg-white/10 backdrop-blur-lg rounded-xl p-8 border border-white/20">
+          <form onSubmit={handleSubmit} className="space-y-6">
+            {/* Error Display */}
+            {error && (
+              <div className="bg-red-500/20 border border-red-500/50 rounded-lg p-4">
+                <p className="text-red-200 text-sm font-medium">{error}</p>
               </div>
-            </div>
-          </div>
-        )}
+            )}
 
-        {/* Error Message */}
-        {error && (
-          <div className="mb-4 bg-red-900/20 border border-red-500 text-red-300 p-3 rounded-lg text-sm">
-            <div className="flex items-center gap-2">
-              <svg className="w-4 h-4 text-red-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              {error}
-            </div>
-          </div>
-        )}
-
-        {/* Login Card - NO FORM */}
-        <div className="card space-y-6">
-          <div className="space-y-4">
+            {/* Email Field */}
             <div>
-              <label className="label block mb-2" htmlFor="email">Email Address</label>
+              <label htmlFor="email" className="block text-sm font-medium text-gray-200 mb-2">
+                Email Address
+              </label>
               <input
                 id="email"
                 name="email"
-                className="input"
                 type="email"
+                required
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                onKeyPress={handleKeyPress}
-                placeholder="you@example.com"
-                autoComplete="email"
+                onChange={(e) => {
+                  setEmail(e.target.value);
+                  handleInputChange();
+                }}
+                className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-400 focus:border-transparent transition-all"
+                placeholder="Enter your email"
                 disabled={loading}
               />
             </div>
+
+            {/* Password Field */}
             <div>
-              <label className="label block mb-2" htmlFor="password">Password</label>
+              <label htmlFor="password" className="block text-sm font-medium text-gray-200 mb-2">
+                Password
+              </label>
               <input
-                id="password" 
+                id="password"
                 name="password"
-                className="input"
                 type="password"
+                required
                 value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                onKeyPress={handleKeyPress}
+                onChange={(e) => {
+                  setPassword(e.target.value);
+                  handleInputChange();
+                }}
+                className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-400 focus:border-transparent transition-all"
                 placeholder="Enter your password"
-                autoComplete="current-password"
                 disabled={loading}
               />
+            </div>
+
+            {/* Remember Me */}
+            <div className="flex items-center">
+              <input
+                id="remember"
+                name="remember"
+                type="checkbox"
+                checked={remember}
+                onChange={(e) => setRemember(e.target.checked)}
+                className="h-4 w-4 text-purple-400 bg-white/10 border-white/20 rounded focus:ring-purple-400 focus:ring-2"
+                disabled={loading}
+              />
+              <label htmlFor="remember" className="ml-2 text-sm text-gray-200">
+                Remember me
+              </label>
+            </div>
+
+            {/* Submit Button */}
+            <button
+              type="submit"
+              disabled={loading || !email.trim() || !password}
+              className="w-full py-3 px-4 bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600 disabled:from-gray-500 disabled:to-gray-600 disabled:cursor-not-allowed text-white font-medium rounded-lg transition-all duration-200 flex items-center justify-center"
+            >
+              {loading ? (
+                <>
+                  <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  Signing in...
+                </>
+              ) : (
+                'Sign In'
+              )}
+            </button>
+          </form>
+
+          {/* Links */}
+          <div className="mt-6 space-y-4">
+            <div className="text-center">
+              <Link 
+                href="/forgot-password" 
+                className="text-sm text-purple-300 hover:text-purple-200 transition-colors"
+              >
+                Forgot your password?
+              </Link>
+            </div>
+            
+            <div className="border-t border-white/20 pt-4 text-center">
+              <p className="text-gray-300 text-sm">
+                Don't have an account?{' '}
+                <Link 
+                  href="/register" 
+                  className="text-purple-300 hover:text-purple-200 font-medium transition-colors"
+                >
+                  Sign up
+                </Link>
+              </p>
             </div>
           </div>
-
-          <button 
-            disabled={loading || !email || !password} 
-            className="btn btn-gold w-full"
-            onClick={handleLogin}
-            type="button"
-          >
-            {loading ? (
-              <div className="flex items-center justify-center gap-2">
-                <div className="animate-spin rounded-full h-4 w-4 border-2 border-current border-r-transparent" />
-                Signing In...
-              </div>
-            ) : (
-              <div className="flex items-center justify-center gap-2">
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013 3v1" />
-                </svg>
-                Sign In
-              </div>
-            )}
-          </button>
         </div>
 
-        {/* Footer Links */}
-        <div className="text-center mt-6 space-y-4">
-          <p className="text-sm text-neutral-400">
-            Don&apos;t have an account?{' '}
-            <Link href="/onboard" className="text-yellow-400 hover:text-yellow-300 font-medium transition-colors">
-              Create one here
-            </Link>
-          </p>
-
-          <div className="flex items-center justify-center gap-4 text-xs text-neutral-500">
-            <Link href="https://gambino.gold/legal/terms" className="hover:text-neutral-400 transition-colors">
-              Terms
-            </Link>
-            <span>•</span>
-            <Link href="https://gambino.gold/legal/privacy" className="hover:text-neutral-400 transition-colors">
-              Privacy
-            </Link>
-            <span>•</span>
-            <Link href="https://gambino.gold/support" className="hover:text-neutral-400 transition-colors">
-              Support
-            </Link>
+        {/* Access Level Info */}
+        <div className="bg-white/5 backdrop-blur-sm rounded-lg p-4 border border-white/10">
+          <h3 className="text-white font-medium mb-2">Unified Login System</h3>
+          <div className="text-gray-300 text-sm space-y-1">
+            <p><span className="text-purple-300">•</span> One login for all access levels</p>
+            <p><span className="text-blue-300">•</span> Automatic role-based redirects</p>
+            <p><span className="text-green-300">•</span> Enhanced security and permissions</p>
+            <p><span className="text-orange-300">•</span> Streamlined user experience</p>
           </div>
         </div>
       </div>

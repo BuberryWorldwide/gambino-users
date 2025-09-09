@@ -1,43 +1,336 @@
-// src/lib/auth.js
+// src/lib/auth.js - Updated for RBAC system
+const AUTH_KEYS = {
+  TOKEN: 'gambino_token',
+  USER: 'gambino_user',
+  REFRESH_THRESHOLD: 30 * 60 * 1000, // 30 minutes before expiry
+};
+
+/**
+ * Get authentication token from storage
+ */
 export function getToken() {
   if (typeof window === 'undefined') return null;
-
-  // Prefer admin token, then user token, then legacy accessToken
-  return (
-    localStorage.getItem('adminToken') ||
-    localStorage.getItem('gambino_token') ||
-    localStorage.getItem('accessToken') ||
-    sessionStorage.getItem('adminToken') ||
-    sessionStorage.getItem('gambino_token') ||
-    sessionStorage.getItem('accessToken') ||
-    null
-  );
+  
+  return localStorage.getItem(AUTH_KEYS.TOKEN) || 
+         sessionStorage.getItem(AUTH_KEYS.TOKEN) || 
+         null;
 }
 
-export function setToken(token, { remember = true, isAdmin = false } = {}) {
+/**
+ * Get stored user data
+ */
+export function getUser() {
+  if (typeof window === 'undefined') return null;
+  
+  try {
+    const userData = localStorage.getItem(AUTH_KEYS.USER) || 
+                     sessionStorage.getItem(AUTH_KEYS.USER);
+    return userData ? JSON.parse(userData) : null;
+  } catch (error) {
+    console.error('Error parsing user data:', error);
+    clearToken();
+    return null;
+  }
+}
+
+/**
+ * Store authentication data (unified approach)
+ */
+export function setToken(token, options = {}) {
   if (typeof window === 'undefined') return;
-
+  
+  const { remember = true, userData = null } = options;
   const storage = remember ? localStorage : sessionStorage;
-
-  // Write a single canonical key for the interceptor:
-  storage.setItem('accessToken', token);
-
-  // Back-compat for existing code paths you already wrote:
-  if (isAdmin) storage.setItem('adminToken', token);
-  else storage.setItem('gambino_token', token);
-
-  // Clean up the other store (optional but tidy)
-  const other = remember ? sessionStorage : localStorage;
-  ['accessToken', 'adminToken', 'gambino_token'].forEach(k => other.removeItem(k));
+  const otherStorage = remember ? sessionStorage : localStorage;
+  
+  // Store token
+  storage.setItem(AUTH_KEYS.TOKEN, token);
+  
+  // Store user data if provided
+  if (userData) {
+    storage.setItem(AUTH_KEYS.USER, JSON.stringify(userData));
+  }
+  
+  // Clear from other storage to avoid conflicts
+  otherStorage.removeItem(AUTH_KEYS.TOKEN);
+  otherStorage.removeItem(AUTH_KEYS.USER);
+  
+  // Remove legacy keys
+  ['adminToken', 'adminData', 'role', 'accessToken'].forEach(key => {
+    otherStorage.removeItem(key);
+    storage.removeItem(key); // Also clean current storage
+  });
 }
 
+/**
+ * Clear all authentication data
+ */
 export function clearToken() {
   if (typeof window === 'undefined') return;
-  ['accessToken','adminToken','gambino_token'].forEach(k => {
-    localStorage.removeItem(k);
-    sessionStorage.removeItem(k);
+  
+  // Clear from both storages
+  [localStorage, sessionStorage].forEach(storage => {
+    // New keys
+    storage.removeItem(AUTH_KEYS.TOKEN);
+    storage.removeItem(AUTH_KEYS.USER);
+    
+    // Legacy keys
+    storage.removeItem('adminToken');
+    storage.removeItem('adminData');
+    storage.removeItem('role');
+    storage.removeItem('accessToken');
   });
+  
+  // Clear any auth cookies
   document.cookie = 'token=; Max-Age=0; path=/';
 }
 
-export default { getToken, setToken, clearToken };
+/**
+ * Check if user is authenticated
+ */
+export function isAuthenticated() {
+  return !!(getToken() && getUser());
+}
+
+/**
+ * Get user's redirect URL based on role and server response
+ */
+export function getUserRedirectUrl(userData) {
+  // Use server-provided redirect if available
+  if (userData?.redirectTo) {
+    return userData.redirectTo;
+  }
+  
+  // Fallback based on role
+  const role = userData?.role;
+  switch (role) {
+    case 'super_admin':
+    case 'gambino_ops':
+      return '/admin/dashboard';
+    case 'venue_manager':
+      return '/admin/venues';
+    case 'venue_staff':
+      return '/admin/reports';
+    case 'user':
+    default:
+      return '/dashboard';
+  }
+}
+
+/**
+ * Check if user has specific permission
+ */
+export function hasPermission(permission, userData = null) {
+  const user = userData || getUser();
+  if (!user?.permissions) return false;
+  
+  return user.permissions.includes(permission);
+}
+
+/**
+ * Check if user can access admin area
+ */
+export function canAccessAdmin(userData = null) {
+  const user = userData || getUser();
+  if (!user) return false;
+  
+  return ['super_admin', 'gambino_ops', 'venue_manager', 'venue_staff'].includes(user.role);
+}
+
+/**
+ * Check if user can access specific venue
+ */
+export function canAccessVenue(storeId, userData = null) {
+  const user = userData || getUser();
+  if (!user) return false;
+  
+  // Admin roles can access all venues
+  if (['super_admin', 'gambino_ops'].includes(user.role)) {
+    return true;
+  }
+  
+  // Regular users can access all for gameplay
+  if (user.role === 'user') {
+    return true;
+  }
+  
+  // Venue staff/managers need to be assigned
+  if (['venue_staff', 'venue_manager'].includes(user.role)) {
+    return user.assignedVenues && user.assignedVenues.includes(storeId);
+  }
+  
+  return false;
+}
+
+/**
+ * React hook for authentication management
+ */
+import { useState, useEffect, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
+import api from './api';
+
+export function useAuth(options = {}) {
+  const { 
+    requireAuth = false, 
+    requireAdmin = false,
+    redirectTo = '/login'
+  } = options;
+  
+  const router = useRouter();
+  const [user, setUser] = useState(null);
+  const [token, setTokenState] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  // Initialize auth state
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const currentToken = getToken();
+    const currentUser = getUser();
+    
+    setTokenState(currentToken);
+    setUser(currentUser);
+    
+    // Handle requirements
+    if (requireAuth && !currentToken) {
+      router.push(redirectTo);
+      return;
+    }
+
+    if (requireAdmin && (!currentUser || !canAccessAdmin(currentUser))) {
+      router.push('/dashboard');
+      return;
+    }
+
+    setLoading(false);
+  }, [requireAuth, requireAdmin, redirectTo, router]);
+
+  /**
+   * Login function using unified endpoint
+   */
+  const login = useCallback(async (email, password, remember = true) => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      const response = await api.post('/api/auth/login', { 
+        email: email.toLowerCase().trim(), 
+        password 
+      });
+
+      const data = response.data;
+
+      if (!data.success || !data.token || !data.user) {
+        throw new Error(data.error || 'Login failed');
+      }
+
+      // Store auth data using unified approach
+      setToken(data.token, { remember, userData: data.user });
+      setTokenState(data.token);
+      setUser(data.user);
+
+      console.log('✅ Login successful:', {
+        userId: data.user.id,
+        role: data.user.role,
+        area: data.user.area,
+        redirectTo: data.user.redirectTo || data.redirectTo
+      });
+
+      // Use server-determined redirect
+      const redirectUrl = data.redirectTo || getUserRedirectUrl(data.user);
+      window.location.href = redirectUrl;
+
+      return data;
+    } catch (err) {
+      const errorMessage = err.response?.data?.error || err.message || 'Login failed';
+      setError(errorMessage);
+      throw new Error(errorMessage);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  /**
+   * Logout function
+   */
+  const logout = useCallback(async () => {
+    try {
+      setLoading(true);
+      
+      // Call logout endpoint (optional)
+      if (token) {
+        try {
+          await api.post('/api/auth/logout');
+        } catch (err) {
+          console.warn('Logout endpoint failed:', err);
+        }
+      }
+
+      // Clear local auth data
+      clearToken();
+      setTokenState(null);
+      setUser(null);
+      setError(null);
+
+      console.log('📤 Logout successful');
+      
+      // Redirect to login
+      window.location.href = '/login';
+      
+    } catch (err) {
+      console.error('Logout error:', err);
+      // Clear auth data even if logout fails
+      clearToken();
+      setTokenState(null);
+      setUser(null);
+      window.location.href = '/login';
+    } finally {
+      setLoading(false);
+    }
+  }, [token]);
+
+  /**
+   * Refresh authentication data
+   */
+  const refreshAuth = useCallback(async () => {
+    try {
+      if (!token) return false;
+
+      const response = await api.post('/api/auth/refresh');
+      const data = response.data;
+
+      if (!data.success) {
+        throw new Error(data.error || 'Token refresh failed');
+      }
+
+      // Update stored auth data
+      setToken(data.token, { remember: true, userData: data.user });
+      setTokenState(data.token);
+      setUser(data.user);
+
+      console.log('🔄 Token refreshed successfully');
+      return true;
+
+    } catch (err) {
+      console.error('Token refresh failed:', err);
+      logout(); // Force logout on refresh failure
+      return false;
+    }
+  }, [token, logout]);
+
+  return {
+    user,
+    token,
+    loading,
+    error,
+    isAuthenticated: !!(token && user),
+    canAccessAdmin: canAccessAdmin(user),
+    hasPermission: (permission) => hasPermission(permission, user),
+    canAccessVenue: (storeId) => canAccessVenue(storeId, user),
+    login,
+    logout,
+    refreshAuth,
+    clearError: () => setError(null)
+  };
+}
