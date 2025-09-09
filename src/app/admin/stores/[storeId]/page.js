@@ -40,6 +40,17 @@ export default function StoreDetailPage({ params }) {
   const [machinesLoading, setMachinesLoading] = useState(false);
   const [machinesError, setMachinesError] = useState('');
   
+  // Reports/reconciliation states
+  const [reconciliations, setReconciliations] = useState([]);
+  const [reconciliationStats, setReconciliationStats] = useState({});
+  const [reportsLoading, setReportsLoading] = useState(false);
+  const [reportsError, setReportsError] = useState('');
+  const [showSubmitForm, setShowSubmitForm] = useState(false);
+
+  // Fee Calculation
+  const [currentMiningRevenue, setCurrentMiningRevenue] = useState(0);
+
+  
   // QR code modal states
   const [showQRModal, setShowQRModal] = useState(false);
   const [qrCodeData, setQRCodeData] = useState(null);
@@ -55,6 +66,7 @@ export default function StoreDetailPage({ params }) {
     hubId: ''
   });
   const [addingMachine, setAddingMachine] = useState(false);
+
 
   // Bulk operations
   const [selectedMachines, setSelectedMachines] = useState([]);
@@ -216,6 +228,21 @@ export default function StoreDetailPage({ params }) {
     }
   }, [storeId]);
 
+  // New function to fetch reconciliation data for this store
+const fetchReports = useCallback(async () => {
+  try {
+    setReportsLoading(true);
+    setReportsError('');
+    const { data } = await api.get(`/api/admin/reconciliation/${encodeURIComponent(storeId)}`);
+    setReconciliations(data.reconciliations || []);
+    setReconciliationStats(data.stats || {});
+  } catch (err) {
+    setReportsError(err?.response?.data?.error || 'Failed to load reports');
+  } finally {
+    setReportsLoading(false);
+  }
+}, [storeId]);
+
   const generateMachineQR = async (machineId) => {
   try {
     setGeneratingQR(true);
@@ -281,6 +308,13 @@ const regenerateMachineQR = async (machineId) => {
     }
   }, [activeTab, fetchMachines]);
 
+  // Load reports when reports tab is active
+  useEffect(() => {
+    if (activeTab === 'reports') {
+      fetchReports();
+    }
+  }, [activeTab, fetchReports]);
+
   // Your existing save function (keeping the same logic)
   const save = async (e) => {
     e?.preventDefault?.();
@@ -332,6 +366,35 @@ const regenerateMachineQR = async (machineId) => {
       setSaving(false);
     }
   };
+
+  // Handle reconciliation report submission
+const handleSubmitReport = async (e) => {
+  e.preventDefault();
+  
+  try {
+    setReportsLoading(true);
+    setReportsError('');
+    
+    const formData = new FormData(e.target);
+    const reportData = {
+      reconciliationDate: formData.get('date') || new Date().toISOString().split('T')[0],
+      venueGamingRevenue: parseFloat(formData.get('miningRevenue')) || 0,
+      notes: formData.get('notes') || ''
+    };
+
+    const { data } = await api.post(`/api/admin/reconciliation/${encodeURIComponent(storeId)}`, reportData);
+    
+    if (data.success) {
+      setShowSubmitForm(false);
+      await fetchReports(); // Refresh the reports list
+      // Could add a success message here
+    }
+  } catch (err) {
+    setReportsError(err?.response?.data?.error || 'Failed to submit report');
+  } finally {
+    setReportsLoading(false);
+  }
+};
 
   // Machine management functions
   const handleAddMachine = async (e) => {
@@ -536,7 +599,7 @@ const regenerateMachineQR = async (machineId) => {
       {/* Tabs */}
       <div className="border-b border-gray-700">
         <nav className="flex space-x-8">
-          {['details', 'wallet', 'machines'].map((tab) => (
+          {['details', 'wallet', 'machines', 'reports'].map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
@@ -1116,6 +1179,180 @@ const regenerateMachineQR = async (machineId) => {
           </div>
         </div>
       )}
+
+      {activeTab === 'reports' && (
+      <div className="space-y-6">
+        {/* Reports Stats Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="bg-gradient-to-br from-green-900 to-green-800 border border-green-500 rounded-xl p-4">
+            <div className="text-green-300 font-semibold text-sm uppercase tracking-wide">Total Expected Fees</div>
+            <div className="text-2xl font-bold text-white mt-1">
+              ${(reconciliationStats.totalExpectedFees || 0).toLocaleString()}
+            </div>
+          </div>
+          <div className="bg-gradient-to-br from-blue-900 to-blue-800 border border-blue-500 rounded-xl p-4">
+            <div className="text-blue-300 font-semibold text-sm uppercase tracking-wide">Total Reports</div>
+            <div className="text-2xl font-bold text-white mt-1">{reconciliationStats.totalReconciliations || 0}</div>
+          </div>
+          <div className="bg-gradient-to-br from-yellow-900 to-yellow-800 border border-yellow-500 rounded-xl p-4">
+            <div className="text-yellow-300 font-semibold text-sm uppercase tracking-wide">Flagged Reports</div>
+            <div className="text-2xl font-bold text-white mt-1">{reconciliationStats.flaggedCount || 0}</div>
+          </div>
+        </div>
+
+        {/* Submit New Report */}
+        <div className="card p-5">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="font-semibold text-lg">Submit Daily Report</h2>
+            <button 
+              onClick={() => setShowSubmitForm(!showSubmitForm)}
+              className="btn btn-gold btn-sm"
+            >
+              {showSubmitForm ? 'Cancel' : 'New Report'}
+            </button>
+          </div>
+
+          {showSubmitForm && (
+          <form onSubmit={handleSubmitReport} className="bg-neutral-800/50 p-4 rounded-lg border border-neutral-700 mt-4 space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-1">
+                  Date *
+                </label>
+                <input
+                  type="date"
+                  name="date"
+                  required
+                  className="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-white"
+                  defaultValue={new Date().toISOString().split('T')[0]}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-1">
+                  Mining Revenue (Daily Total) *
+                </label>
+                <div className="relative">
+                  <span className="absolute left-3 top-2 text-gray-400">$</span>
+                  <input
+                    type="number"
+                    name="miningRevenue"
+                    step="0.01"
+                    min="0"
+                    required
+                    placeholder="0.00"
+                    value={currentMiningRevenue}
+                    onChange={(e) => setCurrentMiningRevenue(parseFloat(e.target.value) || 0)}
+                    className="w-full bg-gray-700 border border-gray-600 rounded-lg pl-8 pr-3 py-2 text-white"
+                  />
+                </div>
+                <div className="text-xs text-gray-500 mt-1">
+                  Total revenue generated from all mining activities today
+                </div>
+              </div>
+            </div>
+                  
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-1">
+                Notes (Optional)
+              </label>
+              <textarea
+                name="notes"
+                rows="3"
+                placeholder="Additional notes about today's operations..."
+                className="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-white"
+              />
+            </div>
+                  
+            <div className="bg-blue-900/20 border border-blue-500/30 p-3 rounded-lg">
+              <div className="text-sm text-blue-300 mb-2">
+                <strong>Software Fee Calculation:</strong>
+              </div>
+              <div className="text-xs text-blue-200">
+                Fee Percentage: {store?.feePercentage || 5}% • Expected Fee: ${((currentMiningRevenue * (store?.feePercentage || 5)) / 100).toFixed(2)}
+              </div>
+            </div>
+                  
+            <div className="flex gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setShowSubmitForm(false)}
+                className="flex-1 bg-gray-700 hover:bg-gray-600 text-white py-2 px-4 rounded-lg font-medium"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="flex-1 bg-green-600 hover:bg-green-700 text-white py-2 px-4 rounded-lg font-medium"
+              >
+                Submit Report
+              </button>
+            </div>
+          </form>
+        )}
+        </div>
+        
+        {/* Reports History */}
+        <div className="card p-5">
+          <h2 className="font-semibold text-lg mb-3">Recent Reports</h2>
+
+          {reportsLoading ? (
+            <div className="text-neutral-400 text-sm flex items-center gap-2">
+              <div className="animate-spin rounded-full h-4 w-4 border-2 border-current border-r-transparent" />
+              Loading reports...
+            </div>
+          ) : reportsError ? (
+            <div className="bg-red-900/20 border border-red-500 text-red-300 p-3 rounded-lg text-sm">
+              {reportsError}
+            </div>
+          ) : reconciliations.length === 0 ? (
+            <div className="text-neutral-400 text-sm">No reports submitted yet.</div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-gray-700">
+                    <th className="text-left py-3 px-2 text-gray-300 font-medium">Date</th>
+                    <th className="text-left py-3 px-2 text-gray-300 font-medium">Mining Revenue</th>
+                    <th className="text-left py-3 px-2 text-gray-300 font-medium">Software Fee</th>
+                    <th className="text-left py-3 px-2 text-gray-300 font-medium">Status</th>
+                    <th className="text-left py-3 px-2 text-gray-300 font-medium">Submitted By</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {reconciliations.map((report, index) => (
+                    <tr key={report._id || index} className="border-b border-gray-800 hover:bg-gray-800/30">
+                      <td className="py-3 px-2 text-white">
+                        {new Date(report.reconciliationDate).toLocaleDateString()}
+                      </td>
+                      <td className="py-3 px-2 text-white">
+                        ${(report.venueGamingRevenue || 0).toLocaleString()}
+                      </td>
+                      <td className="py-3 px-2 text-white">
+                        ${(report.expectedSoftwareFee || 0).toFixed(2)}
+                      </td>
+                      <td className="py-3 px-2">
+                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                          report.reconciliationStatus === 'approved' 
+                            ? 'bg-green-900/20 border border-green-500/30 text-green-300'
+                            : report.reconciliationStatus === 'flagged'
+                            ? 'bg-red-900/20 border border-red-500/30 text-red-300'
+                            : 'bg-yellow-900/20 border border-yellow-500/30 text-yellow-300'
+                        }`}>
+                          {report.reconciliationStatus || 'pending'}
+                        </span>
+                      </td>
+                      <td className="py-3 px-2 text-gray-300">
+                        {report.submittedBy?.email || report.submittedBy || 'Unknown'}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      </div>
+    )}
 
       {/* QR Code Modal */}
       {showQRModal && qrCodeData && (
