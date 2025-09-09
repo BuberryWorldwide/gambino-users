@@ -17,65 +17,91 @@ export default function LoginPage() {
   const [isAdmin, setIsAdmin] = useState(false);
 
   const handleLogin = async () => {
-    if (loading) return;
+  if (loading) return;
 
-    setLoading(true);
-    setError('');
-    setSuccess(false);
-    setIsAdmin(false);
+  setLoading(true);
+  setError('');
+  setSuccess(false);
+  setIsAdmin(false);
 
+  try {
+    // User login
+    const userRes = await api.post('/api/users/login', { email, password });
+    const userData = userRes?.data;
+    
+    if (!userData?.success || !userData?.token) {
+      setError(userData?.error || 'Login failed');
+      return;
+    }
+
+    // Try admin login regardless of user login success
+    let isAdminUser = false;
     try {
-      // User login
-      const userRes = await api.post('/api/users/login', { email, password });
-      const userData = userRes?.data;
-      
-      if (!userData?.success || !userData?.token) {
-        setError(userData?.error || 'Login failed');
-        return;
-      }
-
-      // Try admin login
-      let isAdminUser = false;
-      try {
-        const adminRes = await api.post('/api/admin/login', { email, password });
-        if (adminRes?.data?.success && adminRes?.data?.token) {
-          setToken(adminRes.data.token, { remember: true, isAdmin: true });
-          localStorage.setItem('role', 'admin');
-          localStorage.setItem('adminData', JSON.stringify(adminRes.data.admin || {}));
-          setIsAdmin(true);
-          setSuccess(true);
-          isAdminUser = true;
-          
-          // Use window.location for admin redirect
-          setTimeout(() => {
-            window.location.href = '/admin';
-          }, 100);
-          return;
-        }
-      } catch (adminError) {
-        // Admin login failed, continue with user login
-      }
-
-      // Regular user login
-      if (!isAdminUser) {
-        setToken(userData.token, { remember: true, isAdmin: false });
-        localStorage.setItem('role', 'user');
-        localStorage.setItem('gambino_user', JSON.stringify(userData.user || {}));
+      const adminRes = await api.post('/api/admin/login', { email, password });
+      if (adminRes?.data?.success && adminRes?.data?.token) {
+        setToken(adminRes.data.token, { remember: true, isAdmin: true });
+        localStorage.setItem('role', 'admin');
+        localStorage.setItem('adminData', JSON.stringify(adminRes.data.admin || {}));
+        setIsAdmin(true);
         setSuccess(true);
+        isAdminUser = true;
         
-        // Use window.location for user redirect
+        // Admin login successful - check role for redirect
+        const adminUser = adminRes.data.admin || {};
+        const userRole = adminUser.role;
+
+        console.log('Admin login data:', adminRes.data);
+        console.log('User role:', userRole);
+
+        if (userRole === 'venue_manager') {
+          console.log('Venue manager detected, fetching profile...');
+          try {
+            const profileRes = await api.get('/api/users/profile');
+            const assignedVenues = profileRes.data?.user?.assignedVenues || [];
+            
+            console.log('Assigned venues:', assignedVenues);
+            
+            if (assignedVenues.length > 0) {
+              console.log('Redirecting to store:', assignedVenues[0]);
+              setTimeout(() => {
+                window.location.href = '/admin/venue';  // Changed this line
+              }, 100);
+              return;
+            }
+          } catch (err) {
+            console.log('Could not fetch profile for venue redirect:', err);
+          }
+        }
+
+        // Default admin redirect for other roles
         setTimeout(() => {
-          window.location.href = '/dashboard';
+          window.location.href = '/admin';
         }, 100);
       }
-
-    } catch (err) {
-      const msg = err?.response?.data?.error || err?.message || 'Network error. Please try again.';
-      setError(msg);
-    } finally {
-      setLoading(false);
+    } catch (adminError) {
+      // Admin login failed, continue with user login
+      console.log('Admin login failed, using regular user login');
     }
-  };
+
+    // Regular user login (only if not admin)
+    if (!isAdminUser) {
+      setToken(userData.token, { remember: true, isAdmin: false });
+      localStorage.setItem('role', 'user');
+      localStorage.setItem('gambino_user', JSON.stringify(userData.user || {}));
+      setSuccess(true);
+      
+      setTimeout(() => {
+        window.location.href = '/dashboard';
+      }, 100);
+    }
+
+  } catch (err) {
+    const msg = err?.response?.data?.error || err?.message || 'Network error. Please try again.';
+    setError(msg);
+  } finally {
+    setLoading(false);
+  }
+};
 
   const handleKeyPress = (e) => {
     if (e.key === 'Enter') {
@@ -192,7 +218,7 @@ export default function LoginPage() {
             ) : (
               <div className="flex items-center justify-center gap-2">
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013 3v1" />
                 </svg>
                 Sign In
               </div>
