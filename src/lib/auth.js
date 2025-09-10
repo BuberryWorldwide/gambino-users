@@ -169,13 +169,15 @@ import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import api from './api';
 
+// src/lib/auth.js - Updated useAuth hook with auto-logout
+
 export function useAuth(options = {}) {
   const { 
     requireAuth = false, 
     requireAdmin = false,
     redirectTo = '/login'
   } = options;
-  
+
   const router = useRouter();
   const [user, setUser] = useState(null);
   const [token, setTokenState] = useState(null);
@@ -289,6 +291,56 @@ export function useAuth(options = {}) {
       setLoading(false);
     }
   }, [token]);
+
+  // Auto-logout functionality based on user role
+  useEffect(() => {
+    if (!user) return;
+
+    const getInactivityTimeout = (role) => {
+      switch (role) {
+        case 'super_admin':
+        case 'gambino_ops':
+          return 10 * 60 * 1000; // 10 minutes for high-privilege admin users
+        case 'venue_manager':
+        case 'venue_staff':
+          return 30 * 60 * 1000; // 30 minutes for venue users
+        case 'user':
+        default:
+          return 60 * 60 * 1000; // 1 hour for regular users
+      }
+    };
+
+    let inactivityTimer;
+    const timeout = getInactivityTimeout(user.role);
+
+    const resetTimer = () => {
+      clearTimeout(inactivityTimer);
+      inactivityTimer = setTimeout(() => {
+        logout();
+        alert(`Session expired due to inactivity (${timeout / 60000} minutes). Please log in again.`);
+      }, timeout);
+    };
+
+    // Events that indicate user activity
+    const events = ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart', 'click'];
+    
+    events.forEach(event => {
+      document.addEventListener(event, resetTimer, true);
+    });
+
+    // Start the timer
+    resetTimer();
+
+    console.log(`🕒 Auto-logout timer set for ${timeout / 60000} minutes (${user.role})`);
+
+    // Cleanup on unmount or user change
+    return () => {
+      clearTimeout(inactivityTimer);
+      events.forEach(event => {
+        document.removeEventListener(event, resetTimer, true);
+      });
+    };
+  }, [user, logout]);
 
   /**
    * Refresh authentication data

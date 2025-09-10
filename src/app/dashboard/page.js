@@ -10,17 +10,17 @@ import WalletTab from './components/tabs/WalletTab';
 import GamingTab from './components/tabs/GamingTab';
 import SettingsTab from './components/tabs/SettingsTab';
 
-// Tab configuration
+// Tab configuration - updated for professional terminology
 const TABS = [
-  { id: 'overview', label: 'Overview', icon: '🏠' },
-  { id: 'wallet', label: 'Wallet', icon: '💰' },
-  { id: 'gaming', label: 'Gaming', icon: '🎮' },
+  { id: 'overview', label: 'Overview', icon: '📊' },
+  { id: 'wallet', label: 'Infrastructure', icon: '⚡' },
+  { id: 'gaming', label: 'Network Access', icon: '🔗' },
   { id: 'settings', label: 'Settings', icon: '⚙️' }
 ];
 
 function LoadingSpinner() {
   return (
-    <div className="loading-spinner w-5 h-5 text-yellow-500"></div>
+    <div className="w-4 h-4 border-2 border-yellow-400 border-t-transparent rounded-full animate-spin"></div>
   );
 }
 
@@ -31,13 +31,13 @@ export default function UserDashboard() {
   // Core state
   const [mounted, setMounted] = useState(false);
   const [activeTab, setActiveTab] = useState('overview');
-  const [loadedTabs, setLoadedTabs] = useState(new Set(['overview'])); // Track which tabs have been loaded
+  const [loadedTabs, setLoadedTabs] = useState(new Set(['overview']));
   
   // Shared data state (available to all tabs)
   const [profile, setProfile] = useState(null);
   const [balances, setBalances] = useState(null);
   const [currentSession, setCurrentSession] = useState(null);
-  const [sessionHistory, setSessionHistory] = useState([]); // ADD: Session history
+  const [sessionHistory, setSessionHistory] = useState([]);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
@@ -76,7 +76,7 @@ export default function UserDashboard() {
         setCurrentSession(sessionRes.data.session);
         console.log('✅ Current session loaded:', sessionRes.data.session ? 'Active session found' : 'No active session');
 
-        // Fetch session history (ADD THIS)
+        // Fetch session history
         try {
           console.log('🔍 Loading session history...');
           const historyRes = await api.get('/api/users/session-history?limit=10');
@@ -110,7 +110,7 @@ export default function UserDashboard() {
               } catch (err) {
                 console.error('Failed to refresh profile after balance update:', err);
               }
-            }, 1000); // Small delay to allow DB update
+            }, 1000);
           }
         }
         
@@ -203,7 +203,6 @@ export default function UserDashboard() {
     }
   };
 
-  // ADD: Refresh session history function
   const refreshSessionHistory = async () => {
     try {
       console.log('🔄 Refreshing session history...');
@@ -221,7 +220,7 @@ export default function UserDashboard() {
     profile,
     balances,
     currentSession,
-    sessionHistory, // ADD: Session history to context
+    sessionHistory,
     error,
     success,
     setError,
@@ -229,7 +228,7 @@ export default function UserDashboard() {
     refreshProfile,
     refreshBalances,
     refreshSession,
-    refreshSessionHistory // ADD: Session history refresh function
+    refreshSessionHistory
   };
 
   // Don't render on server or if not authenticated
@@ -237,8 +236,8 @@ export default function UserDashboard() {
 
   if (!profile) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="flex items-center gap-3 text-neutral-400">
+      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-slate-900 to-black flex items-center justify-center">
+        <div className="flex items-center gap-3 text-gray-400">
           <LoadingSpinner />
           <span>Loading your dashboard...</span>
         </div>
@@ -247,91 +246,157 @@ export default function UserDashboard() {
   }
 
   return (
-    <div className="max-w-6xl mx-auto px-4 py-6 md:py-8">
-      {/* Header */}
-      <div className="mb-6 md:mb-8">
-        <h1 className="text-2xl md:text-3xl font-bold text-white mb-2">
-          Dashboard
-        </h1>
-        <p className="text-neutral-400 text-sm md:text-base">
-          Welcome back, {profile?.firstName || 'Player'}! Manage your account and track your progress.
-        </p>
+    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-slate-900 to-black relative overflow-hidden">
+      {/* Background Effects - Same as login */}
+      <div className="absolute inset-0">
+        {/* Grid pattern */}
+        <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,.02)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,.02)_1px,transparent_1px)] bg-[size:100px_100px]"></div>
+        
+        {/* Floating geometric elements */}
+        <div className="absolute top-20 left-10 w-32 h-32 border border-yellow-500/10 rounded-xl rotate-12 animate-pulse"></div>
+        <div className="absolute top-40 right-20 w-24 h-24 border border-amber-400/10 rounded-full animate-bounce" style={{ animationDuration: '3s' }}></div>
+        <div className="absolute bottom-32 left-20 w-40 h-40 border border-orange-500/10 rounded-2xl rotate-45 animate-pulse" style={{ animationDuration: '4s' }}></div>
+        <div className="absolute bottom-20 right-10 w-28 h-28 border border-yellow-600/10 rounded-lg -rotate-12 animate-bounce" style={{ animationDuration: '5s' }}></div>
       </div>
 
-      {/* Global Messages */}
-      {error && (
-        <div className="bg-red-900/20 border border-red-500/30 text-red-300 p-3 rounded-lg mb-6 backdrop-blur-sm text-sm">
-          {error}
-          <button 
-            onClick={() => setError('')}
-            className="float-right text-red-400 hover:text-red-300 ml-4"
-          >
-            ×
-          </button>
-        </div>
-      )}
-
-      {success && (
-        <div className="bg-green-900/20 border border-green-500/30 text-green-300 p-3 rounded-lg mb-6 backdrop-blur-sm text-sm">
-          {success}
-          <button 
-            onClick={() => setSuccess('')}
-            className="float-right text-green-400 hover:text-green-300 ml-4"
-          >
-            ×
-          </button>
-        </div>
-      )}
-
-      {/* Tab Navigation */}
-      <div className="border-b border-neutral-700 mb-6">
-        <nav className="flex space-x-8 overflow-x-auto scrollbar-hide">
-          {TABS.map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => handleTabChange(tab.id)}
-              className={`py-3 px-1 border-b-2 font-medium text-sm whitespace-nowrap transition-colors ${
-                activeTab === tab.id
-                  ? 'border-yellow-500 text-yellow-500'
-                  : 'border-transparent text-neutral-400 hover:text-neutral-300 hover:border-neutral-600'
-              }`}
-            >
-              <div className="flex items-center gap-2">
-                <span className="text-base">{tab.icon}</span>
-                {tab.label}
+      {/* Main Content */}
+      <div className="relative z-10">
+        <div className="max-w-5xl mx-auto px-6 py-8">
+          {/* Header */}
+          <div className="mb-8">
+            {/* Logo and Brand */}
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center gap-4">
+                <div className="relative">
+                  <div className="w-12 h-12 bg-gradient-to-r from-yellow-400 to-amber-500 rounded-xl flex items-center justify-center shadow-2xl p-2">
+                    <img 
+                      src="/logo.png" 
+                      alt="Gambino Gold Logo" 
+                      className="w-full h-full object-contain"
+                    />
+                  </div>
+                  <div className="absolute -inset-1 bg-gradient-to-r from-yellow-400/20 to-amber-500/20 rounded-2xl blur-lg"></div>
+                </div>
+                <div>
+                  <h1 className="text-xl font-bold">
+                    <span className="bg-gradient-to-r from-yellow-400 to-amber-500 bg-clip-text text-transparent">
+                      GAMBINO GOLD
+                    </span>
+                  </h1>
+                  <p className="text-gray-400 text-sm">Network Dashboard</p>
+                </div>
               </div>
-            </button>
-          ))}
-        </nav>
-      </div>
+              
+              {/* User Info */}
+              <div className="text-right">
+                <div className="text-sm font-medium text-white">
+                  {profile?.firstName} {profile?.lastName}
+                </div>
+                <div className="text-xs text-gray-400">
+                  Network Participant
+                </div>
+              </div>
+            </div>
 
-      {/* Tab Content */}
-      <div className="tab-content">
-        {activeTab === 'overview' && (
-          <OverviewTab {...sharedContext} />
-        )}
-        
-        {activeTab === 'wallet' && loadedTabs.has('wallet') && (
-          <WalletTab {...sharedContext} />
-        )}
-        
-        {activeTab === 'gaming' && loadedTabs.has('gaming') && (
-          <GamingTab {...sharedContext} />
-        )}
-        
-        {activeTab === 'settings' && loadedTabs.has('settings') && (
-          <SettingsTab {...sharedContext} />
-        )}
-
-        {/* Show loading for unloaded tabs */}
-        {!loadedTabs.has(activeTab) && activeTab !== 'overview' && (
-          <div className="flex items-center justify-center py-12">
-            <div className="flex items-center gap-3 text-neutral-400">
-              <LoadingSpinner />
-              <span>Loading {TABS.find(t => t.id === activeTab)?.label}...</span>
+            {/* Welcome Section */}
+            <div className="bg-gray-800/50 backdrop-blur-xl rounded-2xl p-6 border border-gray-700/50 shadow-2xl mb-8">
+              <h2 className="text-2xl font-bold text-white mb-2">
+                Infrastructure Dashboard
+              </h2>
+              <p className="text-gray-300 text-sm">
+                Welcome back, {profile?.firstName || 'User'}. Monitor your network participation and infrastructure access.
+              </p>
             </div>
           </div>
-        )}
+
+          {/* Global Messages */}
+          {error && (
+            <div className="bg-red-900/30 border border-red-500/30 rounded-xl p-4 backdrop-blur-sm mb-6">
+              <div className="flex items-center">
+                <div className="w-2 h-2 bg-red-400 rounded-full mr-3"></div>
+                <p className="text-red-200 text-sm font-medium">{error}</p>
+                <button 
+                  onClick={() => setError('')}
+                  className="ml-auto text-red-400 hover:text-red-300"
+                >
+                  ×
+                </button>
+              </div>
+            </div>
+          )}
+
+          {success && (
+            <div className="bg-green-900/30 border border-green-500/30 rounded-xl p-4 backdrop-blur-sm mb-6">
+              <div className="flex items-center">
+                <div className="w-2 h-2 bg-green-400 rounded-full mr-3"></div>
+                <p className="text-green-200 text-sm font-medium">{success}</p>
+                <button 
+                  onClick={() => setSuccess('')}
+                  className="ml-auto text-green-400 hover:text-green-300"
+                >
+                  ×
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Tab Navigation */}
+          <div className="bg-gray-800/50 backdrop-blur-xl rounded-2xl border border-gray-700/50 shadow-2xl mb-8">
+            <nav className="flex space-x-1 p-2">
+              {TABS.map((tab) => (
+                <button
+                  key={tab.id}
+                  onClick={() => handleTabChange(tab.id)}
+                  className={`flex-1 py-3 px-4 rounded-xl font-medium text-sm transition-all duration-200 ${
+                    activeTab === tab.id
+                      ? 'bg-gradient-to-r from-yellow-400 to-amber-500 text-black shadow-lg'
+                      : 'text-gray-400 hover:text-gray-200 hover:bg-gray-700/50'
+                  }`}
+                >
+                  <div className="flex items-center justify-center gap-2">
+                    <span className="text-sm">{tab.icon}</span>
+                    {tab.label}
+                  </div>
+                </button>
+              ))}
+            </nav>
+          </div>
+
+          {/* Tab Content */}
+          <div className="bg-gray-800/50 backdrop-blur-xl rounded-2xl border border-gray-700/50 shadow-2xl p-6">
+            {activeTab === 'overview' && (
+              <OverviewTab {...sharedContext} />
+            )}
+            
+            {activeTab === 'wallet' && loadedTabs.has('wallet') && (
+              <WalletTab {...sharedContext} />
+            )}
+            
+            {activeTab === 'gaming' && loadedTabs.has('gaming') && (
+              <GamingTab {...sharedContext} />
+            )}
+            
+            {activeTab === 'settings' && loadedTabs.has('settings') && (
+              <SettingsTab {...sharedContext} />
+            )}
+
+            {/* Show loading for unloaded tabs */}
+            {!loadedTabs.has(activeTab) && activeTab !== 'overview' && (
+              <div className="flex items-center justify-center py-12">
+                <div className="flex items-center gap-3 text-gray-400">
+                  <LoadingSpinner />
+                  <span>Loading {TABS.find(t => t.id === activeTab)?.label}...</span>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Footer */}
+          <div className="mt-8 text-center text-gray-500 text-xs space-y-1">
+            <p>© 2025 Gambino Gold. Mining infrastructure platform.</p>
+            <p>Building sustainable community wealth through transparent technology.</p>
+          </div>
+        </div>
       </div>
     </div>
   );

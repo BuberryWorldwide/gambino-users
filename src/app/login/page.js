@@ -1,4 +1,4 @@
-// src/app/login/page.js - Updated for RBAC system
+// src/app/login/page.js - Gambino Gold professional login page
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -21,7 +21,6 @@ export default function LoginPage() {
   // Redirect if already authenticated
   useEffect(() => {
     if (isAuthenticated) {
-      // Let the login flow handle the redirect
       return;
     }
   }, [isAuthenticated]);
@@ -36,9 +35,7 @@ export default function LoginPage() {
     try {
       clearError();
       await login(email.trim(), password, remember);
-      // Redirect is handled automatically by the login function
     } catch (err) {
-      // Error is handled by useAuth hook
       console.error('Login failed:', err);
     }
   };
@@ -50,138 +47,172 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 flex items-center justify-center p-4">
-      <div className="max-w-md w-full space-y-8">
-        {/* Header */}
-        <div className="text-center">
-          <div className="mx-auto h-12 w-12 bg-gradient-to-r from-purple-400 to-blue-400 rounded-lg flex items-center justify-center mb-4">
-            <span className="text-white font-bold text-xl">G</span>
-          </div>
-          <h2 className="text-3xl font-bold text-white mb-2">Welcome Back</h2>
-          <p className="text-gray-300">Sign in to your Gambino account</p>
-        </div>
+    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-slate-900 to-black relative overflow-hidden">
+      {/* Subtle Background Effects */}
+      <div className="absolute inset-0">
+        {/* Grid pattern */}
+        <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,.02)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,.02)_1px,transparent_1px)] bg-[size:100px_100px]"></div>
+        
+        {/* Floating geometric elements */}
+        <div className="absolute top-20 left-10 w-32 h-32 border border-yellow-500/10 rounded-xl rotate-12 animate-pulse"></div>
+        <div className="absolute top-40 right-20 w-24 h-24 border border-amber-400/10 rounded-full animate-bounce" style={{ animationDuration: '3s' }}></div>
+        <div className="absolute bottom-32 left-20 w-40 h-40 border border-orange-500/10 rounded-2xl rotate-45 animate-pulse" style={{ animationDuration: '4s' }}></div>
+        <div className="absolute bottom-20 right-10 w-28 h-28 border border-yellow-600/10 rounded-lg -rotate-12 animate-bounce" style={{ animationDuration: '5s' }}></div>
+      </div>
 
-        {/* Login Form */}
-        <div className="bg-white/10 backdrop-blur-lg rounded-xl p-8 border border-white/20">
-          <form onSubmit={handleSubmit} className="space-y-6">
-            {/* Error Display */}
-            {error && (
-              <div className="bg-red-500/20 border border-red-500/50 rounded-lg p-4">
-                <p className="text-red-200 text-sm font-medium">{error}</p>
+      {/* Main Content */}
+      <div className="relative z-10 flex items-center justify-center min-h-screen p-6">
+        <div className="max-w-md w-full space-y-8">
+          
+          {/* Professional Header */}
+          <div className="text-center">
+            {/* Logo */}
+            <div className="flex items-center justify-center mb-8">
+              <div className="relative">
+                <div className="w-16 h-16 bg-gradient-to-r from-yellow-400 to-amber-500 rounded-xl flex items-center justify-center shadow-2xl p-2">
+                  <img 
+                    src="/logo.png" 
+                    alt="Gambino Gold Logo" 
+                    className="w-full h-full object-contain"
+                  />
+                </div>
+                <div className="absolute -inset-2 bg-gradient-to-r from-yellow-400/20 to-amber-500/20 rounded-2xl blur-xl"></div>
               </div>
-            )}
-
-            {/* Email Field */}
-            <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-200 mb-2">
-                Email Address
-              </label>
-              <input
-                id="email"
-                name="email"
-                type="email"
-                required
-                value={email}
-                onChange={(e) => {
-                  setEmail(e.target.value);
-                  handleInputChange();
-                }}
-                className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-400 focus:border-transparent transition-all"
-                placeholder="Enter your email"
-                disabled={loading}
-              />
-            </div>
-
-            {/* Password Field */}
-            <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-200 mb-2">
-                Password
-              </label>
-              <input
-                id="password"
-                name="password"
-                type="password"
-                required
-                value={password}
-                onChange={(e) => {
-                  setPassword(e.target.value);
-                  handleInputChange();
-                }}
-                className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-400 focus:border-transparent transition-all"
-                placeholder="Enter your password"
-                disabled={loading}
-              />
-            </div>
-
-            {/* Remember Me */}
-            <div className="flex items-center">
-              <input
-                id="remember"
-                name="remember"
-                type="checkbox"
-                checked={remember}
-                onChange={(e) => setRemember(e.target.checked)}
-                className="h-4 w-4 text-purple-400 bg-white/10 border-white/20 rounded focus:ring-purple-400 focus:ring-2"
-                disabled={loading}
-              />
-              <label htmlFor="remember" className="ml-2 text-sm text-gray-200">
-                Remember me
-              </label>
-            </div>
-
-            {/* Submit Button */}
-            <button
-              type="submit"
-              disabled={loading || !email.trim() || !password}
-              className="w-full py-3 px-4 bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600 disabled:from-gray-500 disabled:to-gray-600 disabled:cursor-not-allowed text-white font-medium rounded-lg transition-all duration-200 flex items-center justify-center"
-            >
-              {loading ? (
-                <>
-                  <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                  </svg>
-                  Signing in...
-                </>
-              ) : (
-                'Sign In'
-              )}
-            </button>
-          </form>
-
-          {/* Links */}
-          <div className="mt-6 space-y-4">
-            <div className="text-center">
-              <Link 
-                href="/forgot-password" 
-                className="text-sm text-purple-300 hover:text-purple-200 transition-colors"
-              >
-                Forgot your password?
-              </Link>
             </div>
             
-            <div className="border-t border-white/20 pt-4 text-center">
-              <p className="text-gray-300 text-sm">
-                Don't have an account?{' '}
+            {/* Brand Identity */}
+            <h1 className="text-3xl font-bold mb-2">
+              <span className="bg-gradient-to-r from-yellow-400 to-amber-500 bg-clip-text text-transparent">
+                GAMBINO GOLD
+              </span>
+            </h1>
+            <p className="text-lg text-gray-300 mb-2">Mining Infrastructure Platform</p>
+            <p className="text-gray-400 text-sm">Access Network Dashboard</p>
+          </div>
+
+          {/* Login Card */}
+          <div className="bg-gray-800/50 backdrop-blur-xl rounded-2xl p-8 border border-gray-700/50 shadow-2xl">
+            <form onSubmit={handleSubmit} className="space-y-6">
+              
+              {/* Error Display */}
+              {error && (
+                <div className="bg-red-900/30 border border-red-500/30 rounded-xl p-4 backdrop-blur-sm">
+                  <div className="flex items-center">
+                    <div className="w-2 h-2 bg-red-400 rounded-full mr-3"></div>
+                    <p className="text-red-200 text-sm font-medium">{error}</p>
+                  </div>
+                </div>
+              )}
+
+              {/* Email Field */}
+              <div>
+                <label htmlFor="email" className="block text-sm font-medium text-gray-200 mb-3">
+                  Email Address
+                </label>
+                <div className="relative">
+                  <input
+                    id="email"
+                    name="email"
+                    type="email"
+                    required
+                    value={email}
+                    onChange={(e) => {
+                      setEmail(e.target.value);
+                      handleInputChange();
+                    }}
+                    className="w-full px-4 py-4 bg-gray-700/30 border border-gray-600/50 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-yellow-400/50 focus:border-yellow-400/50 transition-all duration-200 backdrop-blur-sm"
+                    placeholder="Enter your email"
+                    disabled={loading}
+                  />
+                  <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-yellow-400/5 to-amber-500/5 opacity-0 focus-within:opacity-100 transition-opacity duration-200 pointer-events-none"></div>
+                </div>
+              </div>
+
+              {/* Password Field */}
+              <div>
+                <label htmlFor="password" className="block text-sm font-medium text-gray-200 mb-3">
+                  Password
+                </label>
+                <div className="relative">
+                  <input
+                    id="password"
+                    name="password"
+                    type="password"
+                    required
+                    value={password}
+                    onChange={(e) => {
+                      setPassword(e.target.value);
+                      handleInputChange();
+                    }}
+                    className="w-full px-4 py-4 bg-gray-700/30 border border-gray-600/50 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-yellow-400/50 focus:border-yellow-400/50 transition-all duration-200 backdrop-blur-sm"
+                    placeholder="Enter your password"
+                    disabled={loading}
+                  />
+                  <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-yellow-400/5 to-amber-500/5 opacity-0 focus-within:opacity-100 transition-opacity duration-200 pointer-events-none"></div>
+                </div>
+              </div>
+
+              {/* Remember Me & Forgot Password */}
+              <div className="flex items-center justify-between">
+                <div className="flex items-center">
+                  <input
+                    id="remember"
+                    name="remember"
+                    type="checkbox"
+                    checked={remember}
+                    onChange={(e) => setRemember(e.target.checked)}
+                    className="h-4 w-4 text-yellow-400 bg-gray-700/50 border-gray-600 rounded focus:ring-yellow-400 focus:ring-2"
+                    disabled={loading}
+                  />
+                  <label htmlFor="remember" className="ml-3 text-sm text-gray-300">
+                    Stay signed in
+                  </label>
+                </div>
+                <Link 
+                  href="/forgot-password" 
+                  className="text-sm text-yellow-400 hover:text-yellow-300 transition-colors"
+                >
+                  Reset password
+                </Link>
+              </div>
+
+              {/* Submit Button */}
+              <button
+                type="submit"
+                disabled={loading || !email.trim() || !password}
+                className="w-full py-4 px-6 bg-gradient-to-r from-yellow-400 to-amber-500 hover:from-yellow-500 hover:to-amber-600 disabled:from-gray-600 disabled:to-gray-700 disabled:cursor-not-allowed text-black font-semibold rounded-xl transition-all duration-300 transform hover:scale-105 disabled:hover:scale-100 shadow-lg"
+              >
+                {loading ? (
+                  <div className="flex items-center justify-center">
+                    <div className="w-5 h-5 border-2 border-black border-t-transparent rounded-full animate-spin mr-3"></div>
+                    Accessing Network...
+                  </div>
+                ) : (
+                  'Access Network'
+                )}
+              </button>
+            </form>
+
+            {/* Register Link */}
+            <div className="mt-8 text-center">
+              <div className="border-t border-gray-700/50 pt-6">
+                <p className="text-gray-400 text-sm mb-4">
+                  Need network access?
+                </p>
                 <Link 
                   href="/register" 
-                  className="text-purple-300 hover:text-purple-200 font-medium transition-colors"
+                  className="inline-flex items-center px-6 py-3 bg-gray-700/30 hover:bg-gray-600/30 text-yellow-400 hover:text-yellow-300 font-medium rounded-xl transition-all duration-200 border border-gray-600/50 hover:border-yellow-400/30"
                 >
-                  Sign up
+                  Request Access
                 </Link>
-              </p>
+              </div>
             </div>
           </div>
-        </div>
 
-        {/* Access Level Info */}
-        <div className="bg-white/5 backdrop-blur-sm rounded-lg p-4 border border-white/10">
-          <h3 className="text-white font-medium mb-2">Unified Login System</h3>
-          <div className="text-gray-300 text-sm space-y-1">
-            <p><span className="text-purple-300">•</span> One login for all access levels</p>
-            <p><span className="text-blue-300">•</span> Automatic role-based redirects</p>
-            <p><span className="text-green-300">•</span> Enhanced security and permissions</p>
-            <p><span className="text-orange-300">•</span> Streamlined user experience</p>
+          {/* Professional Footer */}
+          <div className="text-center text-gray-500 text-xs space-y-1">
+            <p>© 2025 Gambino Gold. Mining infrastructure platform.</p>
+            <p>Building sustainable community wealth through transparent technology.</p>
           </div>
         </div>
       </div>

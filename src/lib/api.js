@@ -1,4 +1,4 @@
-// src/lib/api.js - Updated API client for RBAC system
+// src/lib/api.js - Updated API client for RBAC system with Treasury integration
 import axios from 'axios';
 import { getToken, clearToken, getUserRedirectUrl, getUser } from './auth';
 
@@ -392,6 +392,110 @@ export const walletAPI = {
 };
 
 /**
+ * Treasury API methods for blockchain endpoints
+ */
+export const treasuryAPI = {
+  /**
+   * Get all treasury balances from blockchain
+   */
+  getAllBalances: async () => {
+    const response = await api.get('/api/admin/treasury/balances', {
+      headers: {
+        'x-admin-key': process.env.NEXT_PUBLIC_ADMIN_API_KEY || 'your-admin-api-key-change-this'
+      }
+    });
+    return response.data;
+  },
+
+  /**
+   * Get specific account balance from blockchain
+   */
+  getAccountBalance: async (accountType) => {
+    const response = await api.get(`/api/admin/treasury/balances/${accountType}`, {
+      headers: {
+        'x-admin-key': process.env.NEXT_PUBLIC_ADMIN_API_KEY || 'your-admin-api-key-change-this'
+      }
+    });
+    return response.data;
+  },
+
+  /**
+   * Get network information
+   */
+  getNetworkInfo: async () => {
+    const response = await api.get('/api/admin/treasury/network', {
+      headers: {
+        'x-admin-key': process.env.NEXT_PUBLIC_ADMIN_API_KEY || 'your-admin-api-key-change-this'
+      }
+    });
+    return response.data;
+  },
+
+  /**
+   * Get recent transactions for an account
+   */
+  getTransactions: async (accountType, limit = 10) => {
+    const response = await api.get(`/api/admin/treasury/transactions/${accountType}`, {
+      params: { limit },
+      headers: {
+        'x-admin-key': process.env.NEXT_PUBLIC_ADMIN_API_KEY || 'your-admin-api-key-change-this'
+      }
+    });
+    return response.data;
+  },
+
+  /**
+   * Health check for treasury service
+   */
+  healthCheck: async () => {
+    const response = await api.get('/api/admin/treasury/health');
+    return response.data;
+  },
+
+  /**
+   * Switch network (for testing)
+   */
+  switchNetwork: async (network) => {
+    const response = await api.post('/api/admin/treasury/switch-network', 
+      { network },
+      {
+        headers: {
+          'x-admin-key': process.env.NEXT_PUBLIC_ADMIN_API_KEY || 'your-admin-api-key-change-this'
+        }
+      }
+    );
+    return response.data;
+  },
+
+  /**
+   * Legacy treasury methods (for compatibility with old endpoints)
+   */
+  legacy: {
+    getTreasury: async () => {
+      const response = await api.get('/api/admin/treasury');
+      return response.data;
+    },
+
+    refreshBalances: async () => {
+      const response = await api.post('/api/admin/treasury/refresh-balances');
+      return response.data;
+    },
+
+    addWallet: async (walletData) => {
+      const response = await api.post('/api/admin/treasury', walletData);
+      return response.data;
+    },
+
+    rotateKey: async (walletId, privateKeyBase64) => {
+      const response = await api.post(`/api/admin/treasury/${walletId}/rotate`, {
+        privateKeyBase64
+      });
+      return response.data;
+    }
+  }
+};
+
+/**
  * Public API methods (no auth required)
  */
 export const publicAPI = {
@@ -421,6 +525,18 @@ export const publicAPI = {
     return response.data;
   }
 };
+
+// --- Helper Functions ---
+
+/**
+ * Helper function to create admin headers
+ */
+export function createAdminHeaders(additionalHeaders = {}) {
+  return {
+    'x-admin-key': process.env.NEXT_PUBLIC_ADMIN_API_KEY || 'your-admin-api-key-change-this',
+    ...additionalHeaders
+  };
+}
 
 /**
  * Helper function to check if request failed due to permission issues
