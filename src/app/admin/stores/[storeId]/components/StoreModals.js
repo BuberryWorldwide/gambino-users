@@ -1,55 +1,116 @@
-// StoreModals.js - Modal components for store management
+
+// StoreModals.js - Fixed Modal components for store management
 import { useState } from 'react';
 import api from '@/lib/api';
 
 export const StoreModals = ({
-  showDeleteModal, setShowDeleteModal, showAddMachine, setShowAddMachine,
-  showBulkModal, setShowBulkModal, showConnectionInfo, setShowConnectionInfo,
-  showQRModal, setShowQRModal, store, newMachine, setNewMachine, addingMachine,
-  selectedMachines, bulkAction, setBulkAction, connectionInfo, qrCodeData,
-  generatingQR, actionLoading, handleStoreAction, setSelectedMachines
+  showConnectionInfo,
+  setShowConnectionInfo,
+  showQRModal,
+  setShowQRModal,
+  connectionInfo,
+  qrCodeData,
+  // Modal visibility states
+  showDeleteModal, 
+  setShowDeleteModal, 
+  showAddMachine, 
+  setShowAddMachine,
+  showBulkModal, 
+  setShowBulkModal, 
+  
+  // Store data
+  store,
+  
+  // Machine-related props
+  machines = [],
+  selectedMachines = [],
+  setSelectedMachines,
+  onMachinesUpdate, // Callback to refresh machines list
+  
+  // Loading/error states
+  actionLoading,
+  
+  // Store action handler
+  handleStoreAction,
+  
+  // User role for permissions
+  userRole
 }) => {
 
+  // Local states for Add Machine modal
+  const [newMachine, setNewMachine] = useState({
+    machineId: '',
+    name: '',
+    location: '',
+    gameType: 'slot',
+    hubId: ''
+  });
+  const [addingMachine, setAddingMachine] = useState(false);
+  const [machineError, setMachineError] = useState('');
+
+  // Local state for bulk actions
+  const [bulkAction, setBulkAction] = useState('');
+  const [bulkLoading, setBulkLoading] = useState(false);
+
   // Add machine handler
-  const handleAddMachine = async (e) => {
-    e.preventDefault();
-    if (addingMachine) return;
+  
+const handleAddMachine = async (e) => {
+  e.preventDefault();
+  if (addingMachine) return;
 
-    try {
-      setAddingMachine(true);
-      setMachinesError('');
+  try {
+    setAddingMachine(true);
+    setMachineError('');
 
-      const { data } = await api.post(`/api/machines/stores/${encodeURIComponent(store.storeId || store._id)}`, {
-        ...newMachine,
-        machineId: newMachine.machineId.trim(),
-        name: newMachine.name.trim() || `Machine ${newMachine.machineId.trim()}`,
-        location: newMachine.location.trim()
+    const machineData = {
+      machineId: newMachine.machineId.trim(),
+      name: newMachine.name.trim() || `Machine ${newMachine.machineId.trim()}`,
+      location: newMachine.location.trim(),
+      gameType: newMachine.gameType,
+      storeId: store.storeId || store._id
+    };
+
+    console.log('Sending machine data:', machineData);
+
+
+    const { data } = await api.post(`/api/machines/stores/${store.storeId || store._id}`, machineData);
+
+    if (data.success || data.machine) {
+      // Reset form
+      setNewMachine({
+        machineId: '',
+        name: '',
+        location: '',
+        gameType: 'slot',
+        hubId: ''
       });
-
-      if (data.success) {
-        await fetchMachines();
-        setNewMachine({
-          machineId: '',
-          name: '',
-          location: '',
-          gameType: 'slot',
-          hubId: ''
-        });
-        setShowAddMachine(false);
+      setShowAddMachine(false);
+      
+      // Trigger parent refresh
+      if (onMachinesUpdate) {
+        onMachinesUpdate();
       }
-    } catch (err) {
-      setMachinesError(err?.response?.data?.error || 'Failed to add machine');
-    } finally {
-      setAddingMachine(false);
     }
-  };
+  } catch (err) {
+    console.error('Failed to add machine:', err);
+    // Better error message for duplicate key errors
+    if (err?.response?.data?.error?.includes('duplicate key')) {
+      setMachineError('A machine with this ID or serial number already exists');
+    } else {
+      setMachineError(err?.response?.data?.error || 'Failed to add machine');
+    }
+  } finally {
+    setAddingMachine(false);
+  }
+};
 
   // Bulk action handler
   const handleBulkAction = async () => {
     if (!bulkAction || selectedMachines.length === 0) return;
 
     try {
-      setMachinesLoading(true);
+      setBulkLoading(true);
+      setMachineError('');
       
       const promises = selectedMachines.map(machineId => {
         const machine = machines.find(m => m._id === machineId);
@@ -66,16 +127,25 @@ export const StoreModals = ({
       }).filter(Boolean);
 
       await Promise.all(promises);
-      await fetchMachines();
+      
+      // Reset and close
       setSelectedMachines([]);
       setBulkAction('');
       setShowBulkModal(false);
+      
+      // Trigger parent refresh
+      if (onMachinesUpdate) {
+        onMachinesUpdate();
+      }
     } catch (err) {
-      setMachinesError(err?.response?.data?.error || 'Bulk action failed');
+      console.error('Bulk action failed:', err);
+      setMachineError(err?.response?.data?.error || 'Bulk action failed');
     } finally {
-      setMachinesLoading(false);
+      setBulkLoading(false);
     }
   };
+
+  const isAdmin = userRole === 'admin' || userRole === 'super_admin';
 
   return (
     <>
@@ -96,11 +166,11 @@ export const StoreModals = ({
 
               <div className="space-y-4">
                 <p className="text-gray-300 mb-6">
-                  Choose an action to perform on <span className="font-semibold text-white">{store.storeName}</span>:
+                  Choose an action to perform on <span className="font-semibold text-white">{store?.storeName}</span>:
                 </p>
 
                 <div className="space-y-3">
-                  {store.status === 'active' && (
+                  {store?.status === 'active' && (
                     <button
                       onClick={() => handleStoreAction('deactivate')}
                       disabled={actionLoading}
@@ -110,7 +180,7 @@ export const StoreModals = ({
                     </button>
                   )}
 
-                  {store.status === 'inactive' && (
+                  {store?.status === 'inactive' && (
                     <button
                       onClick={() => handleStoreAction('activate')}
                       disabled={actionLoading}
@@ -120,7 +190,7 @@ export const StoreModals = ({
                     </button>
                   )}
 
-                  {store.status !== 'suspended' && (
+                  {store?.status !== 'suspended' && (
                     <button
                       onClick={() => handleStoreAction('suspend')}
                       disabled={actionLoading}
@@ -130,7 +200,7 @@ export const StoreModals = ({
                     </button>
                   )}
 
-                  {store.status !== 'archived' && (
+                  {store?.status !== 'archived' && (
                     <button
                       onClick={() => handleStoreAction('archive')}
                       disabled={actionLoading}
@@ -140,19 +210,22 @@ export const StoreModals = ({
                     </button>
                   )}
 
-                  <hr className="border-gray-700/50 my-4" />
-
-                  <button
-                    onClick={() => {
-                      if (confirm(`Are you sure you want to permanently delete "${store.storeName}"? This action cannot be undone.`)) {
-                        handleStoreAction('delete');
-                      }
-                    }}
-                    disabled={actionLoading}
-                    className="w-full px-4 py-3 bg-red-600/80 hover:bg-red-600 disabled:bg-red-800 text-white font-medium rounded-xl transition-colors text-left"
-                  >
-                    🗑️ Delete Store (Permanent)
-                  </button>
+                  {isAdmin && (
+                    <>
+                      <hr className="border-gray-700/50 my-4" />
+                      <button
+                        onClick={() => {
+                          if (confirm(`Are you sure you want to permanently delete "${store?.storeName}"? This action cannot be undone.`)) {
+                            handleStoreAction('delete');
+                          }
+                        }}
+                        disabled={actionLoading}
+                        className="w-full px-4 py-3 bg-red-600/80 hover:bg-red-600 disabled:bg-red-800 text-white font-medium rounded-xl transition-colors text-left"
+                      >
+                        🗑️ Delete Store (Permanent)
+                      </button>
+                    </>
+                  )}
                 </div>
 
                 {actionLoading && (
@@ -185,91 +258,81 @@ export const StoreModals = ({
               <div className="flex items-center justify-between mb-6">
                 <h3 className="text-2xl font-bold text-white">Add New Machine</h3>
                 <button
-                  onClick={() => setShowAddMachine(false)}
+                  onClick={() => {
+                    setShowAddMachine(false);
+                    setMachineError('');
+                  }}
                   className="text-gray-400 hover:text-white text-2xl leading-none transition-colors"
                 >
                   ×
                 </button>
               </div>
 
+              {machineError && (
+                <div className="mb-4 bg-red-900/30 border border-red-500/30 rounded-xl p-4">
+                  <div className="flex items-center">
+                    <div className="w-2 h-2 bg-red-400 rounded-full mr-3"></div>
+                    <p className="text-red-200">{machineError}</p>
+                  </div>
+                </div>
+              )}
+
               <form onSubmit={handleAddMachine} className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
                     <label className="block text-sm font-medium text-gray-200 mb-3">Machine ID *</label>
-                    <div className="relative">
-                      <input
-                        required
-                        className="w-full px-4 py-4 bg-gray-700/30 border border-gray-600/50 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-yellow-400/50 focus:border-yellow-400/50 transition-all duration-200 backdrop-blur-sm"
-                        value={newMachine.machineId}
-                        onChange={(e) => setNewMachine(v => ({ ...v, machineId: e.target.value }))}
-                        placeholder="Enter unique machine ID"
-                      />
-                      <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-yellow-400/5 to-amber-500/5 opacity-0 focus-within:opacity-100 transition-opacity duration-200 pointer-events-none"></div>
-                    </div>
+                    <input
+                      required
+                      className="w-full px-4 py-4 bg-gray-700/30 border border-gray-600/50 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-yellow-400/50"
+                      value={newMachine.machineId}
+                      onChange={(e) => setNewMachine(v => ({ ...v, machineId: e.target.value }))}
+                      placeholder="Enter unique machine ID"
+                    />
                   </div>
 
                   <div>
                     <label className="block text-sm font-medium text-gray-200 mb-3">Machine Name</label>
-                    <div className="relative">
-                      <input
-                        className="w-full px-4 py-4 bg-gray-700/30 border border-gray-600/50 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-yellow-400/50 focus:border-yellow-400/50 transition-all duration-200 backdrop-blur-sm"
-                        value={newMachine.name}
-                        onChange={(e) => setNewMachine(v => ({ ...v, name: e.target.value }))}
-                        placeholder="Enter machine name (optional)"
-                      />
-                      <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-yellow-400/5 to-amber-500/5 opacity-0 focus-within:opacity-100 transition-opacity duration-200 pointer-events-none"></div>
-                    </div>
+                    <input
+                      className="w-full px-4 py-4 bg-gray-700/30 border border-gray-600/50 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-yellow-400/50"
+                      value={newMachine.name}
+                      onChange={(e) => setNewMachine(v => ({ ...v, name: e.target.value }))}
+                      placeholder="Enter machine name (optional)"
+                    />
                   </div>
 
                   <div>
                     <label className="block text-sm font-medium text-gray-200 mb-3">Location</label>
-                    <div className="relative">
-                      <input
-                        className="w-full px-4 py-4 bg-gray-700/30 border border-gray-600/50 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-yellow-400/50 focus:border-yellow-400/50 transition-all duration-200 backdrop-blur-sm"
-                        value={newMachine.location}
-                        onChange={(e) => setNewMachine(v => ({ ...v, location: e.target.value }))}
-                        placeholder="Enter machine location"
-                      />
-                      <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-yellow-400/5 to-amber-500/5 opacity-0 focus-within:opacity-100 transition-opacity duration-200 pointer-events-none"></div>
-                    </div>
+                    <input
+                      className="w-full px-4 py-4 bg-gray-700/30 border border-gray-600/50 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-yellow-400/50"
+                      value={newMachine.location}
+                      onChange={(e) => setNewMachine(v => ({ ...v, location: e.target.value }))}
+                      placeholder="Enter machine location"
+                    />
                   </div>
 
                   <div>
                     <label className="block text-sm font-medium text-gray-200 mb-3">Game Type</label>
-                    <div className="relative">
-                      <select
-                        className="w-full px-4 py-4 bg-gray-700/30 border border-gray-600/50 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-yellow-400/50 focus:border-yellow-400/50 transition-all duration-200 backdrop-blur-sm"
-                        value={newMachine.gameType}
-                        onChange={(e) => setNewMachine(v => ({ ...v, gameType: e.target.value }))}
-                      >
-                        <option value="slot">Slot Machine</option>
-                        <option value="poker">Poker</option>
-                        <option value="blackjack">Blackjack</option>
-                        <option value="roulette">Roulette</option>
-                        <option value="other">Other</option>
-                      </select>
-                      <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-yellow-400/5 to-amber-500/5 opacity-0 focus-within:opacity-100 transition-opacity duration-200 pointer-events-none"></div>
-                    </div>
-                  </div>
-
-                  <div className="md:col-span-2">
-                    <label className="block text-sm font-medium text-gray-200 mb-3">Hub ID (Optional)</label>
-                    <div className="relative">
-                      <input
-                        className="w-full px-4 py-4 bg-gray-700/30 border border-gray-600/50 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-yellow-400/50 focus:border-yellow-400/50 transition-all duration-200 backdrop-blur-sm"
-                        value={newMachine.hubId}
-                        onChange={(e) => setNewMachine(v => ({ ...v, hubId: e.target.value }))}
-                        placeholder="Enter hub ID if applicable"
-                      />
-                      <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-yellow-400/5 to-amber-500/5 opacity-0 focus-within:opacity-100 transition-opacity duration-200 pointer-events-none"></div>
-                    </div>
+                    <select
+                      className="w-full px-4 py-4 bg-gray-700/30 border border-gray-600/50 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-yellow-400/50"
+                      value={newMachine.gameType}
+                      onChange={(e) => setNewMachine(v => ({ ...v, gameType: e.target.value }))}
+                    >
+                      <option value="slot">Slot Machine</option>
+                      <option value="poker">Poker</option>
+                      <option value="blackjack">Blackjack</option>
+                      <option value="roulette">Roulette</option>
+                      <option value="other">Other</option>
+                    </select>
                   </div>
                 </div>
 
                 <div className="flex items-center justify-end space-x-4 pt-4">
                   <button
                     type="button"
-                    onClick={() => setShowAddMachine(false)}
+                    onClick={() => {
+                      setShowAddMachine(false);
+                      setMachineError('');
+                    }}
                     disabled={addingMachine}
                     className="px-6 py-3 bg-gray-700/30 hover:bg-gray-600/30 text-gray-300 hover:text-white font-medium rounded-xl transition-all duration-200 border border-gray-600/50"
                   >
@@ -278,16 +341,9 @@ export const StoreModals = ({
                   <button
                     type="submit"
                     disabled={addingMachine || !newMachine.machineId.trim()}
-                    className="px-8 py-3 bg-gradient-to-r from-yellow-400 to-amber-500 hover:from-yellow-500 hover:to-amber-600 disabled:from-gray-600 disabled:to-gray-700 disabled:cursor-not-allowed text-black font-semibold rounded-xl transition-all duration-300 transform hover:scale-105 disabled:hover:scale-100"
+                    className="px-8 py-3 bg-gradient-to-r from-yellow-400 to-amber-500 hover:from-yellow-500 hover:to-amber-600 disabled:from-gray-600 disabled:to-gray-700 disabled:cursor-not-allowed text-black font-semibold rounded-xl transition-all duration-300"
                   >
-                    {addingMachine ? (
-                      <div className="flex items-center justify-center">
-                        <div className="w-5 h-5 border-2 border-black border-t-transparent rounded-full animate-spin mr-2"></div>
-                        Adding...
-                      </div>
-                    ) : (
-                      'Add Machine'
-                    )}
+                    {addingMachine ? 'Adding...' : 'Add Machine'}
                   </button>
                 </div>
               </form>

@@ -24,6 +24,12 @@ export default function WalletTab({
   const [showPrivateKey, setShowPrivateKey] = useState(false);
   const [privateKey, setPrivateKey] = useState('');
   const [revealingKey, setRevealingKey] = useState(false);
+
+  // Confirmation modal for sensitive actions
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [confirmationText, setConfirmationText] = useState('');
+  const [confirmationError, setConfirmationError] = useState('');
+
   
   // Transfer functionality
   const [transferForm, setTransferForm] = useState({
@@ -105,18 +111,35 @@ export default function WalletTab({
     }
   };
 
-  const handleRevealPrivateKey = async () => {
-    setRevealingKey(true);
-    try {
-      const res = await api.get('/api/wallet/private-key');
-      setPrivateKey(res.data?.privateKey || '');
-      setShowPrivateKey(true);
-    } catch (err) {
-      setError(err?.response?.data?.error || 'Failed to reveal private key');
-    } finally {
-      setRevealingKey(false);
-    }
+  const handleRevealPrivateKey = () => {
+    // Show confirmation modal first instead of directly revealing
+    setShowConfirmModal(true);
+    setConfirmationText('');
+    setConfirmationError('');
   };
+
+  const handleConfirmReveal = async () => {
+  const requiredText = 'I understand the risks';
+  
+  if (confirmationText.trim() !== requiredText) {
+    setConfirmationError(`Please type exactly: "${requiredText}"`);
+    return;
+  }
+  
+  // Proceed with revealing the key
+  setRevealingKey(true);
+  setShowConfirmModal(false);
+  
+  try {
+    const res = await api.get('/api/wallet/private-key');
+    setPrivateKey(res.data?.privateKey || '');
+    setShowPrivateKey(true);
+  } catch (err) {
+    setError(err?.response?.data?.error || 'Failed to reveal private key');
+  } finally {
+    setRevealingKey(false);
+  }
+};
 
   const handleTransfer = async (e) => {
     e.preventDefault();
@@ -571,6 +594,133 @@ export default function WalletTab({
                 Close
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Step 1: Confirmation Modal */}
+      {showConfirmModal && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="bg-neutral-900 border border-red-500/30 rounded-lg p-6 max-w-md w-full">
+            <div className="flex items-center gap-2 mb-4">
+              <svg className="w-6 h-6 text-red-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+              </svg>
+              <h3 className="text-lg font-semibold text-red-300">⚠️ Private Key Access</h3>
+            </div>
+            
+            <div className="space-y-4 mb-6">
+              <div className="bg-red-900/20 border border-red-500/30 p-3 rounded text-red-200 text-sm">
+                <p className="font-semibold mb-2">🚨 CRITICAL SECURITY WARNING</p>
+                <ul className="space-y-1 text-xs">
+                  <li>• Never share your private key with anyone</li>
+                  <li>• Anyone with this key can steal all your funds</li>
+                  <li>• Only reveal if absolutely necessary</li>
+                  <li>• Make sure you're alone and no one can see your screen</li>
+                </ul>
+              </div>
+              
+              <div>
+                <p className="text-white text-sm font-medium mb-3">
+                  To continue, type the following text exactly:
+                </p>
+                <div className="bg-gray-800 p-3 rounded-lg border border-gray-600 mb-3">
+                  <code className="text-yellow-400 font-mono text-sm">I understand the risks</code>
+                </div>
+                
+                <input
+                  type="text"
+                  value={confirmationText}
+                  onChange={(e) => {
+                    setConfirmationText(e.target.value);
+                    if (confirmationError) setConfirmationError('');
+                  }}
+                  placeholder="Type the confirmation text here..."
+                  className="w-full bg-gray-800 border border-gray-600 rounded-lg px-3 py-2 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-red-400 focus:border-transparent text-sm font-mono"
+                  autoFocus
+                />
+                
+                {confirmationError && (
+                  <p className="text-red-400 text-xs mt-2 flex items-center gap-1">
+                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                    {confirmationError}
+                  </p>
+                )}
+              </div>
+            </div>
+              
+            <div className="flex flex-col sm:flex-row gap-2">
+              <button
+                onClick={() => {
+                  setShowConfirmModal(false);
+                  setConfirmationText('');
+                  setConfirmationError('');
+                }}
+                className="btn btn-ghost text-sm flex-1"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleConfirmReveal}
+                disabled={revealingKey || !confirmationText.trim()}
+                className="btn btn-primary text-sm flex-1 bg-red-600 hover:bg-red-700 border-red-600 hover:border-red-700"
+              >
+                {revealingKey ? (
+                  <div className="flex items-center gap-2">
+                    <LoadingSpinner />
+                    Revealing...
+                  </div>
+                ) : (
+                  'Reveal Private Key'
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {/* Step 2: Private Key Display Modal (unchanged, but triggered after confirmation) */}
+      {showPrivateKey && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="private-key-warning max-w-md w-full bg-neutral-900 border border-red-500/30 rounded-lg p-6">
+            <div className="flex items-center gap-2 mb-4">
+              <svg className="w-6 h-6 text-red-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+              </svg>
+              <h3 className="text-lg font-semibold text-red-300">🔑 Your Private Key</h3>
+            </div>
+            
+            <p className="text-red-200 text-sm mb-4">
+              Store this key safely and never share it with anyone. This key controls your wallet and all your funds.
+            </p>
+            
+            <div className="bg-black p-3 rounded font-mono text-xs break-all text-yellow-400 mb-4 border border-red-500/30 select-all">
+              {privateKey}
+            </div>
+            
+            <div className="flex flex-col sm:flex-row gap-2">
+              <button 
+                onClick={() => handleCopyToClipboard(privateKey, 'Private key')}
+                className="btn btn-ghost text-sm flex-1"
+              >
+                📋 Copy to Clipboard
+              </button>
+              <button 
+                onClick={() => {
+                  setShowPrivateKey(false);
+                  setPrivateKey('');
+                }}
+                className="btn btn-primary text-sm flex-1"
+              >
+                ✓ I've Saved It Safely
+              </button>
+            </div>
+              
+            <p className="text-red-300 text-xs mt-3 text-center">
+              💡 Tip: Save this key in a password manager or write it down and store it securely offline
+            </p>
           </div>
         </div>
       )}

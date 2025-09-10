@@ -1,14 +1,32 @@
-// StoreDetailsTab.js - Tab content components
+// StoreDetailsTab.js - Complete Component with Admin Integration (Part 1)
 import { useState, useEffect, useCallback } from 'react';
 import api from '@/lib/api';
 
 export const StoreDetailsTab = ({
   activeTab, store, edit, setEdit, saving, err, saveStore, setFromStore,
-  StatusBadge, ownerText, CAN_EDIT, CAN_WALLET, wallet, wLoading, wErr, wMsg,
-  machines, machineStats, machinesLoading, machinesError, selectedMachines, setSelectedMachines,
-  reconciliations, reportsLoading, reportsError, showSubmitForm, setShowSubmitForm,
-  currentMiningRevenue, setCurrentMiningRevenue, setShowAddMachine, setShowBulkModal, SOLSCAN
+  StatusBadge, ownerText, CAN_EDIT, CAN_WALLET, showSubmitForm, setShowSubmitForm,
+  setShowAddMachine, setShowBulkModal, SOLSCAN, onMachineStatsUpdate,
+  userRole // Added userRole prop
 }) => {
+
+  const [machines, setMachines] = useState([]);
+  const [machineStats, setMachineStats] = useState({ total: 0, active: 0, inactive: 0, maintenance: 0 });
+  const [machinesLoading, setMachinesLoading] = useState(false);
+  const [machinesError, setMachinesError] = useState('');
+
+  const [wallet, setWallet] = useState({ exists: false, publicKey: null, balances: null });
+  const [wLoading, setWLoading] = useState(false);
+  const [wErr, setWErr] = useState('');
+  const [wMsg, setWMsg] = useState('');
+
+  const [reconciliations, setReconciliations] = useState([]);
+  const [reportsLoading, setReportsLoading] = useState(false);
+  const [reportsError, setReportsError] = useState('');
+  const [selectedMachines, setSelectedMachines] = useState([]);
+
+  // Check if user is admin
+  const isAdmin = userRole === 'admin' || userRole === 'super_admin';
+
   // Wallet handlers
   const generateWallet = async () => {
     try {
@@ -87,7 +105,7 @@ export const StoreDetailsTab = ({
     } finally {
       setWLoading(false);
     }
-  }, [store]);
+  }, [store, CAN_WALLET]);
 
   const refreshWallet = () => fetchWallet(store);
 
@@ -108,12 +126,17 @@ export const StoreDetailsTab = ({
         maintenance: machineList.filter(m => m.status === 'maintenance').length
       };
       setMachineStats(stats);
+      
+      // Update parent component with machine stats
+      if (onMachineStatsUpdate) {
+        onMachineStatsUpdate(stats);
+      }
     } catch (err) {
       setMachinesError(err?.response?.data?.error || 'Failed to load machines');
     } finally {
       setMachinesLoading(false);
     }
-  }, [store]);
+  }, [store, onMachineStatsUpdate]);
 
   const updateMachineStatus = async (machineId, newStatus) => {
     try {
@@ -189,6 +212,37 @@ export const StoreDetailsTab = ({
     }
   }, [store]);
 
+  // Payment handlers for reports
+  const handleMarkPaymentSent = async (reportId, amount) => {
+    try {
+      await api.put(`/api/admin/reconciliation/${store.storeId}/${reportId}/payment-sent`, {
+        amountSent: amount,
+        sentAt: new Date().toISOString(),
+        method: 'pending'
+      });
+      await fetchReports();
+      alert(`Payment of $${amount.toFixed(2)} marked as sent`);
+    } catch (err) {
+      console.error('Failed to mark payment as sent:', err);
+      setReportsError('Failed to update payment status');
+    }
+  };
+
+  const handleConfirmPayment = async (reportId, amount) => {
+    try {
+      await api.put(`/api/admin/reconciliation/${store.storeId}/${reportId}/confirm-payment`, {
+        amountReceived: amount,
+        receivedAt: new Date().toISOString(),
+        confirmationNotes: 'Payment confirmed by admin'
+      });
+      await fetchReports();
+      alert(`Payment of $${amount.toFixed(2)} confirmed and settled`);
+    } catch (err) {
+      console.error('Failed to confirm payment:', err);
+      setReportsError('Failed to confirm payment');
+    }
+  };
+
   // Load data when tab changes
   useEffect(() => {
     if (activeTab === 'wallet' && store) {
@@ -200,6 +254,7 @@ export const StoreDetailsTab = ({
     }
   }, [activeTab, store, fetchWallet, fetchMachines, fetchReports]);
 
+  // DETAILS TAB
   if (activeTab === 'details') {
     return (
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -218,122 +273,97 @@ export const StoreDetailsTab = ({
                     onChange={(e) => setEdit(v => ({ ...v, storeName: e.target.value }))}
                     placeholder="Enter store name"
                   />
-                  <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-yellow-400/5 to-amber-500/5 opacity-0 focus-within:opacity-100 transition-opacity duration-200 pointer-events-none"></div>
                 </div>
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-gray-200 mb-3">Status</label>
-                <div className="relative">
-                  <select 
-                    className="w-full px-4 py-4 bg-gray-700/30 border border-gray-600/50 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-yellow-400/50 focus:border-yellow-400/50 transition-all duration-200 backdrop-blur-sm" 
-                    value={edit.status} 
-                    onChange={(e) => setEdit(v => ({ ...v, status: e.target.value }))}
-                  >
-                    <option value="active">Active</option>
-                    <option value="inactive">Inactive</option>
-                    <option value="maintenance">Maintenance</option>
-                    <option value="pending">Pending</option>
-                    <option value="suspended">Suspended</option>
-                    <option value="archived">Archived</option>
-                  </select>
-                  <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-yellow-400/5 to-amber-500/5 opacity-0 focus-within:opacity-100 transition-opacity duration-200 pointer-events-none"></div>
-                </div>
+                <select 
+                  className="w-full px-4 py-4 bg-gray-700/30 border border-gray-600/50 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-yellow-400/50 focus:border-yellow-400/50 transition-all duration-200 backdrop-blur-sm" 
+                  value={edit.status} 
+                  onChange={(e) => setEdit(v => ({ ...v, status: e.target.value }))}
+                >
+                  <option value="active">Active</option>
+                  <option value="inactive">Inactive</option>
+                  <option value="maintenance">Maintenance</option>
+                  <option value="pending">Pending</option>
+                  <option value="suspended">Suspended</option>
+                  <option value="archived">Archived</option>
+                </select>
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-gray-200 mb-3">City</label>
-                <div className="relative">
-                  <input 
-                    className="w-full px-4 py-4 bg-gray-700/30 border border-gray-600/50 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-yellow-400/50 focus:border-yellow-400/50 transition-all duration-200 backdrop-blur-sm" 
-                    value={edit.city} 
-                    onChange={(e) => setEdit(v => ({ ...v, city: e.target.value }))}
-                    placeholder="Enter city"
-                  />
-                  <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-yellow-400/5 to-amber-500/5 opacity-0 focus-within:opacity-100 transition-opacity duration-200 pointer-events-none"></div>
-                </div>
+                <input 
+                  className="w-full px-4 py-4 bg-gray-700/30 border border-gray-600/50 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-yellow-400/50 focus:border-yellow-400/50 transition-all duration-200 backdrop-blur-sm" 
+                  value={edit.city} 
+                  onChange={(e) => setEdit(v => ({ ...v, city: e.target.value }))}
+                  placeholder="Enter city"
+                />
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-gray-200 mb-3">State</label>
-                <div className="relative">
-                  <input 
-                    className="w-full px-4 py-4 bg-gray-700/30 border border-gray-600/50 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-yellow-400/50 focus:border-yellow-400/50 transition-all duration-200 backdrop-blur-sm" 
-                    value={edit.state} 
-                    onChange={(e) => setEdit(v => ({ ...v, state: e.target.value }))}
-                    placeholder="Enter state"
-                  />
-                  <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-yellow-400/5 to-amber-500/5 opacity-0 focus-within:opacity-100 transition-opacity duration-200 pointer-events-none"></div>
-                </div>
+                <input 
+                  className="w-full px-4 py-4 bg-gray-700/30 border border-gray-600/50 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-yellow-400/50 focus:border-yellow-400/50 transition-all duration-200 backdrop-blur-sm" 
+                  value={edit.state} 
+                  onChange={(e) => setEdit(v => ({ ...v, state: e.target.value }))}
+                  placeholder="Enter state"
+                />
               </div>
 
               <div className="md:col-span-2">
                 <label className="block text-sm font-medium text-gray-200 mb-3">Address</label>
-                <div className="relative">
-                  <input 
-                    className="w-full px-4 py-4 bg-gray-700/30 border border-gray-600/50 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-yellow-400/50 focus:border-yellow-400/50 transition-all duration-200 backdrop-blur-sm" 
-                    value={edit.address} 
-                    onChange={(e) => setEdit(v => ({ ...v, address: e.target.value }))}
-                    placeholder="Enter full address"
-                  />
-                  <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-yellow-400/5 to-amber-500/5 opacity-0 focus-within:opacity-100 transition-opacity duration-200 pointer-events-none"></div>
-                </div>
+                <input 
+                  className="w-full px-4 py-4 bg-gray-700/30 border border-gray-600/50 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-yellow-400/50 focus:border-yellow-400/50 transition-all duration-200 backdrop-blur-sm" 
+                  value={edit.address} 
+                  onChange={(e) => setEdit(v => ({ ...v, address: e.target.value }))}
+                  placeholder="Enter full address"
+                />
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-gray-200 mb-3">ZIP Code</label>
-                <div className="relative">
-                  <input 
-                    className="w-full px-4 py-4 bg-gray-700/30 border border-gray-600/50 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-yellow-400/50 focus:border-yellow-400/50 transition-all duration-200 backdrop-blur-sm" 
-                    value={edit.zipCode} 
-                    onChange={(e) => setEdit(v => ({ ...v, zipCode: e.target.value }))}
-                    placeholder="Enter ZIP code"
-                  />
-                  <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-yellow-400/5 to-amber-500/5 opacity-0 focus-within:opacity-100 transition-opacity duration-200 pointer-events-none"></div>
-                </div>
+                <input 
+                  className="w-full px-4 py-4 bg-gray-700/30 border border-gray-600/50 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-yellow-400/50 focus:border-yellow-400/50 transition-all duration-200 backdrop-blur-sm" 
+                  value={edit.zipCode} 
+                  onChange={(e) => setEdit(v => ({ ...v, zipCode: e.target.value }))}
+                  placeholder="Enter ZIP code"
+                />
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-gray-200 mb-3">Phone</label>
-                <div className="relative">
-                  <input 
-                    className="w-full px-4 py-4 bg-gray-700/30 border border-gray-600/50 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-yellow-400/50 focus:border-yellow-400/50 transition-all duration-200 backdrop-blur-sm" 
-                    value={edit.phone} 
-                    onChange={(e) => setEdit(v => ({ ...v, phone: e.target.value }))}
-                    placeholder="Enter phone number"
-                  />
-                  <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-yellow-400/5 to-amber-500/5 opacity-0 focus-within:opacity-100 transition-opacity duration-200 pointer-events-none"></div>
-                </div>
+                <input 
+                  className="w-full px-4 py-4 bg-gray-700/30 border border-gray-600/50 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-yellow-400/50 focus:border-yellow-400/50 transition-all duration-200 backdrop-blur-sm" 
+                  value={edit.phone} 
+                  onChange={(e) => setEdit(v => ({ ...v, phone: e.target.value }))}
+                  placeholder="Enter phone number"
+                />
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-gray-200 mb-3">Fee Percentage</label>
-                <div className="relative">
-                  <input 
-                    type="number" 
-                    min="0" 
-                    max="100" 
-                    step="0.1" 
-                    className="w-full px-4 py-4 bg-gray-700/30 border border-gray-600/50 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-yellow-400/50 focus:border-yellow-400/50 transition-all duration-200 backdrop-blur-sm" 
-                    value={edit.feePercentage} 
-                    onChange={(e) => setEdit(v => ({ ...v, feePercentage: e.target.value }))}
-                    placeholder="5.0"
-                  />
-                  <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-yellow-400/5 to-amber-500/5 opacity-0 focus-within:opacity-100 transition-opacity duration-200 pointer-events-none"></div>
-                </div>
+                <input 
+                  type="number" 
+                  min="0" 
+                  max="100" 
+                  step="0.1" 
+                  className="w-full px-4 py-4 bg-gray-700/30 border border-gray-600/50 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-yellow-400/50 focus:border-yellow-400/50 transition-all duration-200 backdrop-blur-sm" 
+                  value={edit.feePercentage} 
+                  onChange={(e) => setEdit(v => ({ ...v, feePercentage: e.target.value }))}
+                  placeholder="5.0"
+                />
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-gray-200 mb-3">Owner User ID</label>
-                <div className="relative">
-                  <input 
-                    className="w-full px-4 py-4 bg-gray-700/30 border border-gray-600/50 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-yellow-400/50 focus:border-yellow-400/50 transition-all duration-200 backdrop-blur-sm" 
-                    value={edit.ownerUserId} 
-                    onChange={(e) => setEdit(v => ({ ...v, ownerUserId: e.target.value }))}
-                    placeholder="Enter owner user ID"
-                  />
-                  <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-yellow-400/5 to-amber-500/5 opacity-0 focus-within:opacity-100 transition-opacity duration-200 pointer-events-none"></div>
-                </div>
+                <input 
+                  className="w-full px-4 py-4 bg-gray-700/30 border border-gray-600/50 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-yellow-400/50 focus:border-yellow-400/50 transition-all duration-200 backdrop-blur-sm" 
+                  value={edit.ownerUserId} 
+                  onChange={(e) => setEdit(v => ({ ...v, ownerUserId: e.target.value }))}
+                  placeholder="Enter owner user ID"
+                />
               </div>
 
               {CAN_EDIT && (
@@ -350,14 +380,7 @@ export const StoreDetailsTab = ({
                     className="px-8 py-3 bg-gradient-to-r from-yellow-400 to-amber-500 hover:from-yellow-500 hover:to-amber-600 disabled:from-gray-600 disabled:to-gray-700 disabled:cursor-not-allowed text-black font-semibold rounded-xl transition-all duration-300 transform hover:scale-105 disabled:hover:scale-100 shadow-lg" 
                     disabled={saving}
                   >
-                    {saving ? (
-                      <div className="flex items-center">
-                        <div className="w-5 h-5 border-2 border-black border-t-transparent rounded-full animate-spin mr-2"></div>
-                        Saving...
-                      </div>
-                    ) : (
-                      'Save Changes'
-                    )}
+                    {saving ? 'Saving...' : 'Save Changes'}
                   </button>
                 </div>
               )}
@@ -396,12 +419,18 @@ export const StoreDetailsTab = ({
               <div className="text-gray-400 text-sm font-medium mb-2">Current Status</div>
               <StatusBadge status={store.status} />
             </div>
+            {isAdmin && (
+              <div className="pt-4 border-t border-gray-700/50">
+                <div className="text-yellow-400 text-sm font-medium">Admin Mode Active</div>
+              </div>
+            )}
           </div>
         </div>
       </div>
     );
   }
 
+  // WALLET TAB
   if (activeTab === 'wallet') {
     return (
       <div className="bg-gray-800/30 backdrop-blur-xl rounded-2xl p-8 border border-gray-700/50">
@@ -453,7 +482,6 @@ export const StoreDetailsTab = ({
           </div>
         ) : (
           <div className="space-y-6">
-            {/* Wallet Address */}
             <div>
               <div className="text-gray-400 text-sm font-medium mb-2">Wallet Address</div>
               <div className="flex items-center space-x-3">
@@ -471,7 +499,6 @@ export const StoreDetailsTab = ({
               </div>
             </div>
 
-            {/* Balances */}
             {wallet.balances && (
               <div>
                 <div className="text-gray-400 text-sm font-medium mb-4">Token Balances</div>
@@ -488,7 +515,6 @@ export const StoreDetailsTab = ({
               </div>
             )}
 
-            {/* Actions */}
             <div className="flex items-center space-x-4 pt-4">
               <button
                 onClick={refreshWallet}
@@ -504,6 +530,7 @@ export const StoreDetailsTab = ({
     );
   }
 
+  // MACHINES TAB
   if (activeTab === 'machines') {
     return (
       <div className="space-y-6">
@@ -600,6 +627,7 @@ export const StoreDetailsTab = ({
                     <th className="text-left py-4 px-6 text-gray-300 font-medium">Name</th>
                     <th className="text-left py-4 px-6 text-gray-300 font-medium">Location</th>
                     <th className="text-left py-4 px-6 text-gray-300 font-medium">Type</th>
+                    <th className="text-left py-4 px-6 text-gray-300 font-medium">Serial Number</th>
                     <th className="text-left py-4 px-6 text-gray-300 font-medium">Status</th>
                     <th className="text-left py-4 px-6 text-gray-300 font-medium">Last Seen</th>
                     <th className="text-left py-4 px-6 text-gray-300 font-medium">Actions</th>
@@ -626,6 +654,7 @@ export const StoreDetailsTab = ({
                       <td className="py-4 px-6 text-white">{machine.name}</td>
                       <td className="py-4 px-6 text-gray-300">{machine.location || '—'}</td>
                       <td className="py-4 px-6 text-gray-300">{machine.gameType || 'slot'}</td>
+                      <td className="py-4 px-6 font-mono text-xs text-blue-400">{machine.serialNumber || '—'}</td>
                       <td className="py-4 px-6">
                         <StatusBadge status={machine.status} />
                       </td>
@@ -662,136 +691,277 @@ export const StoreDetailsTab = ({
     );
   }
 
+  // REPORTS TAB WITH ADMIN FUNCTIONALITY
   if (activeTab === 'reports') {
     return (
       <div className="space-y-6">
-        {/* Reports Header */}
-        <div className="flex items-center justify-between">
-          <h2 className="text-2xl font-bold text-white">Reconciliation Reports</h2>
-          <button
-            onClick={() => setShowSubmitForm(true)}
-            className="px-6 py-3 bg-gradient-to-r from-yellow-400 to-amber-500 hover:from-yellow-500 hover:to-amber-600 text-black font-semibold rounded-xl transition-all duration-300 transform hover:scale-105"
-          >
-            Submit Report
-          </button>
+        {/* Financial Overview Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="bg-gray-800/30 backdrop-blur-xl rounded-2xl p-6 border border-gray-700/50">
+            <div className="text-gray-400 text-sm font-medium mb-2">Total Revenue (30d)</div>
+            <div className="text-2xl font-bold text-green-400">
+              ${reconciliations.reduce((sum, r) => sum + (r.grossRevenue || r.venueGamingRevenue || 0), 0).toFixed(2)}
+            </div>
+            <div className="text-xs text-gray-500 mt-1">Cash collected from machines</div>
+          </div>
+          
+          <div className="bg-gray-800/30 backdrop-blur-xl rounded-2xl p-6 border border-gray-700/50">
+            <div className="text-gray-400 text-sm font-medium mb-2">You Owe Gambino</div>
+            <div className="text-2xl font-bold text-blue-400">
+              ${reconciliations.filter(r => r.settlementStatus !== 'settled').reduce((sum, r) => {
+                const revenue = r.grossRevenue || r.venueGamingRevenue || 0;
+                const yourShare = revenue * ((store.feePercentage || 0) / 100);
+                return sum + (revenue - yourShare);
+              }, 0).toFixed(2)}
+            </div>
+            <div className="text-xs text-gray-500 mt-1">After your {store.feePercentage || 0}% fee</div>
+          </div>
+          
+          <div className="bg-gray-800/30 backdrop-blur-xl rounded-2xl p-6 border border-gray-700/50">
+            <div className="text-gray-400 text-sm font-medium mb-2">Your Earnings</div>
+            <div className="text-2xl font-bold text-yellow-400">
+              ${reconciliations.reduce((sum, r) => {
+                const revenue = r.grossRevenue || r.venueGamingRevenue || 0;
+                return sum + (revenue * ((store.feePercentage || 0) / 100));
+              }, 0).toFixed(2)}
+            </div>
+            <div className="text-xs text-gray-500 mt-1">{store.feePercentage || 0}% of revenue</div>
+          </div>
+          
+          <div className="bg-gray-800/30 backdrop-blur-xl rounded-2xl p-6 border border-gray-700/50">
+            <div className="text-gray-400 text-sm font-medium mb-2">Pending Payment</div>
+            <div className="text-2xl font-bold text-orange-400">
+              ${reconciliations.filter(r => !r.settlementStatus || r.settlementStatus === 'pending').reduce((sum, r) => {
+                const revenue = r.grossRevenue || r.venueGamingRevenue || 0;
+                const yourShare = revenue * ((store.feePercentage || 0) / 100);
+                return sum + (revenue - yourShare);
+              }, 0).toFixed(2)}
+            </div>
+            <div className="text-xs text-gray-500 mt-1">Awaiting your payment</div>
+          </div>
         </div>
 
-        {/* Submit Form */}
-        {showSubmitForm && (
-          <div className="bg-gray-800/30 backdrop-blur-xl rounded-2xl p-8 border border-gray-700/50">
-            <h3 className="text-xl font-bold text-white mb-6">Submit Reconciliation Report</h3>
-            <form onSubmit={handleSubmitReport} className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <label className="block text-sm font-medium text-gray-200 mb-3">Date</label>
-                  <input
-                    type="date"
-                    name="date"
-                    defaultValue={new Date().toISOString().split('T')[0]}
-                    className="w-full px-4 py-3 bg-gray-700/30 border border-gray-600/50 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-yellow-400/50"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-200 mb-3">Gaming Revenue</label>
-                  <input
-                    type="number"
-                    name="miningRevenue"
-                    step="0.01"
-                    placeholder="0.00"
-                    className="w-full px-4 py-3 bg-gray-700/30 border border-gray-600/50 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-yellow-400/50"
-                  />
-                </div>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-200 mb-3">Notes</label>
-                <textarea
-                  name="notes"
-                  rows="3"
-                  placeholder="Optional notes..."
-                  className="w-full px-4 py-3 bg-gray-700/30 border border-gray-600/50 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-yellow-400/50"
-                />
-              </div>
-              <div className="flex items-center space-x-4">
-                <button
-                  type="submit"
-                  disabled={reportsLoading}
-                  className="px-6 py-3 bg-gradient-to-r from-yellow-400 to-amber-500 hover:from-yellow-500 hover:to-amber-600 disabled:from-gray-600 disabled:to-gray-700 text-black font-semibold rounded-xl transition-all duration-300"
-                >
-                  {reportsLoading ? 'Submitting...' : 'Submit Report'}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setShowSubmitForm(false)}
-                  className="px-6 py-3 bg-gray-700/30 hover:bg-gray-600/30 text-gray-300 hover:text-white font-medium rounded-xl transition-all duration-200 border border-gray-600/50"
-                >
-                  Cancel
-                </button>
-              </div>
-            </form>
+        {/* Action Buttons */}
+        <div className="flex items-center justify-between">
+          <h2 className="text-2xl font-bold text-white">
+            Daily Cash Reports
+            {isAdmin && <span className="text-yellow-400 text-sm ml-2">(Admin View)</span>}
+          </h2>
+          <div className="flex space-x-3">
+            <button
+              onClick={() => setShowSubmitForm(true)}
+              className="px-6 py-3 bg-gradient-to-r from-yellow-400 to-amber-500 hover:from-yellow-500 hover:to-amber-600 text-black font-semibold rounded-xl transition-all duration-300 transform hover:scale-105"
+            >
+              Report Daily Collection
+            </button>
+            <button
+              onClick={fetchReports}
+              disabled={reportsLoading}
+              className="px-4 py-3 bg-gray-700/50 hover:bg-gray-600/50 text-white font-medium rounded-xl transition-colors border border-gray-600/30"
+            >
+              {reportsLoading ? 'Loading...' : 'Refresh'}
+            </button>
           </div>
-        )}
+        </div>
 
-        {/* Reports List */}
+        {/* Reports Table with Admin Controls */}
         <div className="bg-gray-800/30 backdrop-blur-xl rounded-2xl border border-gray-700/50 overflow-hidden">
-          {reportsLoading ? (
-            <div className="flex items-center justify-center py-12">
-              <div className="text-center">
-                <div className="w-8 h-8 border-2 border-yellow-400 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-                <div className="text-white">Loading reports...</div>
-              </div>
-            </div>
-          ) : reportsError ? (
-            <div className="p-8 text-center">
-              <div className="text-red-400 text-4xl mb-4">⚠️</div>
-              <div className="text-red-200 font-medium">{reportsError}</div>
-            </div>
-          ) : reconciliations.length === 0 ? (
-            <div className="p-8 text-center">
-              <div className="text-gray-400 text-6xl mb-4">📊</div>
-              <h3 className="text-xl font-semibold text-white mb-2">No Reports Found</h3>
-              <p className="text-gray-400 mb-6">No reconciliation reports have been submitted yet.</p>
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
+          <h3 className="text-lg font-bold text-white p-6 border-b border-gray-700/50">
+            Daily Reports & Payments
+          </h3>
+          
+          <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
                   <tr className="border-b border-gray-700/50">
                     <th className="text-left py-4 px-6 text-gray-300 font-medium">Date</th>
-                    <th className="text-left py-4 px-6 text-gray-300 font-medium">Gaming Revenue</th>
-                    <th className="text-left py-4 px-6 text-gray-300 font-medium">Notes</th>
-                    <th className="text-left py-4 px-6 text-gray-300 font-medium">Submitted</th>
+                    <th className="text-left py-4 px-6 text-gray-300 font-medium">Total Collected</th>
+                    <th className="text-left py-4 px-6 text-gray-300 font-medium">Venue Keeps</th>
+                    <th className="text-left py-4 px-6 text-gray-300 font-medium">Service Fee (Owed to Gambino)</th>
+                    <th className="text-left py-4 px-6 text-gray-300 font-medium">Status</th>
+                    <th className="text-left py-4 px-6 text-gray-300 font-medium">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {reconciliations.map((report, index) => (
-                    <tr key={index} className="border-b border-gray-700/30 hover:bg-gray-700/20">
-                      <td className="py-4 px-6 text-white">
-                        {new Date(report.reconciliationDate).toLocaleDateString()}
-                      </td>
-                      <td className="py-4 px-6 text-green-400 font-medium">
-                        ${Number(report.venueGamingRevenue || 0).toLocaleString()}
-                      </td>
-                      <td className="py-4 px-6 text-gray-300">
-                        {report.notes || '—'}
-                      </td>
-                      <td className="py-4 px-6 text-gray-400 text-sm">
-                        {report.createdAt ? new Date(report.createdAt).toLocaleString() : '—'}
-                      </td>
-                    </tr>
-                  ))}
+                  {reconciliations.map((report, index) => {
+                    const revenue = report.grossRevenue || report.venueGamingRevenue || 0;
+                    const feePercent = store.feePercentage || report.softwareFeePercentage || 0;
+
+                    // FIXED CALCULATION
+                    const serviceFeeToGambino = revenue * (feePercent / 100);  // 5% to Gambino
+                    const venueKeeps = revenue - serviceFeeToGambino;  // 95% venue keeps
+
+                    return (
+                      <tr key={report._id || index} className="border-b border-gray-700/30 hover:bg-gray-700/20">
+                        <td className="py-4 px-6 text-white">
+                          {new Date(report.reconciliationDate || report.date).toLocaleDateString()}
+                        </td>
+                        <td className="py-4 px-6 text-green-400 font-medium">
+                          ${Number(revenue).toLocaleString()}
+                        </td>
+                        <td className="py-4 px-6 text-yellow-400">
+                          ${Number(venueKeeps).toFixed(2)}
+                          <span className="text-gray-500 text-xs ml-1">({100 - feePercent}%)</span>
+                        </td>
+                        <td className="py-4 px-6 text-blue-400 font-bold">
+                          ${Number(serviceFeeToGambino).toFixed(2)}
+                          <span className="text-gray-500 text-xs ml-1">({feePercent}%)</span>
+                        </td>
+                        <td className="py-4 px-6">
+                          <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
+                            report.settlementStatus === 'settled' ? 
+                              'bg-green-900/30 border border-green-500/30 text-green-300' :
+                            report.settlementStatus === 'payment_sent' ? 
+                              'bg-blue-900/30 border border-blue-500/30 text-blue-300' :
+                            report.settlementStatus === 'partial' ? 
+                              'bg-yellow-900/30 border border-yellow-500/30 text-yellow-300' :
+                              'bg-red-900/30 border border-red-500/30 text-red-300'
+                          }`}>
+                            {report.settlementStatus === 'payment_sent' ? 'Payment Sent' : 
+                             report.settlementStatus === 'settled' ? 'Settled' :
+                             report.settlementStatus || 'Unpaid'}
+                          </span>
+                        </td>
+                        <td className="py-4 px-6">
+                          <div className="flex flex-wrap gap-2">
+                            {/* Venue Manager Actions */}
+                            {(!report.settlementStatus || 
+                              (report.settlementStatus !== 'settled' && 
+                               report.settlementStatus !== 'payment_sent')) && (
+                              <button 
+                                onClick={() => {
+                                  if (confirm(`Mark payment of $${serviceFeeToGambino.toFixed(2)} as sent for ${new Date(report.reconciliationDate).toLocaleDateString()}?`)) {
+                                    handleMarkPaymentSent(report._id, serviceFeeToGambino);
+                                  }
+                                }}
+                                className="px-3 py-1 bg-blue-600/80 hover:bg-blue-600 text-white text-sm rounded-lg transition-colors"
+                              >
+                                Mark Payment Sent
+                              </button>
+                            )}
+
+                            {/* Admin Actions - Confirm Receipt */}
+                            {isAdmin && report.settlementStatus === 'payment_sent' && (
+                              <button 
+                                onClick={() => {
+                                  if (confirm(`Confirm receipt of $${serviceFeeToGambino.toFixed(2)} for ${new Date(report.reconciliationDate).toLocaleDateString()}?`)) {
+                                    handleConfirmPayment(report._id, serviceFeeToGambino);
+                                  }
+                                }}
+                                className="px-3 py-1 bg-green-600/80 hover:bg-green-600 text-white text-sm rounded-lg transition-colors"
+                              >
+                                ✓ Confirm Receipt
+                              </button>
+                            )}
+
+                            {/* Admin can also directly settle unpaid reports */}
+                            {isAdmin && (!report.settlementStatus || 
+                              report.settlementStatus === 'unsettled' || 
+                              report.settlementStatus === 'pending') && (
+                              <button 
+                                onClick={() => {
+                                  if (confirm(`Mark as settled (payment received) for $${serviceFeeToGambino.toFixed(2)}?`)) {
+                                    handleConfirmPayment(report._id, serviceFeeToGambino);
+                                  }
+                                }}
+                                className="px-3 py-1 bg-purple-600/80 hover:bg-purple-600 text-white text-sm rounded-lg transition-colors"
+                              >
+                                Direct Settle
+                              </button>
+                            )}
+
+                            {/* Status messages */}
+                            {report.settlementStatus === 'payment_sent' && !isAdmin && (
+                              <span className="text-blue-400 text-sm">
+                                Awaiting Admin Confirmation
+                              </span>
+                            )}
+
+                            {report.settlementStatus === 'settled' && (
+                              <span className="text-green-400 text-sm">
+                                ✓ Settled
+                              </span>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
-          )}
-        </div>
+          </div>
+
+        {/* Submit Report Form Modal */}
+        {showSubmitForm && (
+          <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+            <div className="bg-gray-800/90 backdrop-blur-xl rounded-2xl border border-gray-700/50 w-full max-w-lg">
+              <div className="p-8">
+                <h3 className="text-2xl font-bold text-white mb-6">Submit Daily Report</h3>
+                
+                <form onSubmit={handleSubmitReport} className="space-y-6">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-200 mb-2">Date</label>
+                    <input 
+                      type="date" 
+                      name="date"
+                      defaultValue={new Date().toISOString().split('T')[0]}
+                      className="w-full px-4 py-3 bg-gray-700/30 border border-gray-600/50 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-yellow-400/50" 
+                      required
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-200 mb-2">Mining Revenue ($)</label>
+                    <input 
+                      type="number" 
+                      name="miningRevenue"
+                      step="0.01"
+                      placeholder="0.00"
+                      className="w-full px-4 py-3 bg-gray-700/30 border border-gray-600/50 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-yellow-400/50" 
+                      required
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-200 mb-2">Notes (Optional)</label>
+                    <textarea 
+                      name="notes"
+                      rows="3"
+                      className="w-full px-4 py-3 bg-gray-700/30 border border-gray-600/50 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-yellow-400/50" 
+                      placeholder="Add any notes..."
+                    />
+                  </div>
+                  
+                  <div className="flex justify-end space-x-3 pt-4">
+                    <button 
+                      type="button"
+                      onClick={() => setShowSubmitForm(false)}
+                      className="px-6 py-3 bg-gray-700/30 hover:bg-gray-600/30 text-gray-300 hover:text-white font-medium rounded-xl transition-all duration-200 border border-gray-600/50"
+                    >
+                      Cancel
+                    </button>
+                    <button 
+                      type="submit"
+                      disabled={reportsLoading}
+                      className="px-6 py-3 bg-gradient-to-r from-yellow-400 to-amber-500 hover:from-yellow-500 hover:to-amber-600 text-black font-semibold rounded-xl transition-all duration-300"
+                    >
+                      {reportsLoading ? 'Submitting...' : 'Submit Report'}
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     );
   }
 
+  // ANALYTICS TAB
   if (activeTab === 'analytics') {
     return (
       <div className="space-y-6">
-        {/* Coming Soon */}
         <div className="bg-gray-800/30 backdrop-blur-xl rounded-2xl p-12 border border-gray-700/50 text-center">
           <div className="text-gray-400 text-8xl mb-6">📈</div>
           <h2 className="text-3xl font-bold text-white mb-4">Analytics Dashboard</h2>
@@ -816,6 +986,11 @@ export const StoreDetailsTab = ({
               <p className="text-gray-400 text-sm">Compare performance across stores</p>
             </div>
           </div>
+          {isAdmin && (
+            <div className="mt-8 text-yellow-400 text-sm">
+              Admin features will include cross-store analytics and system-wide reports
+            </div>
+          )}
         </div>
       </div>
     );
@@ -823,3 +998,4 @@ export const StoreDetailsTab = ({
 
   return null;
 };
+

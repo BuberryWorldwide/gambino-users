@@ -1,5 +1,6 @@
+// src/app/layout.js (Server Component)
 import './globals.css';
-import Navbar from '@/components/Navbar';
+import ConditionalNavbar from '@/components/ConditionalNavbar';
 
 export const metadata = {
   title: 'Gambino Users • Farm Luck, Mine Destiny',
@@ -47,7 +48,9 @@ export default function RootLayout({ children }) {
 
         {/* App content with proper mobile handling */}
         <div className="relative z-10 min-h-screen flex flex-col">
-          <Navbar />
+          {/* Conditional Navbar - handled by client component */}
+          <ConditionalNavbar />
+          
           <main className="flex-1">
             {children}
           </main>
