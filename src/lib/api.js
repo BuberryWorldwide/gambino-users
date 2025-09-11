@@ -81,13 +81,6 @@ api.interceptors.response.use(
   (error) => {
     const { response, config } = error;
     
-    console.error('❌ API Error:', {
-      url: config?.url,
-      method: config?.method?.toUpperCase(),
-      status: response?.status,
-      error: response?.data?.error || error.message,
-      code: response?.data?.code
-    });
 
     // Handle authentication errors (401)
     if (response?.status === 401) {
