@@ -25,7 +25,9 @@ export const StoreDetailsTab = ({
   const [selectedMachines, setSelectedMachines] = useState([]);
 
   // Check if user is admin
-  const isAdmin = userRole === 'admin' || userRole === 'super_admin';
+  const isAdmin = userRole === 'super_admin' || userRole === 'gambino_ops';
+  console.log('User role:', userRole, 'Is admin?:', isAdmin);
+
 
   // Wallet handlers
   const generateWallet = async () => {
@@ -692,271 +694,283 @@ export const StoreDetailsTab = ({
   }
 
   // REPORTS TAB WITH ADMIN FUNCTIONALITY
-  if (activeTab === 'reports') {
-    return (
-      <div className="space-y-6">
-        {/* Financial Overview Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <div className="bg-gray-800/30 backdrop-blur-xl rounded-2xl p-6 border border-gray-700/50">
-            <div className="text-gray-400 text-sm font-medium mb-2">Total Revenue (30d)</div>
-            <div className="text-2xl font-bold text-green-400">
-              ${reconciliations.reduce((sum, r) => sum + (r.grossRevenue || r.venueGamingRevenue || 0), 0).toFixed(2)}
-            </div>
-            <div className="text-xs text-gray-500 mt-1">Cash collected from machines</div>
+  // REPORTS TAB WITH CLEANER DESIGN
+if (activeTab === 'reports') {
+  return (
+    <div className="space-y-6">
+      {/* Financial Overview Cards - Muted colors */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="bg-gray-800/40 backdrop-blur-sm rounded-xl p-6 border border-gray-700/30">
+          <div className="text-gray-500 text-xs font-medium uppercase tracking-wider mb-2">Total Revenue (30d)</div>
+          <div className="text-2xl font-semibold text-white">
+            ${reconciliations.reduce((sum, r) => sum + (r.grossRevenue || r.venueGamingRevenue || 0), 0).toFixed(2)}
           </div>
-          
-          <div className="bg-gray-800/30 backdrop-blur-xl rounded-2xl p-6 border border-gray-700/50">
-            <div className="text-gray-400 text-sm font-medium mb-2">You Owe Gambino</div>
-            <div className="text-2xl font-bold text-blue-400">
-              ${reconciliations.filter(r => r.settlementStatus !== 'settled').reduce((sum, r) => {
-                const revenue = r.grossRevenue || r.venueGamingRevenue || 0;
-                const yourShare = revenue * ((store.feePercentage || 0) / 100);
-                return sum + (revenue - yourShare);
-              }, 0).toFixed(2)}
-            </div>
-            <div className="text-xs text-gray-500 mt-1">After your {store.feePercentage || 0}% fee</div>
-          </div>
-          
-          <div className="bg-gray-800/30 backdrop-blur-xl rounded-2xl p-6 border border-gray-700/50">
-            <div className="text-gray-400 text-sm font-medium mb-2">Your Earnings</div>
-            <div className="text-2xl font-bold text-yellow-400">
-              ${reconciliations.reduce((sum, r) => {
-                const revenue = r.grossRevenue || r.venueGamingRevenue || 0;
-                return sum + (revenue * ((store.feePercentage || 0) / 100));
-              }, 0).toFixed(2)}
-            </div>
-            <div className="text-xs text-gray-500 mt-1">{store.feePercentage || 0}% of revenue</div>
-          </div>
-          
-          <div className="bg-gray-800/30 backdrop-blur-xl rounded-2xl p-6 border border-gray-700/50">
-            <div className="text-gray-400 text-sm font-medium mb-2">Pending Payment</div>
-            <div className="text-2xl font-bold text-orange-400">
-              ${reconciliations.filter(r => !r.settlementStatus || r.settlementStatus === 'pending').reduce((sum, r) => {
-                const revenue = r.grossRevenue || r.venueGamingRevenue || 0;
-                const yourShare = revenue * ((store.feePercentage || 0) / 100);
-                return sum + (revenue - yourShare);
-              }, 0).toFixed(2)}
-            </div>
-            <div className="text-xs text-gray-500 mt-1">Awaiting your payment</div>
-          </div>
+          <div className="text-xs text-gray-600 mt-1">Cash collected from machines</div>
         </div>
-
-        {/* Action Buttons */}
-        <div className="flex items-center justify-between">
-          <h2 className="text-2xl font-bold text-white">
-            Daily Cash Reports
-            {isAdmin && <span className="text-yellow-400 text-sm ml-2">(Admin View)</span>}
-          </h2>
-          <div className="flex space-x-3">
-            <button
-              onClick={() => setShowSubmitForm(true)}
-              className="px-6 py-3 bg-gradient-to-r from-yellow-400 to-amber-500 hover:from-yellow-500 hover:to-amber-600 text-black font-semibold rounded-xl transition-all duration-300 transform hover:scale-105"
-            >
-              Report Daily Collection
-            </button>
-            <button
-              onClick={fetchReports}
-              disabled={reportsLoading}
-              className="px-4 py-3 bg-gray-700/50 hover:bg-gray-600/50 text-white font-medium rounded-xl transition-colors border border-gray-600/30"
-            >
-              {reportsLoading ? 'Loading...' : 'Refresh'}
-            </button>
+        
+        <div className="bg-gray-800/40 backdrop-blur-sm rounded-xl p-6 border border-gray-700/30">
+          <div className="text-gray-500 text-xs font-medium uppercase tracking-wider mb-2">You Owe Gambino</div>
+          <div className="text-2xl font-semibold text-white">
+            ${reconciliations.filter(r => r.settlementStatus !== 'settled').reduce((sum, r) => {
+              const revenue = r.grossRevenue || r.venueGamingRevenue || 0;
+              const yourShare = revenue * ((store.feePercentage || 0) / 100);
+              return sum + (revenue - yourShare);
+            }, 0).toFixed(2)}
           </div>
+          <div className="text-xs text-gray-600 mt-1">After your {store.feePercentage || 0}% fee</div>
         </div>
-
-        {/* Reports Table with Admin Controls */}
-        <div className="bg-gray-800/30 backdrop-blur-xl rounded-2xl border border-gray-700/50 overflow-hidden">
-          <h3 className="text-lg font-bold text-white p-6 border-b border-gray-700/50">
-            Daily Reports & Payments
-          </h3>
-          
-          <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b border-gray-700/50">
-                    <th className="text-left py-4 px-6 text-gray-300 font-medium">Date</th>
-                    <th className="text-left py-4 px-6 text-gray-300 font-medium">Total Collected</th>
-                    <th className="text-left py-4 px-6 text-gray-300 font-medium">Venue Keeps</th>
-                    <th className="text-left py-4 px-6 text-gray-300 font-medium">Service Fee (Owed to Gambino)</th>
-                    <th className="text-left py-4 px-6 text-gray-300 font-medium">Status</th>
-                    <th className="text-left py-4 px-6 text-gray-300 font-medium">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {reconciliations.map((report, index) => {
-                    const revenue = report.grossRevenue || report.venueGamingRevenue || 0;
-                    const feePercent = store.feePercentage || report.softwareFeePercentage || 0;
-
-                    // FIXED CALCULATION
-                    const serviceFeeToGambino = revenue * (feePercent / 100);  // 5% to Gambino
-                    const venueKeeps = revenue - serviceFeeToGambino;  // 95% venue keeps
-
-                    return (
-                      <tr key={report._id || index} className="border-b border-gray-700/30 hover:bg-gray-700/20">
-                        <td className="py-4 px-6 text-white">
-                          {new Date(report.reconciliationDate || report.date).toLocaleDateString()}
-                        </td>
-                        <td className="py-4 px-6 text-green-400 font-medium">
-                          ${Number(revenue).toLocaleString()}
-                        </td>
-                        <td className="py-4 px-6 text-yellow-400">
-                          ${Number(venueKeeps).toFixed(2)}
-                          <span className="text-gray-500 text-xs ml-1">({100 - feePercent}%)</span>
-                        </td>
-                        <td className="py-4 px-6 text-blue-400 font-bold">
-                          ${Number(serviceFeeToGambino).toFixed(2)}
-                          <span className="text-gray-500 text-xs ml-1">({feePercent}%)</span>
-                        </td>
-                        <td className="py-4 px-6">
-                          <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
-                            report.settlementStatus === 'settled' ? 
-                              'bg-green-900/30 border border-green-500/30 text-green-300' :
-                            report.settlementStatus === 'payment_sent' ? 
-                              'bg-blue-900/30 border border-blue-500/30 text-blue-300' :
-                            report.settlementStatus === 'partial' ? 
-                              'bg-yellow-900/30 border border-yellow-500/30 text-yellow-300' :
-                              'bg-red-900/30 border border-red-500/30 text-red-300'
-                          }`}>
-                            {report.settlementStatus === 'payment_sent' ? 'Payment Sent' : 
-                             report.settlementStatus === 'settled' ? 'Settled' :
-                             report.settlementStatus || 'Unpaid'}
-                          </span>
-                        </td>
-                        <td className="py-4 px-6">
-                          <div className="flex flex-wrap gap-2">
-                            {/* Venue Manager Actions */}
-                            {(!report.settlementStatus || 
-                              (report.settlementStatus !== 'settled' && 
-                               report.settlementStatus !== 'payment_sent')) && (
-                              <button 
-                                onClick={() => {
-                                  if (confirm(`Mark payment of $${serviceFeeToGambino.toFixed(2)} as sent for ${new Date(report.reconciliationDate).toLocaleDateString()}?`)) {
-                                    handleMarkPaymentSent(report._id, serviceFeeToGambino);
-                                  }
-                                }}
-                                className="px-3 py-1 bg-blue-600/80 hover:bg-blue-600 text-white text-sm rounded-lg transition-colors"
-                              >
-                                Mark Payment Sent
-                              </button>
-                            )}
-
-                            {/* Admin Actions - Confirm Receipt */}
-                            {isAdmin && report.settlementStatus === 'payment_sent' && (
-                              <button 
-                                onClick={() => {
-                                  if (confirm(`Confirm receipt of $${serviceFeeToGambino.toFixed(2)} for ${new Date(report.reconciliationDate).toLocaleDateString()}?`)) {
-                                    handleConfirmPayment(report._id, serviceFeeToGambino);
-                                  }
-                                }}
-                                className="px-3 py-1 bg-green-600/80 hover:bg-green-600 text-white text-sm rounded-lg transition-colors"
-                              >
-                                ✓ Confirm Receipt
-                              </button>
-                            )}
-
-                            {/* Admin can also directly settle unpaid reports */}
-                            {isAdmin && (!report.settlementStatus || 
-                              report.settlementStatus === 'unsettled' || 
-                              report.settlementStatus === 'pending') && (
-                              <button 
-                                onClick={() => {
-                                  if (confirm(`Mark as settled (payment received) for $${serviceFeeToGambino.toFixed(2)}?`)) {
-                                    handleConfirmPayment(report._id, serviceFeeToGambino);
-                                  }
-                                }}
-                                className="px-3 py-1 bg-purple-600/80 hover:bg-purple-600 text-white text-sm rounded-lg transition-colors"
-                              >
-                                Direct Settle
-                              </button>
-                            )}
-
-                            {/* Status messages */}
-                            {report.settlementStatus === 'payment_sent' && !isAdmin && (
-                              <span className="text-blue-400 text-sm">
-                                Awaiting Admin Confirmation
-                              </span>
-                            )}
-
-                            {report.settlementStatus === 'settled' && (
-                              <span className="text-green-400 text-sm">
-                                ✓ Settled
-                              </span>
-                            )}
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
+        
+        <div className="bg-gray-800/40 backdrop-blur-sm rounded-xl p-6 border border-gray-700/30">
+          <div className="text-gray-500 text-xs font-medium uppercase tracking-wider mb-2">Your Earnings</div>
+          <div className="text-2xl font-semibold text-yellow-400/90">
+            ${reconciliations.reduce((sum, r) => {
+              const revenue = r.grossRevenue || r.venueGamingRevenue || 0;
+              return sum + (revenue * ((store.feePercentage || 0) / 100));
+            }, 0).toFixed(2)}
           </div>
-
-        {/* Submit Report Form Modal */}
-        {showSubmitForm && (
-          <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-            <div className="bg-gray-800/90 backdrop-blur-xl rounded-2xl border border-gray-700/50 w-full max-w-lg">
-              <div className="p-8">
-                <h3 className="text-2xl font-bold text-white mb-6">Submit Daily Report</h3>
-                
-                <form onSubmit={handleSubmitReport} className="space-y-6">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-200 mb-2">Date</label>
-                    <input 
-                      type="date" 
-                      name="date"
-                      defaultValue={new Date().toISOString().split('T')[0]}
-                      className="w-full px-4 py-3 bg-gray-700/30 border border-gray-600/50 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-yellow-400/50" 
-                      required
-                    />
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-gray-200 mb-2">Mining Revenue ($)</label>
-                    <input 
-                      type="number" 
-                      name="miningRevenue"
-                      step="0.01"
-                      placeholder="0.00"
-                      className="w-full px-4 py-3 bg-gray-700/30 border border-gray-600/50 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-yellow-400/50" 
-                      required
-                    />
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-gray-200 mb-2">Notes (Optional)</label>
-                    <textarea 
-                      name="notes"
-                      rows="3"
-                      className="w-full px-4 py-3 bg-gray-700/30 border border-gray-600/50 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-yellow-400/50" 
-                      placeholder="Add any notes..."
-                    />
-                  </div>
-                  
-                  <div className="flex justify-end space-x-3 pt-4">
-                    <button 
-                      type="button"
-                      onClick={() => setShowSubmitForm(false)}
-                      className="px-6 py-3 bg-gray-700/30 hover:bg-gray-600/30 text-gray-300 hover:text-white font-medium rounded-xl transition-all duration-200 border border-gray-600/50"
-                    >
-                      Cancel
-                    </button>
-                    <button 
-                      type="submit"
-                      disabled={reportsLoading}
-                      className="px-6 py-3 bg-gradient-to-r from-yellow-400 to-amber-500 hover:from-yellow-500 hover:to-amber-600 text-black font-semibold rounded-xl transition-all duration-300"
-                    >
-                      {reportsLoading ? 'Submitting...' : 'Submit Report'}
-                    </button>
-                  </div>
-                </form>
-              </div>
-            </div>
+          <div className="text-xs text-gray-600 mt-1">{store.feePercentage || 0}% of revenue</div>
+        </div>
+        
+        <div className="bg-gray-800/40 backdrop-blur-sm rounded-xl p-6 border border-gray-700/30">
+          <div className="text-gray-500 text-xs font-medium uppercase tracking-wider mb-2">Pending Payment</div>
+          <div className="text-2xl font-semibold text-white">
+            ${reconciliations.filter(r => !r.settlementStatus || r.settlementStatus === 'pending').reduce((sum, r) => {
+              const revenue = r.grossRevenue || r.venueGamingRevenue || 0;
+              const yourShare = revenue * ((store.feePercentage || 0) / 100);
+              return sum + (revenue - yourShare);
+            }, 0).toFixed(2)}
           </div>
-        )}
+          <div className="text-xs text-gray-600 mt-1">Awaiting your payment</div>
+        </div>
       </div>
-    );
-  }
+
+      {/* Action Bar - Simplified */}
+      <div className="flex items-center justify-between">
+        <h2 className="text-xl font-semibold text-white">
+          Daily Cash Reports
+          {isAdmin && <span className="text-yellow-400/70 text-xs ml-2 font-normal">(Admin View)</span>}
+        </h2>
+        <div className="flex gap-3">
+          <button
+            onClick={() => setShowSubmitForm(true)}
+            className="px-5 py-2.5 bg-yellow-500/90 hover:bg-yellow-500 text-black font-medium rounded-lg transition-colors"
+          >
+            Report Daily Collection
+          </button>
+          <button
+            onClick={fetchReports}
+            disabled={reportsLoading}
+            className="px-4 py-2.5 bg-gray-700/50 hover:bg-gray-700 text-gray-300 font-medium rounded-lg transition-colors border border-gray-600/30"
+          >
+            {reportsLoading ? 'Loading...' : 'Refresh'}
+          </button>
+        </div>
+      </div>
+
+      {/* Reports Table - Cleaner design */}
+      <div className="bg-gray-800/40 backdrop-blur-sm rounded-xl border border-gray-700/30 overflow-hidden">
+        <div className="px-6 py-4 border-b border-gray-700/30">
+          <h3 className="text-sm font-medium text-gray-300 uppercase tracking-wider">
+            Payment History
+          </h3>
+        </div>
+        
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead>
+              <tr className="border-b border-gray-700/20">
+                <th className="text-left py-3 px-6 text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                <th className="text-left py-3 px-6 text-xs font-medium text-gray-500 uppercase tracking-wider">Collected</th>
+                <th className="text-left py-3 px-6 text-xs font-medium text-gray-500 uppercase tracking-wider">Venue Keeps</th>
+                <th className="text-left py-3 px-6 text-xs font-medium text-gray-500 uppercase tracking-wider">Service Fee</th>
+                <th className="text-left py-3 px-6 text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                <th className="text-left py-3 px-6 text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {reconciliations.map((report, index) => {
+                const revenue = report.grossRevenue || report.venueGamingRevenue || 0;
+                const feePercent = store.feePercentage || report.softwareFeePercentage || 0;
+                const serviceFeeToGambino = revenue * (feePercent / 100);
+                const venueKeeps = revenue - serviceFeeToGambino;
+
+                return (
+                  <tr key={report._id || index} className="border-b border-gray-700/10 hover:bg-gray-700/10 transition-colors">
+                    <td className="py-4 px-6">
+                      <div className="text-sm text-white">
+                        {new Date(report.reconciliationDate || report.date).toLocaleDateString()}
+                      </div>
+                    </td>
+                    <td className="py-4 px-6">
+                      <div className="text-sm font-medium text-white">
+                        ${Number(revenue).toLocaleString()}
+                      </div>
+                    </td>
+                    <td className="py-4 px-6">
+                      <div className="text-sm text-gray-300">
+                        ${Number(venueKeeps).toFixed(2)}
+                        <span className="text-gray-600 text-xs ml-1">({100 - feePercent}%)</span>
+                      </div>
+                    </td>
+                    <td className="py-4 px-6">
+                      <div className="text-sm font-medium text-white">
+                        ${Number(serviceFeeToGambino).toFixed(2)}
+                        <span className="text-gray-600 text-xs ml-1">({feePercent}%)</span>
+                      </div>
+                    </td>
+                    <td className="py-4 px-6">
+                      <span className={`inline-flex px-2 py-1 text-xs font-medium rounded ${
+                        report.settlementStatus === 'settled' ? 
+                          'bg-emerald-900/20 text-emerald-400' :
+                        report.settlementStatus === 'payment_sent' ? 
+                          'bg-blue-900/20 text-blue-400' :
+                          'bg-gray-700/30 text-gray-400'
+                      }`}>
+                        {report.settlementStatus === 'payment_sent' ? 'Payment Sent' : 
+                         report.settlementStatus === 'settled' ? 'Settled' :
+                         'Unpaid'}
+                      </span>
+                    </td>
+                    <td className="py-4 px-6">
+                      <div className="flex items-center gap-2">
+                        {/* Venue Manager Actions */}
+                        {!isAdmin && (!report.settlementStatus || 
+                          (report.settlementStatus !== 'settled' && 
+                           report.settlementStatus !== 'payment_sent')) && (
+                          <button 
+                            onClick={() => {
+                              if (confirm(`Mark payment of $${serviceFeeToGambino.toFixed(2)} as sent?`)) {
+                                handleMarkPaymentSent(report._id, serviceFeeToGambino);
+                              }
+                            }}
+                            className="px-3 py-1.5 bg-gray-700/50 hover:bg-gray-700 text-gray-200 text-xs font-medium rounded transition-colors"
+                          >
+                            Mark as Sent
+                          </button>
+                        )}
+
+                        {/* Admin Actions */}
+                        {isAdmin && report.settlementStatus === 'payment_sent' && (
+                          <button 
+                            onClick={() => {
+                              if (confirm(`Confirm receipt of $${serviceFeeToGambino.toFixed(2)}?`)) {
+                                handleConfirmPayment(report._id, serviceFeeToGambino);
+                              }
+                            }}
+                            className="px-3 py-1.5 bg-emerald-900/30 hover:bg-emerald-900/50 text-emerald-400 text-xs font-medium rounded transition-colors"
+                          >
+                            Confirm Receipt
+                          </button>
+                        )}
+
+                        {/* Admin Direct Settle */}
+                        {isAdmin && (!report.settlementStatus || report.settlementStatus === 'pending') && (
+                          <button 
+                            onClick={() => {
+                              if (confirm(`Mark as settled for $${serviceFeeToGambino.toFixed(2)}?`)) {
+                                handleConfirmPayment(report._id, serviceFeeToGambino);
+                              }
+                            }}
+                            className="px-3 py-1.5 bg-gray-700/50 hover:bg-gray-700 text-gray-200 text-xs font-medium rounded transition-colors"
+                          >
+                            Quick Settle
+                          </button>
+                        )}
+
+                        {/* Status text */}
+                        {report.settlementStatus === 'payment_sent' && !isAdmin && (
+                          <span className="text-xs text-gray-500">
+                            Awaiting confirmation
+                          </span>
+                        )}
+
+                        {report.settlementStatus === 'settled' && (
+                          <span className="text-xs text-emerald-400/70">
+                            ✓ Complete
+                          </span>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+          
+          {reconciliations.length === 0 && (
+            <div className="py-12 text-center">
+              <div className="text-gray-500 mb-2">No reports yet</div>
+              <div className="text-sm text-gray-600">Submit your first daily report to get started</div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Submit Report Modal - Cleaner design */}
+      {showSubmitForm && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-gray-800 rounded-xl border border-gray-700/50 w-full max-w-lg">
+            <div className="p-6">
+              <h3 className="text-xl font-semibold text-white mb-6">Submit Daily Report</h3>
+              
+              <form onSubmit={handleSubmitReport} className="space-y-5">
+                <div>
+                  <label className="block text-sm font-medium text-gray-400 mb-2">Date</label>
+                  <input 
+                    type="date" 
+                    name="date"
+                    defaultValue={new Date().toISOString().split('T')[0]}
+                    className="w-full px-4 py-2.5 bg-gray-900/50 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-gray-600 transition-colors" 
+                    required
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-400 mb-2">Revenue Collected ($)</label>
+                  <input 
+                    type="number" 
+                    name="miningRevenue"
+                    step="0.01"
+                    placeholder="0.00"
+                    className="w-full px-4 py-2.5 bg-gray-900/50 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-gray-600 transition-colors" 
+                    required
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-400 mb-2">Notes (Optional)</label>
+                  <textarea 
+                    name="notes"
+                    rows="3"
+                    className="w-full px-4 py-2.5 bg-gray-900/50 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-gray-600 transition-colors resize-none" 
+                    placeholder="Add any notes..."
+                  />
+                </div>
+                
+                <div className="flex justify-end gap-3 pt-4">
+                  <button 
+                    type="button"
+                    onClick={() => setShowSubmitForm(false)}
+                    className="px-5 py-2.5 bg-gray-700/50 hover:bg-gray-700 text-gray-300 font-medium rounded-lg transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button 
+                    type="submit"
+                    disabled={reportsLoading}
+                    className="px-5 py-2.5 bg-yellow-500/90 hover:bg-yellow-500 text-black font-medium rounded-lg transition-colors"
+                  >
+                    {reportsLoading ? 'Submitting...' : 'Submit Report'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
   // ANALYTICS TAB
   if (activeTab === 'analytics') {

@@ -6,6 +6,8 @@ import Link from 'next/link';
 import api from '@/lib/api';
 import { StoreDetailsTab } from './components/StoreDetailsTab';
 import { StoreModals } from './components/StoreModals';
+import { getUser } from '@/lib/auth';
+
 
 
 const SOLSCAN = (addr) => `https://solscan.io/account/${addr}`;
@@ -64,18 +66,12 @@ export default function StoreDetailPage({ params }) {
 
   // Get user role on mount
   useEffect(() => {
-    // Try to get user role from localStorage
-    const storedRole = localStorage.getItem('userRole');
-    
-    // Or get from stored user data
-    const userData = JSON.parse(localStorage.getItem('userData') || '{}');
-    
-    // Use the role from direct storage or from user data
-    const role = storedRole || userData.role || 'venue_manager';
-    setUserRole(role);
-    
-    console.log('User role detected:', role);
-  }, []);
+  const currentUser = getUser();
+  const role = currentUser?.role || 'venue_manager';
+  setUserRole(role);
+  
+  console.log('User role detected:', role);
+}, []);
 
   // Status badge component
   const StatusBadge = ({ status }) => {
@@ -462,25 +458,25 @@ export default function StoreDetailPage({ params }) {
         setShowConnectionInfo={setShowConnectionInfo}
         showQRModal={showQRModal}
         setShowQRModal={setShowQRModal}
-                  
+
         // Store data
         store={store}
-                  
+
         // Machine-related props  
         machines={[]}
         selectedMachines={[]}
         setSelectedMachines={() => {}}
-                  
+
         // Additional data
         connectionInfo={connectionInfo}
         qrCodeData={qrCodeData}
-                  
+
         // Callbacks
         onMachinesUpdate={refreshMachines}
         actionLoading={actionLoading}
         handleStoreAction={handleStoreAction}
         userRole={userRole}
-                  
+
         // These are referenced in the original StoreModals but not used in the fixed version
         // If needed, add these states too:
         newMachine={null}
