@@ -322,6 +322,8 @@ const handleAddMachine = async (e) => {
                       <option value="blackjack">Blackjack</option>
                       <option value="roulette">Roulette</option>
                       <option value="other">Other</option>
+                      <option value="edge">Pi Edge Device</option>
+
                     </select>
                   </div>
                 </div>
@@ -481,6 +483,8 @@ const handleAddMachine = async (e) => {
         </div>
       )}
 
+      
+
       {/* QR Code Modal */}
       {showQRModal && qrCodeData && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
@@ -537,5 +541,7 @@ const handleAddMachine = async (e) => {
         </div>
       )}
     </>
+    
   );
 };
+
