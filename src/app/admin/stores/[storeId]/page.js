@@ -7,6 +7,8 @@ import api from '@/lib/api';
 import { StoreDetailsTab } from './components/StoreDetailsTab';
 import { StoreModals } from './components/StoreModals';
 import { getUser } from '@/lib/auth';
+import HardwareMappingManager from './components/HardwareMappingManager';
+
 
 
 
@@ -397,7 +399,9 @@ export default function StoreDetailPage({ params }) {
                 { id: 'wallet', label: 'Wallet', icon: '💰' },
                 { id: 'machines', label: 'Machines', icon: '🎰', count: machineStats.total },
                 { id: 'reports', label: 'Reports', icon: '📊' },
-                { id: 'analytics', label: 'Analytics', icon: '📈' }
+                { id: 'analytics', label: 'Analytics', icon: '📈' },
+                { id: 'hardware', label: 'Hardware Mapping', icon: '🔌' }
+                
               ].map((tab) => (
                 <button
                   key={tab.id}

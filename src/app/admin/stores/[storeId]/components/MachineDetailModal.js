@@ -35,6 +35,9 @@ export const MachineDetailModal = ({
   const [formData, setFormData] = useState({});
   const [saving, setSaving] = useState(false);
   const [currentMachine, setCurrentMachine] = useState(machine);
+  const [generatedToken, setGeneratedToken] = useState(null);
+  const [showToken, setShowToken] = useState(false);
+  const [tokenCopied, setTokenCopied] = useState(false);
 
   // Update currentMachine when machine prop changes
   useEffect(() => {
@@ -71,9 +74,8 @@ export const MachineDetailModal = ({
 
     setSaving(true);
     try {
-      // Use the MongoDB _id, not the machineId
       const response = await api.put(`/api/machines/${currentMachine._id}`, formData);
-      console.log('🔍 Save response:', response.data);
+      console.log('Save response:', response.data);
       
       if (response.data.success) {
         const updatedMachine = response.data.machine;
@@ -83,7 +85,6 @@ export const MachineDetailModal = ({
           onUpdate(updatedMachine);
         }
         setIsEditing(false);
-        alert('Machine updated successfully');
       }
     } catch (error) {
       console.error('Failed to update machine:', error);
@@ -93,42 +94,70 @@ export const MachineDetailModal = ({
     }
   };
 
+  const handleGenerateToken = async () => {
+    if (!currentMachine?.machineId) return;
+
+    try {
+      console.log('Generating token for machine:', currentMachine.machineId);
+      const response = await api.post(`/api/machines/${currentMachine.machineId}/generate-token`);
+      
+      console.log('Generate token response:', response.data);
+      
+      if (response.data.success && response.data.token) {
+        setGeneratedToken(response.data.token);
+        setShowToken(true);
+        setTokenCopied(false);
+      }
+    } catch (error) {
+      console.error('Failed to generate token:', error);
+      alert('Failed to generate token: ' + (error.response?.data?.error || error.message));
+    }
+  };
+
+  const copyToken = async () => {
+    if (generatedToken) {
+      try {
+        await navigator.clipboard.writeText(generatedToken);
+        setTokenCopied(true);
+        setTimeout(() => setTokenCopied(false), 2000);
+      } catch (err) {
+        console.error('Failed to copy token:', err);
+        // Fallback: select the text
+        const tokenElement = document.getElementById('generated-token');
+        if (tokenElement) {
+          tokenElement.select();
+        }
+      }
+    }
+  };
+
   const handleGenerateSerial = async () => {
     if (!currentMachine?.machineId) return;
 
     try {
-      console.log('🔍 Generating serial for machine:', currentMachine.machineId);
+      console.log('Generating serial for machine:', currentMachine.machineId);
       const response = await api.post(`/api/machines/${currentMachine.machineId}/generate-serial`);
       
-      console.log('🔍 Generate serial response:', response.data);
+      console.log('Generate serial response:', response.data);
       
       if (response.data.success) {
         const newSerialNumber = response.data.serialNumber;
         
-        // Create the updated machine object manually since backend doesn't return it properly
         const updatedMachine = {
           ...currentMachine,
           serialNumber: newSerialNumber,
           serialGeneratedAt: new Date().toISOString()
         };
         
-        console.log('🔍 Created updated machine:', updatedMachine);
-        
-        // Update current machine state immediately
         setCurrentMachine(updatedMachine);
         
-        // Update form data if in editing mode
         if (isEditing) {
           setFormData(prev => ({...prev, serialNumber: newSerialNumber}));
         }
         
-        // Call onUpdate to refresh the parent's machine data
         if (onUpdate) {
-          console.log('🔍 Calling onUpdate with manually updated machine');
           onUpdate(updatedMachine);
         }
-        
-        alert('Serial number generated: ' + newSerialNumber);
       }
     } catch (error) {
       console.error('Failed to generate serial:', error);
@@ -138,7 +167,7 @@ export const MachineDetailModal = ({
 
   if (!isOpen || !currentMachine) return null;
 
-  const isEdgeDevice = currentMachine.gameType === 'edge' || currentMachine.machineId.startsWith('pi-');
+  const isEdgeDevice = currentMachine.gameType === 'edge' || currentMachine.machineId.startsWith('pi-') || currentMachine.machineId.includes('gambino-pi');
 
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
@@ -155,6 +184,43 @@ export const MachineDetailModal = ({
             ✕
           </button>
         </div>
+
+        {/* Token Display Section */}
+        {showToken && generatedToken && (
+          <div className="bg-purple-900/20 border border-purple-500/30 rounded-lg p-4 mb-6">
+            <div className="flex justify-between items-start mb-3">
+              <h3 className="text-purple-400 font-semibold">Generated Machine Token</h3>
+              <button
+                onClick={() => setShowToken(false)}
+                className="text-gray-400 hover:text-white"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="bg-gray-900/50 rounded p-3 mb-3">
+              <textarea
+                id="generated-token"
+                value={generatedToken}
+                readOnly
+                className="w-full bg-transparent text-white font-mono text-sm resize-none border-none focus:outline-none"
+                rows={4}
+              />
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-gray-400 text-sm">Copy this token to your Pi configuration</span>
+              <button
+                onClick={copyToken}
+                className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                  tokenCopied 
+                    ? 'bg-green-600 text-white' 
+                    : 'bg-purple-600 hover:bg-purple-700 text-white'
+                }`}
+              >
+                {tokenCopied ? 'Copied!' : 'Copy Token'}
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Machine Info Grid */}
         <div className="grid grid-cols-2 gap-4 mb-6">
@@ -338,9 +404,9 @@ export const MachineDetailModal = ({
               </>
             )}
 
-            {isEdgeDevice && onGenerateToken && (
+            {isEdgeDevice && (
               <button
-                onClick={() => onGenerateToken(currentMachine.machineId)}
+                onClick={handleGenerateToken}
                 className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white font-medium rounded-lg transition-colors"
               >
                 Generate Token
