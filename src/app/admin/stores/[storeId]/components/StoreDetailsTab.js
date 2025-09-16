@@ -1,9 +1,11 @@
 import { useState, useEffect, useCallback } from 'react';
 import api from '@/lib/api';
 import { MachineDetailModal } from './MachineDetailModal';
+import AnalyticsTabContent from './AnalyticsTabContent';
+
 
 export const StoreDetailsTab = ({
-  activeTab, store, edit, setEdit, saving, err, saveStore, setFromStore,
+  activeTab, store, storeId, edit, setEdit, saving, err, saveStore, setFromStore,
   StatusBadge, ownerText, CAN_EDIT, CAN_WALLET, showSubmitForm, setShowSubmitForm,
   setShowAddMachine, setShowBulkModal, SOLSCAN, onMachineStatsUpdate,
   userRole
@@ -1081,42 +1083,16 @@ export const StoreDetailsTab = ({
   }
 
   // ANALYTICS TAB
-  if (activeTab === 'analytics') {
-    return (
-      <div className="space-y-6">
-        <div className="bg-gray-800/30 backdrop-blur-xl rounded-2xl p-12 border border-gray-700/50 text-center">
-          <div className="text-gray-400 text-8xl mb-6">📈</div>
-          <h2 className="text-3xl font-bold text-white mb-4">Analytics Dashboard</h2>
-          <p className="text-gray-400 text-lg mb-8">
-            Advanced analytics and reporting features are coming soon. This will include revenue trends, 
-            machine performance metrics, and comparative analytics.
-          </p>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-4xl mx-auto">
-            <div className="bg-gray-700/30 rounded-xl p-6 border border-gray-600/30">
-              <div className="text-yellow-400 text-3xl mb-3">📊</div>
-              <h3 className="text-white font-semibold mb-2">Revenue Trends</h3>
-              <p className="text-gray-400 text-sm">Track revenue performance over time</p>
-            </div>
-            <div className="bg-gray-700/30 rounded-xl p-6 border border-gray-600/30">
-              <div className="text-green-400 text-3xl mb-3">🎰</div>
-              <h3 className="text-white font-semibold mb-2">Machine Performance</h3>
-              <p className="text-gray-400 text-sm">Analyze individual machine metrics</p>
-            </div>
-            <div className="bg-gray-700/30 rounded-xl p-6 border border-gray-600/30">
-              <div className="text-blue-400 text-3xl mb-3">📈</div>
-              <h3 className="text-white font-semibold mb-2">Comparative Analysis</h3>
-              <p className="text-gray-400 text-sm">Compare performance across stores</p>
-            </div>
-          </div>
-          {isAdmin && (
-            <div className="mt-8 text-yellow-400 text-sm">
-              Admin features will include cross-store analytics and system-wide reports
-            </div>
-          )}
-        </div>
-      </div>
-    );
-  }
+if (activeTab === 'analytics') {
+  return (
+    <AnalyticsTabContent 
+      storeId={storeId || store?.storeId} 
+      store={store}
+      isAdmin={userRole === 'super_admin' || userRole === 'gambino_ops'} 
+    />
+  );
+}
+
 
   return null;
 };
