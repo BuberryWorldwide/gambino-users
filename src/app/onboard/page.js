@@ -1,4 +1,6 @@
+// src/app/onboard/page.js - Fixed to use existing backend endpoints
 'use client';
+
 import { useState } from 'react';
 import api from '@/lib/api';
 import { setToken } from '@/lib/auth';
@@ -8,7 +10,6 @@ export default function OnboardPage() {
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [tempToken, setTempToken] = useState('');
 
   const [form, setForm] = useState({
     // Step 1: Personal info
@@ -30,20 +31,22 @@ export default function OnboardPage() {
     setError('');
     try {
       if (step === 1) {
-        // STEP 1: Personal Information
-        setLoading(true);
-        const { data } = await api.post('/api/onboarding/step1', {
-          firstName: form.firstName,
-          lastName: form.lastName,
-          email: form.email,
-          phone: form.phone,
-          password: form.password
-        });
-        setTempToken(data.tempToken);
+        // STEP 1: Validate form first
+        if (!form.firstName.trim() || !form.lastName.trim() || 
+            !form.email.trim() || !form.password) {
+          setError('Please fill in all required fields');
+          return;
+        }
+        
+        if (form.password.length < 6) {
+          setError('Password must be at least 6 characters');
+          return;
+        }
+        
         setStep(2);
 
       } else if (step === 2) {
-        // STEP 2: Terms & Privacy (FINALIZES ACCOUNT)
+        // STEP 2: Terms & Privacy validation
         if (!form.agreedToTerms) { 
           setError('You must agree to the Terms of Service'); 
           return; 
@@ -54,28 +57,29 @@ export default function OnboardPage() {
         }
 
         setLoading(true);
-        const { data } = await api.post('/api/onboarding/step2', {
-          tempToken, // required
-          acceptTerms: form.agreedToTerms,
-          acceptPrivacy: form.agreedToPrivacy,
-          marketingOptIn: form.agreedToMarketing,
-          readWhitepaper: form.readWhitepaper
-        });
-
-         // FINALIZE (old step3) — this actually creates the user in Mongo
-         const finalize = await api.post(
-           '/api/onboarding/step3',
-           {},
-           { headers: { Authorization: `Bearer ${tempToken}` } }
-         );
-         const token = finalize.data?.accessToken || finalize.data?.token;
-         if (!token) {
-           setError('Account was not finalized. Please try again.');
-           return;
-         }
-         setToken(token);
-         setStep(3);
-         setTimeout(() => router.push('/dashboard'), 1500);
+        
+        // REGISTER USER (using existing backend endpoint)
+        try {
+          const { data } = await api.post('/api/users/register', {
+            firstName: form.firstName,
+            lastName: form.lastName,
+            email: form.email,
+            phone: form.phone,
+            password: form.password
+          });
+          
+          // Registration successful, set token and redirect
+          if (data.accessToken) {
+            setToken(data.accessToken);
+            setStep(3);
+            setTimeout(() => router.push('/dashboard'), 1500);
+          } else {
+            setError('Registration completed but no access token received');
+          }
+        } catch (registerError) {
+          console.error('Registration failed:', registerError);
+          setError(registerError.response?.data?.error || 'Registration failed. Please try again.');
+        }
       }
     } catch (e) {
       setError(e?.response?.data?.error || 'Failed to continue');
@@ -92,213 +96,211 @@ export default function OnboardPage() {
     <div className="max-w-xl mx-auto">
       <div className="text-center mb-6">
         <h1 className="text-3xl font-extrabold text-gold">Welcome to Gambino</h1>
-        <p className="text-zinc-400">Farm Luck. Mine Destiny.</p>
+        <p className="text-zinc-400">Join the mining network</p>
       </div>
 
-      {/* Progress Bar (2 steps now) */}
-      <div className="flex items-center justify-center gap-2 mb-6">
-        {[1,2].map(n => (
-          <div key={n} className={`h-2 w-16 rounded-full ${step >= n ? 'bg-gold' : 'bg-zinc-800'}`} />
-        ))}
+      {/* Progress indicator */}
+      <div className="flex justify-center mb-8">
+        <div className="flex space-x-2">
+          {[1, 2, 3].map(i => (
+            <div 
+              key={i} 
+              className={`w-3 h-3 rounded-full ${
+                step >= i ? 'bg-gold' : 'bg-zinc-600'
+              }`} 
+            />
+          ))}
+        </div>
       </div>
 
-      <div className="card space-y-4">
-        {/* STEP 1: Personal Information */}
-        {step === 1 && (
-          <div>
-            <h2 className="text-xl font-bold text-white mb-4">Personal Information</h2>
-            <div className="grid grid-cols-2 gap-3">
-              <input 
-                className="input" 
-                placeholder="First name"
-                value={form.firstName} 
-                onChange={e => updateForm('firstName', e.target.value)}
+      {error && (
+        <div className="bg-red-800/30 border border-red-500/50 rounded p-3 mb-6 text-center">
+          <p className="text-red-200 text-sm">{error}</p>
+        </div>
+      )}
+
+      {/* STEP 1: Personal Information */}
+      {step === 1 && (
+        <div className="bg-zinc-800 rounded-lg p-6">
+          <h2 className="text-xl font-bold text-gold mb-4">Personal Information</h2>
+          
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-zinc-300 mb-1">
+                  First Name *
+                </label>
+                <input
+                  type="text"
+                  value={form.firstName}
+                  onChange={e => updateForm('firstName', e.target.value)}
+                  className="input w-full"
+                  placeholder="Enter first name"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-zinc-300 mb-1">
+                  Last Name *
+                </label>
+                <input
+                  type="text"
+                  value={form.lastName}
+                  onChange={e => updateForm('lastName', e.target.value)}
+                  className="input w-full"
+                  placeholder="Enter last name"
+                  required
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-zinc-300 mb-1">
+                Email Address *
+              </label>
+              <input
+                type="email"
+                value={form.email}
+                onChange={e => updateForm('email', e.target.value)}
+                className="input w-full"
+                placeholder="Enter email address"
                 required
               />
-              <input 
-                className="input" 
-                placeholder="Last name"
-                value={form.lastName} 
-                onChange={e => updateForm('lastName', e.target.value)}
-                required
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-zinc-300 mb-1">
+                Phone Number
+              </label>
+              <input
+                type="tel"
+                value={form.phone}
+                onChange={e => updateForm('phone', e.target.value)}
+                className="input w-full"
+                placeholder="Enter phone number (optional)"
               />
             </div>
-            <input 
-              className="input mt-3" 
-              type="email" 
-              placeholder="Email"
-              value={form.email} 
-              onChange={e => updateForm('email', e.target.value)}
-              required
-            />
-            <input 
-              className="input mt-3" 
-              type="tel" 
-              placeholder="Phone (optional)"
-              value={form.phone} 
-              onChange={e => updateForm('phone', e.target.value)}
-            />
-            <input 
-              className="input mt-3" 
-              type="password" 
-              placeholder="Password (min 6 characters)"
-              value={form.password} 
-              onChange={e => updateForm('password', e.target.value)}
-              required
-            />
-          </div>
-        )}
 
-        {/* STEP 2: Terms & Privacy (finalizes) */}
-        {step === 2 && (
-          <div>
-            <h2 className="text-xl font-bold text-white mb-4">Legal Agreements</h2>
-            <div className="space-y-4">
-              {/* Required Agreements */}
-              <div className="border border-zinc-700 rounded-lg p-4">
-                <h3 className="font-semibold text-white mb-3">Required</h3>
-                
-                <label className="flex items-start space-x-3 cursor-pointer mb-3">
-                  <input
-                    type="checkbox"
-                    checked={form.agreedToTerms}
-                    onChange={e => updateForm('agreedToTerms', e.target.checked)}
-                    className="mt-1 w-4 h-4 text-gold bg-zinc-800 border-zinc-600 rounded focus:ring-gold focus:ring-2"
-                    required
-                  />
-                  <span className="text-sm text-zinc-300">
-                    I agree to the{' '}
-                    <a href="/terms" target="_blank" className="text-gold hover:text-yellow-400 underline">
-                      Terms of Service
-                    </a>
-                    {' '}and understand the risks of cryptocurrency
-                  </span>
-                </label>
-
-                <label className="flex items-start space-x-3 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={form.agreedToPrivacy}
-                    onChange={e => updateForm('agreedToPrivacy', e.target.checked)}
-                    className="mt-1 w-4 h-4 text-gold bg-zinc-800 border-zinc-600 rounded focus:ring-gold focus:ring-2"
-                    required
-                  />
-                  <span className="text-sm text-zinc-300">
-                    I agree to the{' '}
-                    <a href="/privacy" target="_blank" className="text-gold hover:text-yellow-400 underline">
-                      Privacy Policy
-                    </a>
-                    {' '}and data collection practices
-                  </span>
-                </label>
-              </div>
-
-              {/* Optional Agreements */}
-              <div className="border border-zinc-700 rounded-lg p-4">
-                <h3 className="font-semibold text-white mb-3">Optional</h3>
-                
-                <label className="flex items-start space-x-3 cursor-pointer mb-3">
-                  <input
-                    type="checkbox"
-                    checked={form.agreedToMarketing}
-                    onChange={e => updateForm('agreedToMarketing', e.target.checked)}
-                    className="mt-1 w-4 h-4 text-gold bg-zinc-800 border-zinc-600 rounded focus:ring-gold focus:ring-2"
-                  />
-                  <span className="text-sm text-zinc-300">
-                    I want to receive updates and marketing communications
-                  </span>
-                </label>
-
-                <label className="flex items-start space-x-3 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={form.readWhitepaper}
-                    onChange={e => updateForm('readWhitepaper', e.target.checked)}
-                    className="mt-1 w-4 h-4 text-gold bg-zinc-800 border-zinc-600 rounded focus:ring-gold focus:ring-2"
-                  />
-                  <span className="text-sm text-zinc-300">
-                    I have read the whitepaper and understand the tokenomics
-                  </span>
-                </label>
-              </div>
-
-              {/* Info Links */}
-              <div className="text-center p-4 bg-zinc-800 rounded-lg">
-                <p className="text-sm text-zinc-400 mb-2">For complete documentation:</p>
-                <a 
-                  href="/info" 
-                  target="_blank" 
-                  className="text-gold hover:text-yellow-400 text-sm underline"
-                >
-                  View Whitepaper, Terms & Regulatory Info →
-                </a>
-              </div>
+            <div>
+              <label className="block text-sm font-medium text-zinc-300 mb-1">
+                Password *
+              </label>
+              <input
+                type="password"
+                value={form.password}
+                onChange={e => updateForm('password', e.target.value)}
+                className="input w-full"
+                placeholder="Password (min 6 characters)"
+                required
+                minLength={6}
+              />
             </div>
           </div>
-        )}
 
-        {/* STEP 3: Success */}
-        {step === 3 && (
-          <div className="text-center">
-            <div className="text-emerald-400 text-2xl font-bold mb-2">Account Created! 🎉</div>
-            <div className="text-zinc-400 mb-4">Welcome to Gambino Coin</div>
-            <div className="text-sm text-zinc-500">
-              <p>✅ No wallet created yet - generate one in your dashboard</p>
-              <p>✅ Select your location later when you're ready to play</p>
+          <button
+            onClick={nextStep}
+            disabled={loading || !form.firstName.trim() || !form.lastName.trim() || !form.email.trim() || !form.password}
+            className="btn-primary w-full mt-6"
+          >
+            {loading ? 'Processing...' : 'Continue'}
+          </button>
+        </div>
+      )}
+
+      {/* STEP 2: Legal Agreements */}
+      {step === 2 && (
+        <div className="bg-zinc-800 rounded-lg p-6">
+          <h2 className="text-xl font-bold text-gold mb-4">Legal Agreements</h2>
+          
+          <div className="space-y-4">
+            {/* Required agreements */}
+            <div className="p-4 bg-zinc-700 rounded-lg">
+              <h3 className="font-semibold text-zinc-200 mb-3">Required *</h3>
+              
+              <label className="flex items-start space-x-3 cursor-pointer mb-3">
+                <input
+                  type="checkbox"
+                  checked={form.agreedToTerms}
+                  onChange={e => updateForm('agreedToTerms', e.target.checked)}
+                  className="mt-1 w-4 h-4 text-gold bg-zinc-800 border-zinc-600 rounded focus:ring-gold focus:ring-2"
+                />
+                <span className="text-sm text-zinc-300">
+                  I agree to the <a href="/terms" target="_blank" className="text-gold underline">Terms of Service</a>
+                </span>
+              </label>
+
+              <label className="flex items-start space-x-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={form.agreedToPrivacy}
+                  onChange={e => updateForm('agreedToPrivacy', e.target.checked)}
+                  className="mt-1 w-4 h-4 text-gold bg-zinc-800 border-zinc-600 rounded focus:ring-gold focus:ring-2"
+                />
+                <span className="text-sm text-zinc-300">
+                  I agree to the <a href="/privacy" target="_blank" className="text-gold underline">Privacy Policy</a>
+                </span>
+              </label>
+            </div>
+
+            {/* Optional agreements */}
+            <div className="p-4 bg-zinc-700 rounded-lg">
+              <h3 className="font-semibold text-zinc-200 mb-3">Optional</h3>
+              
+              <label className="flex items-start space-x-3 cursor-pointer mb-3">
+                <input
+                  type="checkbox"
+                  checked={form.agreedToMarketing}
+                  onChange={e => updateForm('agreedToMarketing', e.target.checked)}
+                  className="mt-1 w-4 h-4 text-gold bg-zinc-800 border-zinc-600 rounded focus:ring-gold focus:ring-2"
+                />
+                <span className="text-sm text-zinc-300">
+                  I want to receive updates and marketing communications
+                </span>
+              </label>
+
+              <label className="flex items-start space-x-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={form.readWhitepaper}
+                  onChange={e => updateForm('readWhitepaper', e.target.checked)}
+                  className="mt-1 w-4 h-4 text-gold bg-zinc-800 border-zinc-600 rounded focus:ring-gold focus:ring-2"
+                />
+                <span className="text-sm text-zinc-300">
+                  I have read the whitepaper and understand the tokenomics
+                </span>
+              </label>
+            </div>
+
+            {/* Info Links */}
+            <div className="text-center p-4 bg-zinc-800 rounded-lg">
+              <p className="text-sm text-zinc-400 mb-2">For complete documentation:</p>
+              <a 
+                href="/info" 
+                target="_blank" 
+                className="text-gold hover:text-yellow-400 text-sm underline"
+              >
+                View Whitepaper, Terms & Regulatory Info →
+              </a>
             </div>
           </div>
-        )}
 
-        {error && (
-          <div className="bg-red-900/20 border border-red-500 text-red-300 p-3 rounded text-sm">
-            {error}
-          </div>
-        )}
+          <button
+            onClick={nextStep}
+            disabled={loading || !form.agreedToTerms || !form.agreedToPrivacy}
+            className="btn-primary w-full mt-6"
+          >
+            {loading ? 'Creating Account...' : 'Create Account'}
+          </button>
+        </div>
+      )}
 
-        {/* Navigation Buttons */}
-        {step < 3 && (
-          <div className="flex justify-between pt-4 border-t border-zinc-700">
-            <button 
-              className="btn btn-ghost" 
-              disabled={step === 1 || loading} 
-              onClick={() => setStep(step - 1)}
-            >
-              ← Previous
-            </button>
-            
-            <button 
-              className="btn btn-gold" 
-              onClick={nextStep}
-              disabled={loading || (step === 2 && (!form.agreedToTerms || !form.agreedToPrivacy))}
-            >
-              {loading ? (
-                <div className="flex items-center">
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-black mr-2"></div>
-                  Working...
-                </div>
-              ) : (
-                'Continue →'
-              )}
-            </button>
-          </div>
-        )}
-
-        {step === 3 && (
-          <div className="text-center pt-4 border-t border-zinc-700">
-            <button 
-              className="btn btn-gold" 
-              onClick={() => router.push('/dashboard')}
-            >
-              Go to Dashboard →
-            </button>
-          </div>
-        )}
-      </div>
-
-      {/* Risk Warning */}
-      {(step === 2) && (
-        <div className="mt-4 p-3 bg-yellow-900/20 border border-yellow-600 rounded text-xs text-yellow-300">
-          <strong>Risk Warning:</strong> Cryptocurrency involves substantial risk. Only invest what you can afford to lose.
+      {/* STEP 3: Success */}
+      {step === 3 && (
+        <div className="text-center">
+          <div className="text-emerald-400 text-2xl font-bold mb-2">Account Created!</div>
+          <p className="text-zinc-400 mb-4">Welcome to the Gambino mining network</p>
+          <div className="animate-spin w-8 h-8 border-2 border-gold border-t-transparent rounded-full mx-auto"></div>
+          <p className="text-sm text-zinc-500 mt-2">Redirecting to dashboard...</p>
         </div>
       )}
     </div>
