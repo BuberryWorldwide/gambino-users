@@ -225,7 +225,7 @@ export default function OnboardPage() {
                   className="mt-1 w-4 h-4 text-gold bg-zinc-800 border-zinc-600 rounded focus:ring-gold focus:ring-2"
                 />
                 <span className="text-sm text-zinc-300">
-                  I agree to the <a href="/terms" target="_blank" className="text-gold underline">Terms of Service</a>
+                  I agree to the <a href="https://gambino.gold/legal/terms" target="_blank" className="text-gold underline">Terms of Service</a>
                 </span>
               </label>
 
@@ -237,7 +237,7 @@ export default function OnboardPage() {
                   className="mt-1 w-4 h-4 text-gold bg-zinc-800 border-zinc-600 rounded focus:ring-gold focus:ring-2"
                 />
                 <span className="text-sm text-zinc-300">
-                  I agree to the <a href="/privacy" target="_blank" className="text-gold underline">Privacy Policy</a>
+                  I agree to the <a href="https://gambino.gold/legal/privacy" target="_blank" className="text-gold underline">Privacy Policy</a>
                 </span>
               </label>
             </div>
