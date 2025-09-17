@@ -44,12 +44,21 @@ export default function Navbar() {
 
         <div className="hidden md:flex items-center gap-6">
           <Link
-            href="/leaderboard"
+            href="/network"
             className={`text-sm transition-all duration-200 hover:text-yellow-400 ${
-              pathname === '/leaderboard' ? 'text-yellow-400 font-medium' : 'text-neutral-300'
+              pathname === '/network' ? 'text-yellow-400 font-medium' : 'text-neutral-300'
             }`}
           >
-            Leaderboard
+            Network Status
+          </Link>
+
+          <Link
+            href="/help"
+            className={`text-sm transition-all duration-200 hover:text-yellow-400 ${
+              pathname === '/help' ? 'text-yellow-400 font-medium' : 'text-neutral-300'
+            }`}
+          >
+            Help
           </Link>
 
           {authed ? (
@@ -110,17 +119,32 @@ export default function Navbar() {
           <div className="relative z-40">
             <nav className="flex flex-col px-4 py-4 space-y-1">
               <Link
-                href="/leaderboard"
+                href="/network"
                 className={`px-3 py-3 text-sm transition-colors hover:text-white hover:bg-neutral-800/30 rounded-lg ${
-                  pathname === '/leaderboard' ? 'text-yellow-400 bg-neutral-800/20' : 'text-neutral-300'
+                  pathname === '/network' ? 'text-yellow-400 bg-neutral-800/20' : 'text-neutral-300'
                 }`}
                 onClick={closeMobileMenu}
               >
                 <div className="flex items-center gap-3">
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
-                  Leaderboard
+                  Network Status
+                </div>
+              </Link>
+
+              <Link
+                href="/help"
+                className={`px-3 py-3 text-sm transition-colors hover:text-white hover:bg-neutral-800/30 rounded-lg ${
+                  pathname === '/help' ? 'text-yellow-400 bg-neutral-800/20' : 'text-neutral-300'
+                }`}
+                onClick={closeMobileMenu}
+              >
+                <div className="flex items-center gap-3">
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  Help
                 </div>
               </Link>
 
