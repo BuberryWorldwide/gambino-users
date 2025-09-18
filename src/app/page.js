@@ -66,8 +66,12 @@ export default function Home() {
           {/* Logo area with glow effect */}
           <div className="flex items-center justify-center mb-8">
             <div className="relative">
-              <div className="w-16 h-16 md:w-20 md:h-20 rounded-xl bg-gradient-to-r from-yellow-400 to-amber-500 flex items-center justify-center shadow-2xl p-2">
-                <span className="text-2xl md:text-3xl font-bold text-black">G</span>
+              <div className="w-16 h-16 md:w-20 md:h-20 rounded-xl flex items-center justify-center shadow-2xl">
+                <img 
+                  src="/logo.png" 
+                  alt="Logo" 
+                  className="w-full h-full object-contain rounded-xl"
+                />
               </div>
               <div className="absolute -inset-3 bg-gradient-to-r from-yellow-400/20 to-amber-500/20 rounded-2xl blur-xl"></div>
             </div>
@@ -75,7 +79,7 @@ export default function Home() {
 
           <h1 className="text-4xl md:text-5xl font-extrabold mb-4">
             <span className="bg-gradient-to-r from-yellow-400 via-yellow-500 to-amber-600 bg-clip-text text-transparent">
-              GAMBINO
+              GAMBINO GOLD
             </span>
           </h1>
           <p className="text-lg md:text-xl text-neutral-300 mb-8 max-w-md mx-auto">
