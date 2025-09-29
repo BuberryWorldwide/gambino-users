@@ -9,9 +9,6 @@ import { StoreModals } from './components/StoreModals';
 import { getUser } from '@/lib/auth';
 import HardwareMappingManager from './components/HardwareMappingManager';
 
-
-
-
 const SOLSCAN = (addr) => `https://solscan.io/account/${addr}`;
 
 export default function StoreDetailPage({ params }) {
@@ -40,8 +37,6 @@ export default function StoreDetailPage({ params }) {
   const [machineStats, setMachineStats] = useState({ total: 0, active: 0, inactive: 0, maintenance: 0 });
   
   const refreshMachines = () => {
-    // This should trigger the machines to refresh in StoreDetailsTab
-    // You might need to add a ref or callback to StoreDetailsTab
     window.location.reload(); // Simple solution for now
   };
 
@@ -60,7 +55,6 @@ export default function StoreDetailPage({ params }) {
   const clampFee = (val) => Math.max(0, Math.min(100, Number(val) || 0));
   const abortRef = useRef();
 
-
   const [showConnectionInfo, setShowConnectionInfo] = useState(false);
   const [showQRModal, setShowQRModal] = useState(false);
   const [connectionInfo, setConnectionInfo] = useState(null);
@@ -68,12 +62,11 @@ export default function StoreDetailPage({ params }) {
 
   // Get user role on mount
   useEffect(() => {
-  const currentUser = getUser();
-  const role = currentUser?.role || 'venue_manager';
-  setUserRole(role);
-  
-  console.log('User role detected:', role);
-}, []);
+    const currentUser = getUser();
+    const role = currentUser?.role || 'venue_manager';
+    setUserRole(role);
+    console.log('User role detected:', role);
+  }, []);
 
   // Status badge component
   const StatusBadge = ({ status }) => {
@@ -202,7 +195,7 @@ export default function StoreDetailPage({ params }) {
     }
   };
 
-  // Store action handler
+  // Store action handler - IMPROVED WITH BETTER STATE MANAGEMENT
   const handleStoreAction = async (action) => {
     if (!store) return;
     
@@ -241,16 +234,29 @@ export default function StoreDetailPage({ params }) {
           throw new Error('Invalid action: ' + action);
       }
 
+      // Make API call
       await api.put(`/api/admin/stores/${encodeURIComponent(store.storeId || store._id)}`, payload);
       
-      setStore(prev => ({ ...prev, ...payload }));
-      setFromStore({ ...store, ...payload });
+      // Update local state immediately
+      const updatedStore = { ...store, ...payload };
+      setStore(updatedStore);
+      setFromStore(updatedStore);
+      
+      // Set localStorage flag to trigger refresh on stores listing page
+      localStorage.setItem('storeListRefreshNeeded', 'true');
+      localStorage.setItem('lastStoreAction', JSON.stringify({
+        storeId: store.storeId,
+        action: action,
+        timestamp: Date.now()
+      }));
+      
       setSaveMsg(successMessage);
       setTimeout(() => setSaveMsg(''), 2000);
       
       if (action === 'delete') {
         setTimeout(() => {
-          router.push('/admin/stores');
+          // Navigate back with refresh flag
+          router.push('/admin/stores?refresh=true');
         }, 1500);
       }
       
@@ -261,6 +267,13 @@ export default function StoreDetailPage({ params }) {
       setActionLoading(false);
       setShowDeleteModal(false);
     }
+  };
+
+  // Improved back navigation to trigger refresh
+  const handleBackToStores = () => {
+    // Set flag to refresh stores listing
+    localStorage.setItem('storeListRefreshNeeded', 'true');
+    router.push('/admin/stores');
   };
 
   const ownerText = useMemo(() => {
@@ -307,9 +320,12 @@ export default function StoreDetailPage({ params }) {
             <div className="text-red-400 text-6xl mb-4">⚠️</div>
             <h1 className="text-2xl font-bold text-white mb-2">Store Not Found</h1>
             <p className="text-red-200 mb-6">{err || 'The requested store could not be found.'}</p>
-            <Link href="/admin/stores" className="inline-flex px-6 py-3 bg-gray-700 hover:bg-gray-600 text-white font-medium rounded-xl transition-colors">
+            <button
+              onClick={handleBackToStores}
+              className="inline-flex px-6 py-3 bg-gray-700 hover:bg-gray-600 text-white font-medium rounded-xl transition-colors"
+            >
               ← Back to Stores
-            </Link>
+            </button>
           </div>
         </div>
       </div>
@@ -331,11 +347,14 @@ export default function StoreDetailPage({ params }) {
           {/* Header */}
           <div className="flex items-center justify-between mb-8">
             <div className="flex items-center space-x-4">
-              <Link href="/admin/stores" className="text-gray-400 hover:text-white transition-colors">
+              <button 
+                onClick={handleBackToStores}
+                className="text-gray-400 hover:text-white transition-colors"
+              >
                 <div className="w-10 h-10 bg-gray-700/50 hover:bg-gray-600/50 rounded-xl flex items-center justify-center border border-gray-600/30 hover:border-gray-500/50 transition-all">
                   ←
                 </div>
-              </Link>
+              </button>
               <div>
                 <h1 className="text-3xl font-bold text-white">{store.storeName || 'Store Details'}</h1>
                 <div className="flex items-center space-x-4 mt-2">
@@ -391,6 +410,16 @@ export default function StoreDetailPage({ params }) {
             </div>
           )}
 
+          {/* Error Message */}
+          {err && (
+            <div className="mb-6 bg-red-900/30 border border-red-500/30 rounded-xl p-4">
+              <div className="flex items-center">
+                <div className="w-2 h-2 bg-red-400 rounded-full mr-3"></div>
+                <p className="text-red-200 font-medium">{err}</p>
+              </div>
+            </div>
+          )}
+
           {/* Tabs */}
           <div className="mb-8">
             <div className="flex space-x-6 border-b border-gray-700/50">
@@ -401,7 +430,6 @@ export default function StoreDetailPage({ params }) {
                 { id: 'reports', label: 'Reports', icon: '📊' },
                 { id: 'analytics', label: 'Analytics', icon: '📈' },
                 { id: 'hardware', label: 'Hardware Mapping', icon: '🔌' }
-                
               ].map((tab) => (
                 <button
                   key={tab.id}
@@ -424,7 +452,7 @@ export default function StoreDetailPage({ params }) {
             </div>
           </div>
 
-          {/* Tab Content - Using the StoreDetailsTab Component with userRole */}
+          {/* Tab Content */}
           <StoreDetailsTab
             activeTab={activeTab}
             store={store}
@@ -449,7 +477,7 @@ export default function StoreDetailPage({ params }) {
         </div>
       </div>
 
-      {/* ALL MODALS HANDLED BY StoreModals COMPONENT - NO DUPLICATE MODAL CODE */}
+      {/* ALL MODALS */}
       <StoreModals
         // Modal visibility states
         showDeleteModal={showDeleteModal}
@@ -481,8 +509,7 @@ export default function StoreDetailPage({ params }) {
         handleStoreAction={handleStoreAction}
         userRole={userRole}
 
-        // These are referenced in the original StoreModals but not used in the fixed version
-        // If needed, add these states too:
+        // Additional props for compatibility
         newMachine={null}
         setNewMachine={() => {}}
         addingMachine={false}

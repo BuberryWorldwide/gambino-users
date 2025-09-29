@@ -900,103 +900,102 @@ const fetchPiReports = useCallback(async () => {
         </div>
 
         {/* QR Code Modal */}
-        // In StoreDetailsTab.js - Enhanced QR Modal
-{showQRModal && (
-  <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
-    <div className="bg-gray-800 rounded-2xl p-8 max-w-2xl w-full mx-4 border border-gray-700">
-      <h2 className="text-2xl font-bold text-white mb-4">
-        Machine QR Code & Mapping Info
-      </h2>
-      
-      {/* QR Code Image */}
-      <div className="bg-white rounded-lg p-4 mb-6 flex justify-center">
-        <img 
-          src={qrCodeData.qrCodeUrl} 
-          alt="QR Code" 
-          className="w-48 h-48"
-        />
-      </div>
-      
-      {/* Machine Mapping Information */}
-      <div className="bg-gray-900 rounded-lg p-4 mb-4">
-        <h3 className="text-lg font-semibold text-white mb-3">Mapping Information</h3>
-        
-        <div className="space-y-2 text-sm">
-          <div className="flex justify-between">
-            <span className="text-gray-400">Machine ID:</span>
-            <span className="text-yellow-400 font-mono">{qrCodeData.machineId}</span>
+        {showQRModal && (
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
+            <div className="bg-gray-800 rounded-2xl p-8 max-w-2xl w-full mx-4 border border-gray-700">
+              <h2 className="text-2xl font-bold text-white mb-4">
+                Machine QR Code & Mapping Info
+              </h2>
+              
+              {/* QR Code Image */}
+              <div className="bg-white rounded-lg p-4 mb-6 flex justify-center">
+                <img 
+                  src={qrCodeData.qrCodeUrl} 
+                  alt="QR Code" 
+                  className="w-48 h-48"
+                />
+              </div>
+              
+              {/* Machine Mapping Information */}
+              <div className="bg-gray-900 rounded-lg p-4 mb-4">
+                <h3 className="text-lg font-semibold text-white mb-3">Mapping Information</h3>
+                
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-gray-400">Machine ID:</span>
+                    <span className="text-yellow-400 font-mono">{qrCodeData.machineId}</span>
+                  </div>
+                  
+                  <div className="flex justify-between">
+                    <span className="text-gray-400">Fledgling Number:</span>
+                    <input 
+                      type="number" 
+                      min="1" 
+                      max="63" 
+                      placeholder="Enter 1-63"
+                      className="bg-gray-800 text-white px-2 py-1 rounded border border-gray-600 w-20"
+                      value={fledglingNumber}
+                      onChange={(e) => setFledglingNumber(e.target.value)}
+                    />
+                  </div>
+                  
+                  <div className="flex justify-between">
+                    <span className="text-gray-400">Store ID:</span>
+                    <span className="text-blue-400 font-mono">{store.storeId}</span>
+                  </div>
+                </div>
+                
+                {/* Copy-Paste Command */}
+                <div className="mt-4 p-3 bg-black/50 rounded">
+                  <p className="text-xs text-gray-400 mb-2">Pi Mapping Command:</p>
+                  <div className="font-mono text-xs text-green-400 break-all">
+                    ./map-machine.sh {fledglingNumber || 'XX'} {qrCodeData.machineId}
+                  </div>
+                  <button
+                    onClick={() => {
+                      if (fledglingNumber) {
+                        const command = `./map-machine.sh ${fledglingNumber.padStart(2, '0')} ${qrCodeData.machineId}`;
+                        navigator.clipboard.writeText(command);
+                        alert('Command copied! Run this on your Pi.');
+                      } else {
+                        alert('Please enter the Fledgling number first');
+                      }
+                    }}
+                    className="mt-2 px-3 py-1 bg-green-600 hover:bg-green-700 text-white text-xs rounded"
+                  >
+                    Copy Pi Command
+                  </button>
+                </div>
+              </div>
+                  
+              {/* Action Buttons */}
+              <div className="flex gap-3">
+                <button
+                  onClick={() => {
+                    const link = document.createElement('a');
+                    link.href = qrCodeData.qrCodeUrl;
+                    link.download = `machine-${qrCodeData.machineId}-qr.png`;
+                    link.click();
+                  }}
+                  className="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg"
+                >
+                  Download QR
+                </button>
+                
+                <button
+                  onClick={() => {
+                    setShowQRModal(false);
+                    setQRCodeData(null);
+                    setFledglingNumber('');
+                  }}
+                  className="flex-1 px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white font-medium rounded-lg"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
           </div>
-          
-          <div className="flex justify-between">
-            <span className="text-gray-400">Fledgling Number:</span>
-            <input 
-              type="number" 
-              min="1" 
-              max="63" 
-              placeholder="Enter 1-63"
-              className="bg-gray-800 text-white px-2 py-1 rounded border border-gray-600 w-20"
-              value={fledglingNumber}
-              onChange={(e) => setFledglingNumber(e.target.value)}
-            />
-          </div>
-          
-          <div className="flex justify-between">
-            <span className="text-gray-400">Store ID:</span>
-            <span className="text-blue-400 font-mono">{store.storeId}</span>
-          </div>
-        </div>
-        
-        {/* Copy-Paste Command */}
-        <div className="mt-4 p-3 bg-black/50 rounded">
-          <p className="text-xs text-gray-400 mb-2">Pi Mapping Command:</p>
-          <div className="font-mono text-xs text-green-400 break-all">
-            ./map-machine.sh {fledglingNumber || 'XX'} {qrCodeData.machineId}
-          </div>
-          <button
-            onClick={() => {
-              if (fledglingNumber) {
-                const command = `./map-machine.sh ${fledglingNumber.padStart(2, '0')} ${qrCodeData.machineId}`;
-                navigator.clipboard.writeText(command);
-                alert('Command copied! Run this on your Pi.');
-              } else {
-                alert('Please enter the Fledgling number first');
-              }
-            }}
-            className="mt-2 px-3 py-1 bg-green-600 hover:bg-green-700 text-white text-xs rounded"
-          >
-            Copy Pi Command
-          </button>
-        </div>
-      </div>
-
-      {/* Action Buttons */}
-      <div className="flex gap-3">
-        <button
-          onClick={() => {
-            const link = document.createElement('a');
-            link.href = qrCodeData.qrCodeUrl;
-            link.download = `machine-${qrCodeData.machineId}-qr.png`;
-            link.click();
-          }}
-          className="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg"
-        >
-          Download QR
-        </button>
-        
-        <button
-          onClick={() => {
-            setShowQRModal(false);
-            setQRCodeData(null);
-            setFledglingNumber('');
-          }}
-          className="flex-1 px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white font-medium rounded-lg"
-        >
-          Close
-        </button>
-      </div>
-    </div>
-  </div>
-)}
+        )}
 
         {/* Pi Token Modal */}
         {showTokenModal && (

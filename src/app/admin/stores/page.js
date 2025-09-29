@@ -1,4 +1,4 @@
-// src/app/admin/stores/page.js - Standardized Stores Management
+// src/app/admin/stores/page.js - Fixed Stores Management
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -17,10 +17,53 @@ export default function AdminStoresPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [showCreateModal, setShowCreateModal] = useState(false);
+  
+  // ADD: State for delete functionality
+  const [deletingStoreId, setDeletingStoreId] = useState(null);
 
   useEffect(() => {
     loadStores();
   }, []);
+
+  // ADD: Refresh detection useEffect
+  useEffect(() => {
+    // Check for refresh signals from localStorage
+    const shouldRefresh = localStorage.getItem('storeListRefreshNeeded');
+    const lastAction = localStorage.getItem('lastStoreAction');
+    
+    if (shouldRefresh === 'true') {
+      console.log('🔄 Refresh signal detected, reloading stores...');
+      loadStores();
+      
+      // Clear the flags
+      localStorage.removeItem('storeListRefreshNeeded');
+      
+      // Show success message if there was an action
+      if (lastAction) {
+        try {
+          const actionData = JSON.parse(lastAction);
+          // Only show message if action was recent (within last 30 seconds)
+          if (Date.now() - actionData.timestamp < 30000) {
+            setTimeout(() => {
+              alert(`Store ${actionData.action} completed successfully!`);
+            }, 500);
+          }
+          localStorage.removeItem('lastStoreAction');
+        } catch (e) {
+          // Invalid JSON, just remove it
+          localStorage.removeItem('lastStoreAction');
+        }
+      }
+    }
+    
+    // Also check URL parameters for refresh
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('refresh') === 'true') {
+      // Remove the parameter from URL
+      window.history.replaceState({}, '', '/admin/stores');
+      loadStores();
+    }
+  }, []); // Empty dependency array so it runs once on mount
 
   const loadStores = async () => {
     try {
@@ -37,32 +80,98 @@ export default function AdminStoresPage() {
     }
   };
 
+  // ADD: Store action handler function
+  const handleStoreAction = async (store, action) => {
+    if (!store?.storeId) return;
+    
+    const actionConfigs = {
+      deactivate: {
+        status: 'inactive',
+        confirmMsg: `Deactivate "${store.storeName}"?\n\nThis will mark the store as inactive but preserve all data.`,
+        successMsg: 'Store deactivated successfully'
+      },
+      activate: {
+        status: 'active', 
+        confirmMsg: `Activate "${store.storeName}"?`,
+        successMsg: 'Store activated successfully'
+      },
+      delete: {
+        status: 'deleted',
+        confirmMsg: `Delete "${store.storeName}"?\n\nThis will mark the store as deleted but data can be recovered.`,
+        successMsg: 'Store deleted successfully'
+      }
+    };
+
+    const config = actionConfigs[action];
+    if (!config || !window.confirm(config.confirmMsg)) return;
+
+    try {
+      setDeletingStoreId(store.storeId);
+      setError('');
+
+      const payload = { 
+        status: config.status,
+        ...(action === 'delete' && {
+          deletedAt: new Date().toISOString(),
+          deletedBy: 'admin'
+        })
+      };
+
+      // Call your existing API
+      const { data } = await api.put(`/api/admin/stores/${store.storeId}`, payload);
+
+      if (data.success) {
+        // ✅ CRITICAL: Update local state immediately
+        setStores(prevStores => 
+          prevStores.map(s => 
+            s.storeId === store.storeId 
+              ? { ...s, ...payload }  // Update the store with new status
+              : s
+          )
+        );
+        
+        alert(config.successMsg);
+      }
+    } catch (err) {
+      setError(err?.response?.data?.error || `Failed to ${action} store`);
+      console.error(`Store ${action} error:`, err);
+    } finally {
+      setDeletingStoreId(null);
+    }
+  };
+
+  // FIXED: Correct field names for filtering
   const filteredStores = stores.filter(store => {
-  const matchesSearch = store.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                       store.location?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                       store.storeId?.toLowerCase().includes(searchTerm.toLowerCase());
-  
-  let matchesStatus;
-  if (statusFilter === 'all') {
-    // 'all' means active stores (exclude deleted)
-    matchesStatus = store.status !== 'deleted';
-  } else if (statusFilter === 'truly-all') {
-    // Show everything including deleted
-    matchesStatus = true;
-  } else {
-    // Specific status filter
-    matchesStatus = store.status === statusFilter;
-  }
-  
-  return matchesSearch && matchesStatus;
-});
+    const matchesSearch = store.storeName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         store.city?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         store.state?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         store.address?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         store.storeId?.toLowerCase().includes(searchTerm.toLowerCase());
+    
+    let matchesStatus;
+    if (statusFilter === 'all') {
+      // 'all' means active stores (exclude deleted)
+      matchesStatus = store.status !== 'deleted';
+    } else if (statusFilter === 'truly-all') {
+      // Show everything including deleted
+      matchesStatus = true;
+    } else {
+      // Specific status filter
+      matchesStatus = store.status === statusFilter;
+    }
+    
+    return matchesSearch && matchesStatus;
+  });
 
   const getStatusColor = (status) => {
     const colors = {
       active: 'text-green-400',
       inactive: 'text-red-400',
       maintenance: 'text-yellow-400',
-      pending: 'text-orange-400'
+      pending: 'text-orange-400',
+      deleted: 'text-gray-500',
+      suspended: 'text-purple-400',
+      archived: 'text-gray-400'
     };
     return colors[status] || 'text-gray-400';
   };
@@ -195,7 +304,12 @@ export default function AdminStoresPage() {
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
           {filteredStores.map((store) => (
-            <StoreCard key={store.storeId} store={store} />
+            <StoreCard 
+              key={store.storeId} 
+              store={store} 
+              onStoreAction={handleStoreAction}
+              deletingStoreId={deletingStoreId}
+            />
           ))}
         </div>
       )}
@@ -214,21 +328,34 @@ export default function AdminStoresPage() {
   );
 }
 
-// Store Card Component
-const StoreCard = ({ store }) => {
+// UPDATED: Store Card Component with Action Buttons
+const StoreCard = ({ store, onStoreAction, deletingStoreId }) => {
   const getStatusColor = (status) => {
     const colors = {
       active: 'text-green-400',
       inactive: 'text-red-400',
       maintenance: 'text-yellow-400',
-      pending: 'text-orange-400'
+      pending: 'text-orange-400',
+      deleted: 'text-gray-500',
+      suspended: 'text-purple-400',
+      archived: 'text-gray-400'
     };
     return colors[status] || 'text-gray-400';
   };
 
+  const handleCardClick = (e) => {
+    // Don't navigate if clicking on action buttons
+    if (e.target.tagName === 'BUTTON' || e.target.closest('button')) {
+      e.preventDefault();
+      return;
+    }
+    // Navigate to store detail page
+    window.location.href = `/admin/stores/${store.storeId}`;
+  };
+
   return (
     <AdminCard className="hover:transform hover:scale-[1.02] transition-all duration-300 group cursor-pointer">
-      <a href={`/admin/stores/${store.storeId}`} className="block">
+      <div onClick={handleCardClick}>
         {/* Header */}
         <div className="flex items-start justify-between mb-4">
           <div className="flex-1">
@@ -236,7 +363,7 @@ const StoreCard = ({ store }) => {
               {store.storeName || 'Unnamed Store'}  
             </h3>
             <p className="text-gray-400 text-sm mt-1">
-              {store.location || 'Location not set'}
+              {store.city && store.state ? `${store.city}, ${store.state}` : 'Location not set'}
             </p>
           </div>
           <AdminStatusBadge status={store.status} />
@@ -266,17 +393,66 @@ const StoreCard = ({ store }) => {
           </div>
         </div>
 
-        {/* Quick Actions */}
+        {/* Action Buttons */}
         <div className="flex items-center justify-between pt-4 border-t border-gray-600/30">
           <div className="flex items-center text-gray-400 text-sm">
             <span className={`w-2 h-2 rounded-full mr-2 ${getStatusColor(store.status)}`}></span>
             {store.status?.charAt(0).toUpperCase() + store.status?.slice(1) || 'Unknown'}
           </div>
-          <div className="text-yellow-400 group-hover:text-yellow-300 text-sm font-medium">
-            Manage →
+          
+          {/* Action Buttons */}
+          <div className="flex items-center space-x-2">
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                window.location.href = `/admin/stores/${store.storeId}`;
+              }}
+              className="text-blue-400 hover:text-blue-300 text-xs font-medium px-2 py-1 rounded"
+            >
+              View
+            </button>
+            
+            {store.status === 'active' && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onStoreAction(store, 'deactivate');
+                }}
+                disabled={deletingStoreId === store.storeId}
+                className="text-orange-400 hover:text-orange-300 text-xs font-medium px-2 py-1 rounded disabled:opacity-50"
+              >
+                {deletingStoreId === store.storeId ? 'Processing...' : 'Deactivate'}
+              </button>
+            )}
+            
+            {store.status === 'inactive' && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onStoreAction(store, 'activate');
+                }}
+                disabled={deletingStoreId === store.storeId}
+                className="text-green-400 hover:text-green-300 text-xs font-medium px-2 py-1 rounded disabled:opacity-50"
+              >
+                {deletingStoreId === store.storeId ? 'Processing...' : 'Activate'}
+              </button>
+            )}
+            
+            {store.status !== 'deleted' && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onStoreAction(store, 'delete');
+                }}
+                disabled={deletingStoreId === store.storeId}
+                className="text-red-400 hover:text-red-300 text-xs font-medium px-2 py-1 rounded disabled:opacity-50"
+              >
+                {deletingStoreId === store.storeId ? 'Deleting...' : 'Delete'}
+              </button>
+            )}
           </div>
         </div>
-      </a>
+      </div>
     </AdminCard>
   );
 };
