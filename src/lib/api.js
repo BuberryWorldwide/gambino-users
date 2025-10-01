@@ -334,6 +334,90 @@ export const storeAPI = {
 };
 
 /**
+ * Daily Reports API methods
+ * Add this section to your src/lib/api.js file
+ */
+export const reportsAPI = {
+  /**
+   * Get all daily reports for a specific store and date
+   * @param {string} storeId - Store identifier
+   * @param {string} date - Date in YYYY-MM-DD format
+   */
+  getDailyReports: async (storeId, date) => {
+    const response = await api.get(`/api/admin/reports/daily/${storeId}`, {
+      params: { date }
+    });
+    return response.data;
+  },
+
+  /**
+   * Update report reconciliation status (include/exclude)
+   * @param {string} reportId - Report MongoDB ObjectId
+   * @param {boolean} include - Whether to include in reconciliation
+   * @param {string} notes - Optional notes
+   */
+  updateReconciliation: async (reportId, include, notes = '') => {
+    const response = await api.post(`/api/admin/reports/${reportId}/reconciliation`, {
+      include,
+      notes
+    });
+    return response.data;
+  },
+
+  /**
+   * Get reconciliation summary for a date range
+   * @param {string} storeId - Store identifier
+   * @param {string} startDate - Start date in YYYY-MM-DD format
+   * @param {string} endDate - End date in YYYY-MM-DD format
+   */
+  getReconciliationSummary: async (storeId, startDate, endDate) => {
+    const response = await api.get(`/api/admin/reports/${storeId}/reconciliation`, {
+      params: { startDate, endDate }
+    });
+    return response.data;
+  },
+
+  /**
+   * Get reports for multiple dates (helper method)
+   * @param {string} storeId - Store identifier
+   * @param {Date[]} dates - Array of Date objects
+   */
+  getMultipleDates: async (storeId, dates) => {
+    const requests = dates.map(date => {
+      const dateStr = date.toISOString().split('T')[0];
+      return reportsAPI.getDailyReports(storeId, dateStr);
+    });
+    
+    const results = await Promise.allSettled(requests);
+    
+    return results.map((result, index) => ({
+      date: dates[index],
+      success: result.status === 'fulfilled',
+      data: result.status === 'fulfilled' ? result.value : null,
+      error: result.status === 'rejected' ? result.reason : null
+    }));
+  },
+
+  /**
+   * Bulk update reconciliation status
+   * @param {Array<{reportId: string, include: boolean, notes?: string}>} updates
+   */
+  bulkUpdateReconciliation: async (updates) => {
+    const requests = updates.map(update => 
+      reportsAPI.updateReconciliation(update.reportId, update.include, update.notes)
+    );
+    
+    const results = await Promise.allSettled(requests);
+    
+    return {
+      success: results.filter(r => r.status === 'fulfilled').length,
+      failed: results.filter(r => r.status === 'rejected').length,
+      results: results
+    };
+  }
+};
+
+/**
  * Wallet API methods
  */
 export const walletAPI = {

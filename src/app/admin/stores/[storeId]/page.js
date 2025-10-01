@@ -36,10 +36,17 @@ export default function StoreDetailPage({ params }) {
   // Machine stats for tab counter
   const [machineStats, setMachineStats] = useState({ total: 0, active: 0, inactive: 0, maintenance: 0 });
   
-  const refreshMachines = () => {
-    window.location.reload(); // Simple solution for now
-  };
-
+  // NEW: Daily Reports States
+  const [selectedDate, setSelectedDate] = useState(new Date());
+  const [dailyReports, setDailyReports] = useState([]);
+  const [reportsSummary, setReportsSummary] = useState({
+    total: 0,
+    included: 0,
+    totalRevenue: 0
+  });
+  const [reportsLoading, setReportsLoading] = useState(false);
+  const [reportsError, setReportsError] = useState('');
+  
   // Modal states
   const [showAddMachine, setShowAddMachine] = useState(false);
   const [showBulkModal, setShowBulkModal] = useState(false);
@@ -65,7 +72,6 @@ export default function StoreDetailPage({ params }) {
     const currentUser = getUser();
     const role = currentUser?.role || 'venue_manager';
     setUserRole(role);
-    console.log('User role detected:', role);
   }, []);
 
   // Status badge component
@@ -75,9 +81,9 @@ export default function StoreDetailPage({ params }) {
       inactive: 'bg-red-900/20 border-red-500/30 text-red-300',
       maintenance: 'bg-yellow-900/20 border-yellow-500/30 text-yellow-300',
       pending: 'bg-orange-900/20 border-orange-500/30 text-orange-300',
-      suspended: 'bg-purple-900/20 border-purple-500/30 text-purple-300',
-      archived: 'bg-gray-900/20 border-gray-500/30 text-gray-300',
-      deleted: 'bg-red-900/20 border-red-500/30 text-red-300'
+      included: 'bg-green-900/20 border-green-500/30 text-green-300',
+      excluded: 'bg-red-900/20 border-red-500/30 text-red-300',
+      duplicate: 'bg-orange-900/20 border-orange-500/30 text-orange-300',
     };
     
     return (
@@ -151,6 +157,77 @@ export default function StoreDetailPage({ params }) {
     }
   }, [router, storeId, setFromStore]);
 
+  // NEW: Fetch daily reports for selected date
+  const fetchDailyReports = useCallback(async (date) => {
+    try {
+      setReportsLoading(true);
+      setReportsError('');
+      const dateStr = date.toISOString().split('T')[0];
+      const { data } = await api.get(
+        `/api/admin/reports/daily/${encodeURIComponent(storeId)}?date=${dateStr}`
+      );
+      
+      const reports = data.reports || [];
+      setDailyReports(reports);
+      
+      // Calculate summary - FIXED: use reconciliationStatus === 'included'
+      const included = reports.filter(r => r.reconciliationStatus === 'included');
+      setReportsSummary({
+        total: reports.length,
+        included: included.length,
+        totalRevenue: included.reduce((sum, r) => sum + (r.totalRevenue || 0), 0)
+      });
+    } catch (err) {
+      setReportsError(err?.response?.data?.error || 'Failed to load daily reports');
+      setDailyReports([]);
+    } finally {
+      setReportsLoading(false);
+    }
+  }, [storeId]);
+
+  // NEW: Toggle report reconciliation status
+  const handleToggleReconciliation = async (reportId, include) => {
+    try {
+      setReportsLoading(true);
+      await api.post(`/api/admin/reports/${reportId}/reconciliation`, {
+        include,
+        notes: include ? 'Included by user' : 'Excluded by user'
+      });
+      
+      // Refresh reports for current date
+      await fetchDailyReports(selectedDate);
+      
+      setSaveMsg(`Report ${include ? 'included' : 'excluded'} successfully`);
+      setTimeout(() => setSaveMsg(''), 3000);
+    } catch (err) {
+      setReportsError(err?.response?.data?.error || 'Failed to update report');
+    } finally {
+      setReportsLoading(false);
+    }
+  };
+
+  // NEW: Date navigation helpers
+  const goToPrevDay = () => {
+    const newDate = new Date(selectedDate);
+    newDate.setDate(newDate.getDate() - 1);
+    setSelectedDate(newDate);
+  };
+
+  const goToNextDay = () => {
+    const newDate = new Date(selectedDate);
+    newDate.setDate(newDate.getDate() + 1);
+    setSelectedDate(newDate);
+  };
+
+  const goToToday = () => {
+    setSelectedDate(new Date());
+  };
+
+  const isToday = (date) => {
+    const today = new Date();
+    return date.toDateString() === today.toDateString();
+  };
+
   // Save store changes
   const saveStore = async (e) => {
     e.preventDefault();
@@ -172,12 +249,6 @@ export default function StoreDetailPage({ params }) {
       status: edit.status || store.status,
     };
 
-    if (Object.keys(payload).every(k => payload[k] === store[k])) {
-      setSaveMsg('No changes to save.');
-      setSaving(false);
-      return;
-    }
-
     const prev = store;
     const next = { ...store, ...payload };
     setStore(next);
@@ -195,7 +266,7 @@ export default function StoreDetailPage({ params }) {
     }
   };
 
-  // Store action handler - IMPROVED WITH BETTER STATE MANAGEMENT
+  // Store action handler
   const handleStoreAction = async (action) => {
     if (!store) return;
     
@@ -234,34 +305,24 @@ export default function StoreDetailPage({ params }) {
           throw new Error('Invalid action: ' + action);
       }
 
-      // Make API call
       await api.put(`/api/admin/stores/${encodeURIComponent(store.storeId || store._id)}`, payload);
       
-      // Update local state immediately
       const updatedStore = { ...store, ...payload };
       setStore(updatedStore);
       setFromStore(updatedStore);
       
-      // Set localStorage flag to trigger refresh on stores listing page
       localStorage.setItem('storeListRefreshNeeded', 'true');
-      localStorage.setItem('lastStoreAction', JSON.stringify({
-        storeId: store.storeId,
-        action: action,
-        timestamp: Date.now()
-      }));
       
       setSaveMsg(successMessage);
       setTimeout(() => setSaveMsg(''), 2000);
       
       if (action === 'delete') {
         setTimeout(() => {
-          // Navigate back with refresh flag
           router.push('/admin/stores?refresh=true');
         }, 1500);
       }
       
     } catch (error) {
-      console.error(`Failed to ${action} store:`, error);
       setErr(error?.response?.data?.error || `Failed to ${action} store: ${error.message}`);
     } finally {
       setActionLoading(false);
@@ -269,9 +330,7 @@ export default function StoreDetailPage({ params }) {
     }
   };
 
-  // Improved back navigation to trigger refresh
   const handleBackToStores = () => {
-    // Set flag to refresh stores listing
     localStorage.setItem('storeListRefreshNeeded', 'true');
     router.push('/admin/stores');
   };
@@ -287,10 +346,21 @@ export default function StoreDetailPage({ params }) {
     }
   }, [storeId, fetchStore]);
 
+  // NEW: Load daily reports when reports tab is active or date changes
+  useEffect(() => {
+    if (activeTab === 'reports' && storeId) {
+      fetchDailyReports(selectedDate);
+    }
+  }, [activeTab, selectedDate, storeId, fetchDailyReports]);
+
   // Callback to update machine stats from child component
   const updateMachineStats = useCallback((stats) => {
     setMachineStats(stats);
   }, []);
+
+  const refreshMachines = () => {
+    window.location.reload();
+  };
 
   // Loading state
   if (loading) {
@@ -298,8 +368,6 @@ export default function StoreDetailPage({ params }) {
       <div className="min-h-screen bg-gradient-to-br from-gray-900 via-slate-900 to-black relative overflow-hidden">
         <div className="absolute inset-0">
           <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,.02)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,.02)_1px,transparent_1px)] bg-[size:100px_100px]"></div>
-          <div className="absolute top-20 left-10 w-32 h-32 border border-yellow-500/10 rounded-xl rotate-12 animate-pulse"></div>
-          <div className="absolute bottom-32 left-20 w-40 h-40 border border-orange-500/10 rounded-2xl rotate-45 animate-pulse" style={{ animationDuration: '4s' }}></div>
         </div>
         <div className="relative z-10 flex items-center justify-center min-h-screen">
           <div className="text-center">
@@ -338,8 +406,6 @@ export default function StoreDetailPage({ params }) {
       {/* Background Effects */}
       <div className="absolute inset-0">
         <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,.02)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,.02)_1px,transparent_1px)] bg-[size:100px_100px]"></div>
-        <div className="absolute top-20 left-10 w-32 h-32 border border-yellow-500/10 rounded-xl rotate-12 animate-pulse"></div>
-        <div className="absolute bottom-32 left-20 w-40 h-40 border border-orange-500/10 rounded-2xl rotate-45 animate-pulse" style={{ animationDuration: '4s' }}></div>
       </div>
 
       <div className="relative z-10 p-6">
@@ -442,7 +508,7 @@ export default function StoreDetailPage({ params }) {
                 >
                   <span>{tab.icon}</span>
                   <span>{tab.label}</span>
-                  {tab.count !== undefined && (
+                  {tab.count !== undefined && tab.count > 0 && (
                     <span className="bg-gray-600/50 text-gray-300 text-xs px-2 py-1 rounded-full">
                       {tab.count}
                     </span>
@@ -452,34 +518,224 @@ export default function StoreDetailPage({ params }) {
             </div>
           </div>
 
-          {/* Tab Content */}
-          <StoreDetailsTab
-            activeTab={activeTab}
-            store={store}
-            edit={edit}
-            setEdit={setEdit}
-            saving={saving}
-            err={err}
-            saveStore={saveStore}
-            setFromStore={setFromStore}
-            StatusBadge={StatusBadge}
-            ownerText={ownerText}
-            CAN_EDIT={CAN_EDIT}
-            CAN_WALLET={CAN_WALLET}
-            showSubmitForm={showSubmitForm}
-            setShowSubmitForm={setShowSubmitForm}
-            setShowAddMachine={setShowAddMachine}
-            setShowBulkModal={setShowBulkModal}
-            SOLSCAN={SOLSCAN}
-            onMachineStatsUpdate={updateMachineStats}
-            userRole={userRole}
-          />
+          {/* Tab Content - Reports Tab with NEW Daily Reports UI */}
+          {activeTab === 'reports' ? (
+            <div className="space-y-6">
+              {/* Date Navigator */}
+              <div className="bg-gray-800/50 border border-gray-700/50 rounded-xl p-6">
+                <div className="flex items-center justify-between">
+                  <button 
+                    onClick={goToPrevDay} 
+                    className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white font-medium rounded-lg transition-colors"
+                  >
+                    ← Previous Day
+                  </button>
+                  
+                  <div className="text-center">
+                    <h2 className="text-2xl font-bold text-white">
+                      {selectedDate.toLocaleDateString('en-US', { 
+                        weekday: 'long', 
+                        year: 'numeric', 
+                        month: 'long', 
+                        day: 'numeric' 
+                      })}
+                    </h2>
+                    {!isToday(selectedDate) && (
+                      <button 
+                        onClick={goToToday} 
+                        className="text-sm text-blue-400 hover:underline mt-1"
+                      >
+                        Jump to Today
+                      </button>
+                    )}
+                  </div>
+                  
+                  <button 
+                    onClick={goToNextDay} 
+                    disabled={isToday(selectedDate)}
+                    className="px-4 py-2 bg-gray-700 hover:bg-gray-600 disabled:bg-gray-800 disabled:text-gray-500 disabled:cursor-not-allowed text-white font-medium rounded-lg transition-colors"
+                  >
+                    Next Day →
+                  </button>
+                </div>
+              </div>
+
+              {/* Reports Summary Stats */}
+              <div className="grid grid-cols-3 gap-4">
+                <div className="bg-blue-900/20 border border-blue-500/30 rounded-xl p-4">
+                  <div className="text-blue-300 text-sm font-medium">Total Reports</div>
+                  <div className="text-3xl font-bold text-white mt-1">{reportsSummary.total}</div>
+                </div>
+                
+                <div className="bg-green-900/20 border border-green-500/30 rounded-xl p-4">
+                  <div className="text-green-300 text-sm font-medium">Included in Reconciliation</div>
+                  <div className="text-3xl font-bold text-white mt-1">{reportsSummary.included}</div>
+                </div>
+                
+                <div className="bg-yellow-900/20 border border-yellow-500/30 rounded-xl p-4">
+                  <div className="text-yellow-300 text-sm font-medium">Total Revenue (Included)</div>
+                  <div className="text-3xl font-bold text-white mt-1">
+                    ${reportsSummary.totalRevenue.toFixed(2)}
+                  </div>
+                </div>
+              </div>
+
+              {/* Error Message */}
+              {reportsError && (
+                <div className="bg-red-900/30 border border-red-500/30 rounded-xl p-4">
+                  <p className="text-red-200">{reportsError}</p>
+                </div>
+              )}
+
+              {/* Reports List */}
+              {reportsLoading ? (
+                <div className="flex items-center justify-center p-12">
+                  <div className="w-12 h-12 border-3 border-yellow-400 border-t-transparent rounded-full animate-spin"></div>
+                </div>
+              ) : dailyReports.length === 0 ? (
+                <div className="bg-gray-800/50 border border-gray-700/50 rounded-xl p-12 text-center">
+                  <div className="text-gray-400 text-lg">No reports found for this date</div>
+                  <p className="text-gray-500 text-sm mt-2">
+                    Reports are automatically created when the Pi sends daily summary data
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {dailyReports.map((report, index) => (
+                    <div 
+                      key={report._id}
+                      className={`bg-gray-800/50 border rounded-xl p-6 transition-all ${
+                        report.reconciliationStatus === 'included' 
+                          ? 'border-green-500/50'
+                          : report.reconciliationStatus === 'excluded'
+                          ? 'border-red-500/50'
+                          : report.reconciliationStatus === 'duplicate'
+                          ? 'border-orange-500/50'
+                          : 'border-gray-700/50'
+                      }`}
+                    >
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-3 mb-3">
+                            <h3 className="text-xl font-bold text-white">
+                              Report #{index + 1}
+                            </h3>
+                            <StatusBadge status={report.reconciliationStatus || 'pending'} />
+                          </div>
+                          
+                          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+                            <div>
+                              <div className="text-sm text-gray-400">Printed At</div>
+                              <div className="text-white font-medium">
+                                {new Date(report.printedAt).toLocaleTimeString()}
+                              </div>
+                            </div>
+                            <div>
+                              <div className="text-sm text-gray-400">Revenue</div>
+                              <div className="text-white font-bold text-lg">
+                                ${(report.totalRevenue || 0).toFixed(2)}
+                              </div>
+                            </div>
+                            <div>
+                              <div className="text-sm text-gray-400">Machines</div>
+                              <div className="text-white font-medium">
+                                {report.machineData?.length || 0}
+                              </div>
+                            </div>
+                            <div>
+                              <div className="text-sm text-gray-400">Quality Score</div>
+                              <div className="text-white font-medium">
+                                {report.qualityScore || 0}/100
+                              </div>
+                            </div>
+                          </div>
+
+                          {report.anomalyReasons && report.anomalyReasons.length > 0 && (
+                            <div className="bg-yellow-900/20 border border-yellow-500/30 rounded-lg p-3 mb-4">
+                              <div className="text-yellow-300 text-sm font-medium mb-1">
+                                ⚠️ Data Quality Issues:
+                              </div>
+                              <div className="text-yellow-200 text-sm">
+                                {report.anomalyReasons.join(', ')}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Machine Breakdown - FIXED field names */}
+                          {report.machineData && report.machineData.length > 0 && (
+                            <details className="mt-4">
+                              <summary className="text-blue-400 hover:text-blue-300 cursor-pointer text-sm font-medium">
+                                View Machine Breakdown ({report.machineData.length} machines)
+                              </summary>
+                              <div className="mt-3 grid grid-cols-2 md:grid-cols-4 gap-2">
+                                {report.machineData.map((machine, idx) => (
+                                  <div key={idx} className="bg-gray-900/50 rounded-lg p-2">
+                                    <div className="text-xs text-gray-400">{machine.machineId}</div>
+                                    <div className="text-white font-medium">
+                                      ${(machine.netRevenue || 0).toFixed(2)}
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            </details>
+                          )}
+                        </div>
+
+                        {/* Action Buttons - FIXED logic */}
+                        <div className="flex flex-col gap-2 ml-4">
+                          {(report.reconciliationStatus === 'pending' || report.reconciliationStatus === 'excluded') && (
+                            <button
+                              onClick={() => handleToggleReconciliation(report._id, true)}
+                              disabled={reportsLoading}
+                              className="px-4 py-2 bg-green-600 hover:bg-green-700 disabled:bg-green-800 text-white font-medium rounded-lg text-sm transition-colors"
+                            >
+                              Include
+                            </button>
+                          )}
+                          {(report.reconciliationStatus === 'pending' || report.reconciliationStatus === 'included') && (
+                            <button
+                              onClick={() => handleToggleReconciliation(report._id, false)}
+                              disabled={reportsLoading}
+                              className="px-4 py-2 bg-red-600 hover:bg-red-700 disabled:bg-red-800 text-white font-medium rounded-lg text-sm transition-colors"
+                            >
+                              Exclude
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          ) : (
+            <StoreDetailsTab
+              activeTab={activeTab}
+              store={store}
+              edit={edit}
+              setEdit={setEdit}
+              saving={saving}
+              err={err}
+              saveStore={saveStore}
+              setFromStore={setFromStore}
+              StatusBadge={StatusBadge}
+              ownerText={ownerText}
+              CAN_EDIT={CAN_EDIT}
+              CAN_WALLET={CAN_WALLET}
+              showSubmitForm={showSubmitForm}
+              setShowSubmitForm={setShowSubmitForm}
+              setShowAddMachine={setShowAddMachine}
+              setShowBulkModal={setShowBulkModal}
+              SOLSCAN={SOLSCAN}
+              onMachineStatsUpdate={updateMachineStats}
+              userRole={userRole}
+            />
+          )}
         </div>
       </div>
 
       {/* ALL MODALS */}
       <StoreModals
-        // Modal visibility states
         showDeleteModal={showDeleteModal}
         setShowDeleteModal={setShowDeleteModal}
         showAddMachine={showAddMachine}
@@ -490,26 +746,16 @@ export default function StoreDetailPage({ params }) {
         setShowConnectionInfo={setShowConnectionInfo}
         showQRModal={showQRModal}
         setShowQRModal={setShowQRModal}
-
-        // Store data
         store={store}
-
-        // Machine-related props  
         machines={[]}
         selectedMachines={[]}
         setSelectedMachines={() => {}}
-
-        // Additional data
         connectionInfo={connectionInfo}
         qrCodeData={qrCodeData}
-
-        // Callbacks
         onMachinesUpdate={refreshMachines}
         actionLoading={actionLoading}
         handleStoreAction={handleStoreAction}
         userRole={userRole}
-
-        // Additional props for compatibility
         newMachine={null}
         setNewMachine={() => {}}
         addingMachine={false}
