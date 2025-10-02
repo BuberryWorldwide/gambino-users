@@ -11,6 +11,9 @@ import HardwareMappingManager from './components/HardwareMappingManager';
 
 const SOLSCAN = (addr) => `https://solscan.io/account/${addr}`;
 
+const DailyReportsTab = require('./components/DailyReportsTab');
+
+
 export default function StoreDetailPage({ params }) {
   const resolvedParams = use(params);
   const storeId = resolvedParams?.storeId;
@@ -518,219 +521,32 @@ export default function StoreDetailPage({ params }) {
             </div>
           </div>
 
-          {/* Tab Content - Reports Tab with NEW Daily Reports UI */}
-          {activeTab === 'reports' ? (
-            <div className="space-y-6">
-              {/* Date Navigator */}
-              <div className="bg-gray-800/50 border border-gray-700/50 rounded-xl p-6">
-                <div className="flex items-center justify-between">
-                  <button 
-                    onClick={goToPrevDay} 
-                    className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white font-medium rounded-lg transition-colors"
-                  >
-                    ← Previous Day
-                  </button>
-                  
-                  <div className="text-center">
-                    <h2 className="text-2xl font-bold text-white">
-                      {selectedDate.toLocaleDateString('en-US', { 
-                        weekday: 'long', 
-                        year: 'numeric', 
-                        month: 'long', 
-                        day: 'numeric' 
-                      })}
-                    </h2>
-                    {!isToday(selectedDate) && (
-                      <button 
-                        onClick={goToToday} 
-                        className="text-sm text-blue-400 hover:underline mt-1"
-                      >
-                        Jump to Today
-                      </button>
-                    )}
-                  </div>
-                  
-                  <button 
-                    onClick={goToNextDay} 
-                    disabled={isToday(selectedDate)}
-                    className="px-4 py-2 bg-gray-700 hover:bg-gray-600 disabled:bg-gray-800 disabled:text-gray-500 disabled:cursor-not-allowed text-white font-medium rounded-lg transition-colors"
-                  >
-                    Next Day →
-                  </button>
-                </div>
-              </div>
-
-              {/* Reports Summary Stats */}
-              <div className="grid grid-cols-3 gap-4">
-                <div className="bg-blue-900/20 border border-blue-500/30 rounded-xl p-4">
-                  <div className="text-blue-300 text-sm font-medium">Total Reports</div>
-                  <div className="text-3xl font-bold text-white mt-1">{reportsSummary.total}</div>
-                </div>
-                
-                <div className="bg-green-900/20 border border-green-500/30 rounded-xl p-4">
-                  <div className="text-green-300 text-sm font-medium">Included in Reconciliation</div>
-                  <div className="text-3xl font-bold text-white mt-1">{reportsSummary.included}</div>
-                </div>
-                
-                <div className="bg-yellow-900/20 border border-yellow-500/30 rounded-xl p-4">
-                  <div className="text-yellow-300 text-sm font-medium">Total Revenue (Included)</div>
-                  <div className="text-3xl font-bold text-white mt-1">
-                    ${reportsSummary.totalRevenue.toFixed(2)}
-                  </div>
-                </div>
-              </div>
-
-              {/* Error Message */}
-              {reportsError && (
-                <div className="bg-red-900/30 border border-red-500/30 rounded-xl p-4">
-                  <p className="text-red-200">{reportsError}</p>
-                </div>
-              )}
-
-              {/* Reports List */}
-              {reportsLoading ? (
-                <div className="flex items-center justify-center p-12">
-                  <div className="w-12 h-12 border-3 border-yellow-400 border-t-transparent rounded-full animate-spin"></div>
-                </div>
-              ) : dailyReports.length === 0 ? (
-                <div className="bg-gray-800/50 border border-gray-700/50 rounded-xl p-12 text-center">
-                  <div className="text-gray-400 text-lg">No reports found for this date</div>
-                  <p className="text-gray-500 text-sm mt-2">
-                    Reports are automatically created when the Pi sends daily summary data
-                  </p>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {dailyReports.map((report, index) => (
-                    <div 
-                      key={report._id}
-                      className={`bg-gray-800/50 border rounded-xl p-6 transition-all ${
-                        report.reconciliationStatus === 'included' 
-                          ? 'border-green-500/50'
-                          : report.reconciliationStatus === 'excluded'
-                          ? 'border-red-500/50'
-                          : report.reconciliationStatus === 'duplicate'
-                          ? 'border-orange-500/50'
-                          : 'border-gray-700/50'
-                      }`}
-                    >
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-3 mb-3">
-                            <h3 className="text-xl font-bold text-white">
-                              Report #{index + 1}
-                            </h3>
-                            <StatusBadge status={report.reconciliationStatus || 'pending'} />
-                          </div>
-                          
-                          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
-                            <div>
-                              <div className="text-sm text-gray-400">Printed At</div>
-                              <div className="text-white font-medium">
-                                {new Date(report.printedAt).toLocaleTimeString()}
-                              </div>
-                            </div>
-                            <div>
-                              <div className="text-sm text-gray-400">Revenue</div>
-                              <div className="text-white font-bold text-lg">
-                                ${(report.totalRevenue || 0).toFixed(2)}
-                              </div>
-                            </div>
-                            <div>
-                              <div className="text-sm text-gray-400">Machines</div>
-                              <div className="text-white font-medium">
-                                {report.machineData?.length || 0}
-                              </div>
-                            </div>
-                            <div>
-                              <div className="text-sm text-gray-400">Quality Score</div>
-                              <div className="text-white font-medium">
-                                {report.qualityScore || 0}/100
-                              </div>
-                            </div>
-                          </div>
-
-                          {report.anomalyReasons && report.anomalyReasons.length > 0 && (
-                            <div className="bg-yellow-900/20 border border-yellow-500/30 rounded-lg p-3 mb-4">
-                              <div className="text-yellow-300 text-sm font-medium mb-1">
-                                ⚠️ Data Quality Issues:
-                              </div>
-                              <div className="text-yellow-200 text-sm">
-                                {report.anomalyReasons.join(', ')}
-                              </div>
-                            </div>
-                          )}
-
-                          {/* Machine Breakdown - FIXED field names */}
-                          {report.machineData && report.machineData.length > 0 && (
-                            <details className="mt-4">
-                              <summary className="text-blue-400 hover:text-blue-300 cursor-pointer text-sm font-medium">
-                                View Machine Breakdown ({report.machineData.length} machines)
-                              </summary>
-                              <div className="mt-3 grid grid-cols-2 md:grid-cols-4 gap-2">
-                                {report.machineData.map((machine, idx) => (
-                                  <div key={idx} className="bg-gray-900/50 rounded-lg p-2">
-                                    <div className="text-xs text-gray-400">{machine.machineId}</div>
-                                    <div className="text-white font-medium">
-                                      ${(machine.netRevenue || 0).toFixed(2)}
-                                    </div>
-                                  </div>
-                                ))}
-                              </div>
-                            </details>
-                          )}
-                        </div>
-
-                        {/* Action Buttons - FIXED logic */}
-                        <div className="flex flex-col gap-2 ml-4">
-                          {(report.reconciliationStatus === 'pending' || report.reconciliationStatus === 'excluded') && (
-                            <button
-                              onClick={() => handleToggleReconciliation(report._id, true)}
-                              disabled={reportsLoading}
-                              className="px-4 py-2 bg-green-600 hover:bg-green-700 disabled:bg-green-800 text-white font-medium rounded-lg text-sm transition-colors"
-                            >
-                              Include
-                            </button>
-                          )}
-                          {(report.reconciliationStatus === 'pending' || report.reconciliationStatus === 'included') && (
-                            <button
-                              onClick={() => handleToggleReconciliation(report._id, false)}
-                              disabled={reportsLoading}
-                              className="px-4 py-2 bg-red-600 hover:bg-red-700 disabled:bg-red-800 text-white font-medium rounded-lg text-sm transition-colors"
-                            >
-                              Exclude
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          ) : (
-            <StoreDetailsTab
-              activeTab={activeTab}
-              store={store}
-              edit={edit}
-              setEdit={setEdit}
-              saving={saving}
-              err={err}
-              saveStore={saveStore}
-              setFromStore={setFromStore}
-              StatusBadge={StatusBadge}
-              ownerText={ownerText}
-              CAN_EDIT={CAN_EDIT}
-              CAN_WALLET={CAN_WALLET}
-              showSubmitForm={showSubmitForm}
-              setShowSubmitForm={setShowSubmitForm}
-              setShowAddMachine={setShowAddMachine}
-              setShowBulkModal={setShowBulkModal}
-              SOLSCAN={SOLSCAN}
-              onMachineStatsUpdate={updateMachineStats}
-              userRole={userRole}
-            />
-          )}
+          {/* Tab Content */}
+{activeTab === 'reports' ? (
+  <DailyReportsTab storeId={storeId} api={api} />
+) : (
+  <StoreDetailsTab
+    activeTab={activeTab}
+    store={store}
+    edit={edit}
+    setEdit={setEdit}
+    saving={saving}
+    err={err}
+    saveStore={saveStore}
+    setFromStore={setFromStore}
+    StatusBadge={StatusBadge}
+    ownerText={ownerText}
+    CAN_EDIT={CAN_EDIT}
+    CAN_WALLET={CAN_WALLET}
+    showSubmitForm={showSubmitForm}
+    setShowSubmitForm={setShowSubmitForm}
+    setShowAddMachine={setShowAddMachine}
+    setShowBulkModal={setShowBulkModal}
+    SOLSCAN={SOLSCAN}
+    onMachineStatsUpdate={updateMachineStats}
+    userRole={userRole}
+  />
+)}
         </div>
       </div>
 
