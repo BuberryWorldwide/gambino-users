@@ -8,6 +8,9 @@ import { StoreDetailsTab } from './components/StoreDetailsTab';
 import { StoreModals } from './components/StoreModals';
 import { getUser } from '@/lib/auth';
 import HardwareMappingManager from './components/HardwareMappingManager';
+import FinancialSummaryTab from './components/FinancialSummaryTab';
+
+
 
 const SOLSCAN = (addr) => `https://solscan.io/account/${addr}`;
 
@@ -494,6 +497,7 @@ export default function StoreDetailPage({ params }) {
             <div className="flex space-x-6 border-b border-gray-700/50">
               {[
                 { id: 'details', label: 'Store Details', icon: '🏪' },
+                { id: 'financial', label: 'Financial Summary', icon: '💵' },  // ADD THIS LINE
                 { id: 'wallet', label: 'Wallet', icon: '💰' },
                 { id: 'machines', label: 'Machines', icon: '🎰', count: machineStats.total },
                 { id: 'reports', label: 'Reports', icon: '📊' },
@@ -524,6 +528,8 @@ export default function StoreDetailPage({ params }) {
           {/* Tab Content */}
 {activeTab === 'reports' ? (
   <DailyReportsTab storeId={storeId} api={api} />
+) : activeTab === 'financial' ? (
+  <FinancialSummaryTab storeId={storeId} store={store} />
 ) : (
   <StoreDetailsTab
     activeTab={activeTab}
