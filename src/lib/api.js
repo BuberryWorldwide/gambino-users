@@ -469,87 +469,13 @@ export const walletAPI = {
 };
 
 /**
- * Treasury API methods for blockchain endpoints
+ * Treasury API methods - REMOVED FOR SECURITY
+ * Treasury operations should only be accessed through admin-v2 application
+ * Regular users do not need access to treasury endpoints
+ *
+ * If you need treasury functionality, use the admin dashboard at:
+ * https://admin.gambino.gold/admin/distributions
  */
-export const treasuryAPI = {
-  getAllBalances: async () => {
-    const response = await api.get('/admin/treasury/balances', {
-      headers: {
-        'x-admin-key': process.env.NEXT_PUBLIC_ADMIN_API_KEY || 'your-admin-api-key-change-this'
-      }
-    });
-    return response.data;
-  },
-
-  getAccountBalance: async (accountType) => {
-    const response = await api.get(`/admin/treasury/balances/${accountType}`, {
-      headers: {
-        'x-admin-key': process.env.NEXT_PUBLIC_ADMIN_API_KEY || 'your-admin-api-key-change-this'
-      }
-    });
-    return response.data;
-  },
-
-  getNetworkInfo: async () => {
-    const response = await api.get('/admin/treasury/network', {
-      headers: {
-        'x-admin-key': process.env.NEXT_PUBLIC_ADMIN_API_KEY || 'your-admin-api-key-change-this'
-      }
-    });
-    return response.data;
-  },
-
-  getTransactions: async (accountType, limit = 10) => {
-    const response = await api.get(`/admin/treasury/transactions/${accountType}`, {
-      params: { limit },
-      headers: {
-        'x-admin-key': process.env.NEXT_PUBLIC_ADMIN_API_KEY || 'your-admin-api-key-change-this'
-      }
-    });
-    return response.data;
-  },
-
-  healthCheck: async () => {
-    const response = await api.get('/admin/treasury/health');
-    return response.data;
-  },
-
-  switchNetwork: async (network) => {
-    const response = await api.post('/admin/treasury/switch-network', 
-      { network },
-      {
-        headers: {
-          'x-admin-key': process.env.NEXT_PUBLIC_ADMIN_API_KEY || 'your-admin-api-key-change-this'
-        }
-      }
-    );
-    return response.data;
-  },
-
-  legacy: {
-    getTreasury: async () => {
-      const response = await api.get('/admin/treasury');
-      return response.data;
-    },
-
-    refreshBalances: async () => {
-      const response = await api.post('/admin/treasury/refresh-balances');
-      return response.data;
-    },
-
-    addWallet: async (walletData) => {
-      const response = await api.post('/admin/treasury', walletData);
-      return response.data;
-    },
-
-    rotateKey: async (walletId, privateKeyBase64) => {
-      const response = await api.post(`/admin/treasury/${walletId}/rotate`, {
-        privateKeyBase64
-      });
-      return response.data;
-    }
-  }
-};
 
 /**
  * Public API methods (no auth required)
@@ -583,16 +509,6 @@ export const publicAPI = {
 };
 
 // --- Helper Functions ---
-
-/**
- * Helper function to create admin headers
- */
-export function createAdminHeaders(additionalHeaders = {}) {
-  return {
-    'x-admin-key': process.env.NEXT_PUBLIC_ADMIN_API_KEY || 'your-admin-api-key-change-this',
-    ...additionalHeaders
-  };
-}
 
 /**
  * Helper function to check if request failed due to permission issues

@@ -6,14 +6,69 @@ const AUTH_KEYS = {
 };
 
 /**
+ * Decode JWT token without verification (client-side only)
+ */
+function decodeToken(token) {
+  try {
+    const parts = token.split('.');
+    if (parts.length !== 3) return null;
+
+    const payload = JSON.parse(atob(parts[1]));
+    return payload;
+  } catch (error) {
+    console.error('Failed to decode token:', error);
+    return null;
+  }
+}
+
+/**
+ * Check if token is expired
+ */
+function isTokenExpired(token) {
+  const payload = decodeToken(token);
+  if (!payload || !payload.exp) return true;
+
+  // Add 5 second buffer to account for clock skew
+  const expiryTime = payload.exp * 1000;
+  const currentTime = Date.now() + 5000;
+
+  return currentTime >= expiryTime;
+}
+
+/**
+ * Check if token will expire soon (within threshold)
+ */
+function isTokenExpiringSoon(token) {
+  const payload = decodeToken(token);
+  if (!payload || !payload.exp) return false;
+
+  const expiryTime = payload.exp * 1000;
+  const currentTime = Date.now();
+  const timeUntilExpiry = expiryTime - currentTime;
+
+  // Return true if expiring within 5 minutes
+  return timeUntilExpiry > 0 && timeUntilExpiry < (5 * 60 * 1000);
+}
+
+/**
  * Get authentication token from storage
+ * Automatically clears expired tokens
  */
 export function getToken() {
   if (typeof window === 'undefined') return null;
-  
-  return localStorage.getItem(AUTH_KEYS.TOKEN) || 
-         sessionStorage.getItem(AUTH_KEYS.TOKEN) || 
-         null;
+
+  const token = localStorage.getItem(AUTH_KEYS.TOKEN) ||
+                sessionStorage.getItem(AUTH_KEYS.TOKEN) ||
+                null;
+
+  // Clear expired token
+  if (token && isTokenExpired(token)) {
+    console.warn('🔒 Token expired, clearing auth data');
+    clearToken();
+    return null;
+  }
+
+  return token;
 }
 
 /**
@@ -190,10 +245,10 @@ export function useAuth(options = {}) {
 
     const currentToken = getToken();
     const currentUser = getUser();
-    
+
     setTokenState(currentToken);
     setUser(currentUser);
-    
+
     // Handle requirements
     if (requireAuth && !currentToken) {
       router.push(redirectTo);
@@ -203,6 +258,14 @@ export function useAuth(options = {}) {
     if (requireAdmin && (!currentUser || !canAccessAdmin(currentUser))) {
       router.push('/dashboard');
       return;
+    }
+
+    // Auto-refresh token if expiring soon
+    if (currentToken && isTokenExpiringSoon(currentToken)) {
+      console.log('🔄 Token expiring soon, attempting auto-refresh...');
+      refreshAuth().catch(err => {
+        console.error('Auto-refresh failed:', err);
+      });
     }
 
     setLoading(false);
@@ -300,10 +363,10 @@ export function useAuth(options = {}) {
       switch (role) {
         case 'super_admin':
         case 'gambino_ops':
-          return 10 * 60 * 1000; // 10 minutes for high-privilege admin users
+          return 30 * 60 * 1000; // 30 minutes for high-privilege admin users
         case 'venue_manager':
         case 'venue_staff':
-          return 30 * 60 * 1000; // 30 minutes for venue users
+          return 45 * 60 * 1000; // 45 minutes for venue users
         case 'user':
         default:
           return 60 * 60 * 1000; // 1 hour for regular users
