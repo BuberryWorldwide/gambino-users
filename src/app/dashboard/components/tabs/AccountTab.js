@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import api from '@/lib/api';
-import { removeToken } from '@/lib/auth';
+import { clearToken } from '@/lib/auth';
 
 function LoadingSpinner() {
   return (
@@ -101,7 +101,7 @@ export default function AccountTab({
   };
 
   const handleLogout = () => {
-    removeToken();
+    clearToken();
     router.push('/login');
   };
 
