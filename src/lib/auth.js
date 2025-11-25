@@ -157,15 +157,13 @@ export function getUserRedirectUrl(userData) {
   }
 
   // Fallback based on role
-  // Admin roles should go to admin.gambino.gold, not this user app
   const role = userData?.role;
   switch (role) {
     case 'super_admin':
     case 'gambino_ops':
     case 'venue_manager':
     case 'venue_staff':
-      // Redirect admin users to the admin panel
-      return 'https://admin.gambino.gold/admin/dashboard';
+      return '/admin/dashboard';
     case 'user':
     default:
       return '/dashboard';

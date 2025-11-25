@@ -1,501 +1,240 @@
 'use client';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { getToken } from '@/lib/auth';
+import { getToken, getUser, clearToken, canAccessAdmin } from '@/lib/auth';
 import api from '@/lib/api';
 
-function StatBox({ label, value, sub }) {
-  return (
-    <div className="stat-box">
-      <div className="stat-value">{value}</div>
-      <div className="stat-label">{label}</div>
-      {sub && <div className="text-xs text-neutral-500 mt-1">{sub}</div>}
-    </div>
-  );
-}
-
-export default function Dashboard() {
+export default function AdminDashboardPage() {
   const router = useRouter();
+  const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
 
-  // refs
-  const pollerRef = useRef(null);
-  const abortRef = useRef(null);
-  const tokenRef = useRef(null);
-  const privateKeyRef = useRef(''); // ← hold sensitive key outside React state
-
-  // state
-  const [mounted, setMounted] = useState(false);
-  const [profile, setProfile] = useState(null);
-  const [balances, setBalances] = useState(null);
-  const [qr, setQr] = useState(null);
-  const [error, setError] = useState('');
-  const [showChangePassword, setShowChangePassword] = useState(false);
-  const [passwordForm, setPasswordForm] = useState({
-    currentPassword: '',
-    newPassword: '',
-    confirmPassword: ''
-  });
-  const [passwordError, setPasswordError] = useState('');
-  const [passwordSuccess, setPasswordSuccess] = useState('');
-
-  // private key modal
-  const [pkOpen, setPkOpen] = useState(false);
-
-  // mount gate + token check
   useEffect(() => {
-    setMounted(true);
     const token = getToken();
-    tokenRef.current = token;
-    if (!token) {
+    const userData = getUser();
+
+    if (!token || !userData) {
       router.replace('/login');
       return;
     }
+
+    // Check if user has admin access
+    if (!canAccessAdmin(userData)) {
+      router.replace('/dashboard');
+      return;
+    }
+
+    setUser(userData);
+    setLoading(false);
   }, [router]);
 
-  // polling helpers
-  const clearPoller = () => {
-    if (pollerRef.current) {
-      clearInterval(pollerRef.current);
-      pollerRef.current = null;
-    }
+  const handleLogout = () => {
+    clearToken();
+    router.push('/login');
   };
 
-  const stopAll = () => {
-    clearPoller();
-    if (abortRef.current) {
-      abortRef.current.abort();
-      abortRef.current = null;
-    }
-  };
-
-  // fetch profile + balances + qr (with abort + 401 bounce)
-  const fetchAll = async () => {
-    if (!tokenRef.current) return;
-    try {
-      setError('');
-      if (abortRef.current) abortRef.current.abort();
-      abortRef.current = new AbortController();
-
-      const profileRes = await api.get('/api/users/profile', { signal: abortRef.current.signal });
-      const profileData = profileRes.data?.user;
-      setProfile(profileData);
-
-      const addr = profileData?.walletAddress;
-      if (!addr) {
-        setBalances(null);
-        setQr(null);
-        return;
-      }
-
-      const [balRes, qrRes] = await Promise.allSettled([
-        api.get(`/api/wallet/balance/${addr}`, { signal: abortRef.current.signal }),
-        api.get(`/api/wallet/qrcode/${addr}`, { signal: abortRef.current.signal })
-      ]);
-
-      setBalances(balRes.status === 'fulfilled' ? (balRes.value.data?.balances ?? null) : null);
-      setQr(qrRes.status === 'fulfilled' ? (qrRes.value.data?.qr ?? null) : null);
-    } catch (e) {
-      const status = e?.response?.status;
-      if (status === 401) {
-        // token expired / not authorized → force re-login
-        stopAll();
-        router.replace('/login');
-        return;
-      }
-      // Ignore abort errors
-      if (e?.name !== 'CanceledError' && e?.name !== 'AbortError') {
-        setError(e?.response?.data?.error || 'Failed to load profile');
-      }
-    }
-  };
-
-  // set up polling, pause when hidden, resume on focus
-  useEffect(() => {
-    if (!mounted || !tokenRef.current) return;
-
-    const start = () => {
-      clearPoller();
-      fetchAll(); // initial
-      pollerRef.current = setInterval(fetchAll, 30000);
+  const getRoleDisplay = (role) => {
+    const roleNames = {
+      super_admin: 'Super Admin',
+      gambino_ops: 'Gambino Operations',
+      venue_manager: 'Venue Manager',
+      venue_staff: 'Venue Staff'
     };
-    const onVisibility = () => {
-      if (document.hidden) {
-        clearPoller();
-      } else {
-        start();
-      }
+    return roleNames[role] || role;
+  };
+
+  const getRoleColor = (role) => {
+    const colors = {
+      super_admin: 'from-red-500 to-orange-500',
+      gambino_ops: 'from-purple-500 to-pink-500',
+      venue_manager: 'from-blue-500 to-cyan-500',
+      venue_staff: 'from-green-500 to-emerald-500'
     };
-    const onFocus = () => start();
-
-    start();
-    document.addEventListener('visibilitychange', onVisibility);
-    window.addEventListener('focus', onFocus);
-
-    return () => {
-      document.removeEventListener('visibilitychange', onVisibility);
-      window.removeEventListener('focus', onFocus);
-      stopAll();
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mounted]);
-
-  // actions
-  const handleGenerateWallet = async () => {
-    try {
-      setError('');
-      await api.post('/api/wallet/generate');
-      await fetchAll();
-    } catch (e) {
-      setError(e?.response?.data?.error || 'Failed to generate wallet');
-    }
+    return colors[role] || 'from-gray-500 to-gray-600';
   };
 
-  const handlePasswordChange = async (e) => {
-    e.preventDefault();
-    setPasswordError('');
-    setPasswordSuccess('');
-
-    if (passwordForm.newPassword !== passwordForm.confirmPassword) {
-      setPasswordError('New passwords do not match');
-      return;
-    }
-    if (passwordForm.newPassword.length < 6) {
-      setPasswordError('Password must be at least 6 characters');
-      return;
-    }
-
-    try {
-      await api.post('/api/users/change-password', {
-        currentPassword: passwordForm.currentPassword,
-        newPassword: passwordForm.newPassword
-      });
-      setPasswordSuccess('Password updated successfully!');
-      setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
-      setShowChangePassword(false);
-    } catch (e) {
-      setPasswordError(e?.response?.data?.error || 'Failed to change password');
-    }
-  };
-
-  // SAFER: one-time private key reveal (no state)
-  const handleRevealPrivateKey = async () => {
-    try {
-      setError('');
-      // Consider requiring re-auth (password) here on the API
-      const { data } = await api.get('/api/wallet/private-key');
-      privateKeyRef.current = data?.privateKey || '';
-      setPkOpen(true);
-    } catch (e) {
-      setError(e?.response?.data?.error || 'Failed to retrieve private key');
-    }
-  };
-
-  const closePkModal = () => {
-    setPkOpen(false);
-    // scrub sensitive data immediately
-    privateKeyRef.current = '';
-  };
-
-  const copyToClipboard = async (text) => {
-    try {
-      await navigator.clipboard.writeText(text);
-    } catch {
-      // fallback (rarely needed)
-      const ta = document.createElement('textarea');
-      ta.value = text;
-      document.body.appendChild(ta);
-      ta.select();
-      document.execCommand('copy');
-      document.body.removeChild(ta);
-    }
-  };
-
-  if (!mounted) {
+  if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="loading-spinner text-yellow-400"></div>
+      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-black to-gray-900 flex items-center justify-center">
+        <div className="text-center">
+          <div className="relative w-16 h-16 mx-auto mb-4">
+            <div className="absolute inset-0 rounded-full border-4 border-yellow-400/20"></div>
+            <div className="absolute inset-0 rounded-full border-4 border-transparent border-t-yellow-400 animate-spin"></div>
+          </div>
+          <p className="text-gray-400">Loading...</p>
+        </div>
       </div>
     );
   }
 
-  // normalize balances
-  const gBal = Number(profile?.gambinoBalance ?? 0);
-  const gluck = Number(profile?.gluckScore ?? 0);
-  const tier = gluck < 100 ? 'Bronze' : gluck < 500 ? 'Silver' : gluck < 1000 ? 'Gold' : 'Diamond';
-
-  const jackMajor = Number(profile?.jackpotsMajor ?? 0);
-  const jackMinor = Number(profile?.jackpotsMinor ?? 0);
-  const jackTotal = jackMajor + jackMinor;
-
-  const sol = Number(balances?.SOL ?? 0);
-  // accept either GG or GAMB from backend
-  const gg = Number((balances?.GG ?? balances?.GAMB) ?? 0);
-  const usdc = Number(balances?.USDC ?? 0);
-
   return (
-    <div className="min-h-screen relative">
-      {/* subtle background */}
-      <div className="hidden md:block fixed inset-0 pointer-events-none z-0">
-        <div className="absolute top-20 left-10 w-3 h-3 bg-yellow-400/20 rounded-full animate-pulse"></div>
-        <div className="absolute top-40 right-20 w-2 h-2 bg-yellow-300/30 rounded-full animate-pulse delay-1000"></div>
-        <div className="absolute bottom-40 right-10 w-3 h-3 bg-yellow-500/20 rounded-full animate-pulse delay-3000"></div>
-        <div className="absolute bottom-20 left-20 w-2 h-2 bg-yellow-400/30 rounded-full animate-pulse delay-500"></div>
-      </div>
-      <div className="fixed inset-0 pointer-events-none z-0 opacity-40 md:opacity-60">
-        <div className="absolute top-0 right-0 w-64 h-64 md:w-96 md:h-96 bg-gradient-to-br from-yellow-500/8 to-amber-600/5 rounded-full blur-3xl transform translate-x-16 -translate-y-16 md:translate-x-32 md:-translate-y-32"></div>
-        <div className="absolute bottom-0 left-0 w-56 h-56 md:w-80 md:h-80 bg-gradient-to-tr from-amber-600/10 to-yellow-500/5 rounded-full blur-3xl transform -translate-x-12 translate-y-12 md:-translate-x-24 md:translate-y-24"></div>
-      </div>
-
-      <div className="mx-auto max-w-6xl px-4 py-4 md:py-8 relative z-10">
-        {/* header */}
-        <div className="mb-6 md:mb-8">
-          <h1 className="text-2xl md:text-3xl font-bold text-white mb-2">
-            Welcome back, <span className="text-gradient-gold">{profile?.email || 'Member'}</span>
-          </h1>
-          <p className="text-neutral-400 text-sm md:text-base">
-            Manage your account, track your progress, and monitor your wallet.
-          </p>
-        </div>
-
-        {error && (
-          <div className="bg-red-900/20 border border-red-500 text-red-300 p-3 md:p-4 rounded-lg mb-4 md:mb-6 backdrop-blur-sm text-sm">
-            {error}
-          </div>
-        )}
-
-        {/* account settings */}
-        <div className="card mb-6 md:mb-8">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 md:mb-6 gap-4">
-            <h2 className="text-lg md:text-xl font-bold text-white">Account Settings</h2>
-            <div className="flex items-center gap-2 text-xs md:text-sm text-neutral-400">
-              <div className="status-live h-2 w-2"></div>
-              Account Active
+    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-black to-gray-900">
+      {/* Header */}
+      <header className="border-b border-gray-800 bg-black/50 backdrop-blur-sm sticky top-0 z-10">
+        <div className="max-w-4xl mx-auto px-4 py-4 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-yellow-400 to-yellow-600 flex items-center justify-center shadow-lg shadow-yellow-500/20">
+              <span className="text-black font-bold text-lg">G</span>
             </div>
+            <span className="text-white font-semibold text-lg">Gambino Gold</span>
           </div>
-          
-          <div className="grid gap-4 md:gap-6 lg:grid-cols-2">
-            <div>
-              <div className="label mb-2">Email Address</div>
-              <div className="bg-neutral-800/50 p-3 rounded border border-neutral-700 text-neutral-300 text-sm md:text-base break-all">
-                {profile?.email || 'Loading...'}
+          <button
+            onClick={handleLogout}
+            className="text-gray-400 hover:text-white text-sm transition-colors"
+          >
+            Sign Out
+          </button>
+        </div>
+      </header>
+
+      {/* Main Content */}
+      <main className="max-w-4xl mx-auto px-4 py-8">
+        {/* Welcome Card */}
+        <div className="bg-gradient-to-br from-gray-800/50 to-gray-900/50 border border-gray-700/50 rounded-2xl p-6 mb-6">
+          <div className="flex items-start gap-4">
+            <div className={`w-14 h-14 rounded-xl bg-gradient-to-br ${getRoleColor(user?.role)} flex items-center justify-center shadow-lg`}>
+              <svg className="w-7 h-7 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+              </svg>
+            </div>
+            <div className="flex-1">
+              <h1 className="text-2xl font-bold text-white mb-1">
+                Welcome, {user?.firstName || user?.email?.split('@')[0] || 'Admin'}
+              </h1>
+              <div className="flex items-center gap-2">
+                <span className={`px-3 py-1 rounded-full text-xs font-medium bg-gradient-to-r ${getRoleColor(user?.role)} text-white`}>
+                  {getRoleDisplay(user?.role)}
+                </span>
               </div>
             </div>
-            <div>
-              <div className="label mb-2">Account Actions</div>
-              <button
-                onClick={() => setShowChangePassword(v => !v)}
-                className="btn btn-ghost w-full text-sm"
+          </div>
+        </div>
+
+        {/* Admin Panel CTA */}
+        <div className="bg-gradient-to-br from-yellow-500/10 to-orange-500/10 border border-yellow-500/30 rounded-2xl p-6 mb-6">
+          <div className="flex flex-col sm:flex-row items-center gap-4">
+            <div className="w-16 h-16 rounded-xl bg-gradient-to-br from-yellow-400 to-yellow-600 flex items-center justify-center shadow-lg shadow-yellow-500/30">
+              <svg className="w-8 h-8 text-black" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+              </svg>
+            </div>
+            <div className="flex-1 text-center sm:text-left">
+              <h2 className="text-xl font-bold text-white mb-1">Admin Control Panel</h2>
+              <p className="text-gray-400 text-sm mb-4">
+                Access the full admin dashboard to manage users, stores, hubs, machines, and view analytics.
+              </p>
+              <a
+                href="https://admin.gambino.gold/admin/dashboard"
+                className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-yellow-400 to-yellow-500 text-black font-semibold rounded-xl hover:from-yellow-300 hover:to-yellow-400 transition-all shadow-lg shadow-yellow-500/30 hover:shadow-yellow-500/50"
               >
-                Change Password
-              </button>
+                <span>Open Admin Panel</span>
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                </svg>
+              </a>
             </div>
           </div>
-
-          {showChangePassword && (
-            <div className="mt-4 md:mt-6 p-4 border border-neutral-700 rounded-lg bg-neutral-900/50">
-              <h3 className="text-base md:text-lg font-semibold mb-4 text-white">Change Password</h3>
-
-              {passwordError && (
-                <div className="bg-red-900/20 border border-red-500 text-red-300 p-3 rounded mb-4 text-sm">
-                  {passwordError}
-                </div>
-              )}
-              {passwordSuccess && (
-                <div className="bg-green-900/20 border border-green-500 text-green-300 p-3 rounded mb-4 text-sm">
-                  {passwordSuccess}
-                </div>
-              )}
-
-              <form onSubmit={handlePasswordChange} className="space-y-4">
-                <div>
-                  <label className="label">Current Password</label>
-                  <input
-                    type="password"
-                    className="input mt-1"
-                    value={passwordForm.currentPassword}
-                    onChange={(e) => setPasswordForm(prev => ({ ...prev, currentPassword: e.target.value }))}
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="label">New Password</label>
-                  <input
-                    type="password"
-                    className="input mt-1"
-                    value={passwordForm.newPassword}
-                    onChange={(e) => setPasswordForm(prev => ({ ...prev, newPassword: e.target.value }))}
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="label">Confirm New Password</label>
-                  <input
-                    type="password"
-                    className="input mt-1"
-                    value={passwordForm.confirmPassword}
-                    onChange={(e) => setPasswordForm(prev => ({ ...prev, confirmPassword: e.target.value }))}
-                    required
-                  />
-                </div>
-                <div className="flex flex-col sm:flex-row gap-2">
-                  <button type="submit" className="btn btn-gold">Update Password</button>
-                  <button type="button" onClick={() => setShowChangePassword(false)} className="btn btn-ghost">
-                    Cancel
-                  </button>
-                </div>
-              </form>
-            </div>
-          )}
         </div>
 
-        {/* stats */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6 mb-6 md:mb-8">
-          <StatBox label="GAMBINO Balance" value={gBal.toLocaleString()} sub={profile?.walletAddress ? 'Wallet Connected' : 'No Wallet Yet'} />
-          <StatBox label="Glück Score" value={gluck.toLocaleString()} sub={`Tier: ${tier}`} />
-          <StatBox label="Jackpots Won" value={jackTotal} sub={`Major ${jackMajor} • Minor ${jackMinor}`} />
-        </div>
-
-        {/* machines played */}
-        <div className="card mb-6 md:mb-8">
-          <div className="text-neutral-400 text-sm mb-3">Machines Played</div>
-          <div className="flex flex-wrap gap-2">
-            {profile?.machinesPlayed?.length
-              ? profile.machinesPlayed.map((m) => (
-                  <span key={m} className="px-3 py-1 rounded-full bg-yellow-500/10 border border-yellow-500/30 text-yellow-400 text-xs font-medium">
-                    {m}
-                  </span>
-                ))
-              : <span className="text-neutral-500 text-sm">No machines played yet</span>}
-          </div>
-        </div>
-
-        {/* wallet section */}
-        <div className="card">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 md:mb-6 gap-4">
-            <h2 className="text-lg md:text-xl font-bold text-white">Wallet Management</h2>
-            {profile?.walletAddress && (
-              <div className="flex items-center gap-2 text-xs md:text-sm text-green-400">
-                <div className="status-live h-2 w-2"></div>
-                Wallet Active
+        {/* Quick Info Cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+          <div className="bg-gray-800/50 border border-gray-700/50 rounded-xl p-4">
+            <div className="flex items-center gap-3 mb-2">
+              <div className="w-10 h-10 rounded-lg bg-blue-500/20 flex items-center justify-center">
+                <svg className="w-5 h-5 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                </svg>
               </div>
-            )}
-          </div>
-
-          {!profile?.walletAddress ? (
-            <div className="text-center py-8 md:py-12">
-              <div className="w-12 h-12 md:w-16 md:h-16 mx-auto mb-4 rounded-full bg-yellow-500/10 flex items-center justify-center">
-                <div className="w-6 h-6 md:w-8 md:h-8 rounded-full border-2 border-yellow-500/50"></div>
-              </div>
-              <p className="text-neutral-400 mb-4 md:mb-6 text-sm md:text-base">No wallet generated yet</p>
-              <button onClick={handleGenerateWallet} className="btn btn-gold">
-                Generate Wallet
-              </button>
-            </div>
-          ) : (
-            <div className="space-y-4 md:space-y-6">
               <div>
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-3 gap-2">
-                  <p className="label">Wallet Address</p>
-                  <button
-                    onClick={() => copyToClipboard(profile.walletAddress)}
-                    className="text-xs text-yellow-400 hover:text-yellow-300 transition-colors self-start sm:self-auto"
-                  >
-                    Copy Address
-                  </button>
-                </div>
-                <p className="wallet-address text-xs md:text-sm">{profile.walletAddress}</p>
-              </div>
-
-              {/* private key (one-time reveal modal) */}
-              <div className="private-key-warning">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-3 gap-2">
-                  <p className="text-sm text-red-400 font-semibold">⚠️ Private Key (Keep Secret!)</p>
-                  <button
-                    onClick={handleRevealPrivateKey}
-                    className="text-xs text-red-400 hover:text-red-300 transition-colors self-start sm:self-auto"
-                  >
-                    Reveal Private Key
-                  </button>
-                </div>
-                <p className="text-neutral-500 text-sm">
-                  For your security, the key is shown once per request and not stored in the browser.
-                </p>
-              </div>
-
-              <div className="flex flex-col lg:flex-row items-start gap-4 md:gap-6">
-                {qr && (
-                  <div className="text-center w-full lg:w-auto">
-                    <p className="label mb-3">Wallet QR Code</p>
-                    <div className="p-2 bg-white rounded-lg inline-block">
-                      <img src={qr} alt="Wallet QR" className="w-24 h-24 md:w-32 md:h-32" />
-                    </div>
-                  </div>
-                )}
-                <div className="flex-1 w-full">
-                  <p className="label mb-3 md:mb-4">Current Balances</p>
-                  <div className="balance-grid">
-                    <div className="balance-item">
-                      <p className="text-xs text-neutral-400 uppercase tracking-wider">SOL</p>
-                      <p className="text-lg md:text-2xl font-bold text-white mt-1">{sol.toLocaleString()}</p>
-                    </div>
-                    <div className="balance-item">
-                      <p className="text-xs text-neutral-400 uppercase tracking-wider">GAMBINO</p>
-                      <p className="text-lg md:text-2xl font-bold text-yellow-500 mt-1">{gg.toLocaleString()}</p>
-                    </div>
-                    <div className="balance-item">
-                      <p className="text-xs text-neutral-400 uppercase tracking-wider">USDC</p>
-                      <p className="text-lg md:text-2xl font-bold text-white mt-1">{usdc.toLocaleString()}</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex flex-col sm:flex-row flex-wrap gap-2 sm:gap-3 pt-4 md:pt-6 border-t border-neutral-700">
-                <button className="btn btn-ghost flex-1 sm:flex-none">Send Tokens</button>
-                <button className="btn btn-ghost flex-1 sm:flex-none">Transaction History</button>
-                <button className="btn btn-ghost flex-1 sm:flex-none">Export Wallet</button>
+                <p className="text-gray-400 text-xs uppercase tracking-wide">Account</p>
+                <p className="text-white font-medium">{user?.email}</p>
               </div>
             </div>
-          )}
-        </div>
-      </div>
+          </div>
 
-      {/* Private Key Modal (no React state stores the key) */}
-      {pkOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-          <div className="w-full max-w-2xl rounded-lg border border-neutral-800 bg-neutral-950">
-            <div className="flex items-center justify-between p-4 border-b border-neutral-800">
-              <div className="font-semibold">Private Key</div>
-              <button className="text-neutral-500 hover:text-neutral-300" onClick={closePkModal}>✕</button>
-            </div>
-            <div className="p-4">
-              {privateKeyRef.current ? (
-                <>
-                  <p className="font-mono text-xs md:text-sm break-all text-red-300 bg-neutral-900/70 p-3 rounded border border-red-600/50">
-                    {privateKeyRef.current}
-                  </p>
-                  <div className="mt-3 flex gap-2">
-                    <button
-                      className="btn btn-ghost btn-sm"
-                      onClick={() => copyToClipboard(privateKeyRef.current)}
-                    >
-                      Copy
-                    </button>
-                    <button className="btn btn-ghost btn-sm" onClick={closePkModal}>
-                      Hide
-                    </button>
-                  </div>
-                  <p className="text-xs text-red-400 mt-3">
-                    Never share this with anyone. Anyone with this key can access your wallet.
-                  </p>
-                </>
-              ) : (
-                <p className="text-neutral-400 text-sm">No key available.</p>
-              )}
+          <div className="bg-gray-800/50 border border-gray-700/50 rounded-xl p-4">
+            <div className="flex items-center gap-3 mb-2">
+              <div className="w-10 h-10 rounded-lg bg-green-500/20 flex items-center justify-center">
+                <svg className="w-5 h-5 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+              <div>
+                <p className="text-gray-400 text-xs uppercase tracking-wide">Status</p>
+                <p className="text-green-400 font-medium">Authenticated</p>
+              </div>
             </div>
           </div>
         </div>
-      )}
+
+        {/* Additional Links */}
+        <div className="bg-gray-800/30 border border-gray-700/50 rounded-xl p-4">
+          <h3 className="text-white font-medium mb-3">Quick Links</h3>
+          <div className="space-y-2">
+            <a
+              href="https://admin.gambino.gold/admin/users"
+              className="flex items-center justify-between p-3 rounded-lg bg-gray-800/50 hover:bg-gray-700/50 transition-colors group"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-lg bg-purple-500/20 flex items-center justify-center">
+                  <svg className="w-4 h-4 text-purple-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+                  </svg>
+                </div>
+                <span className="text-gray-300 group-hover:text-white transition-colors">User Management</span>
+              </div>
+              <svg className="w-4 h-4 text-gray-500 group-hover:text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+            </a>
+
+            <a
+              href="https://admin.gambino.gold/admin/stores"
+              className="flex items-center justify-between p-3 rounded-lg bg-gray-800/50 hover:bg-gray-700/50 transition-colors group"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-lg bg-cyan-500/20 flex items-center justify-center">
+                  <svg className="w-4 h-4 text-cyan-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                  </svg>
+                </div>
+                <span className="text-gray-300 group-hover:text-white transition-colors">Store Management</span>
+              </div>
+              <svg className="w-4 h-4 text-gray-500 group-hover:text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+            </a>
+
+            <a
+              href="https://admin.gambino.gold/admin/machines"
+              className="flex items-center justify-between p-3 rounded-lg bg-gray-800/50 hover:bg-gray-700/50 transition-colors group"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-lg bg-orange-500/20 flex items-center justify-center">
+                  <svg className="w-4 h-4 text-orange-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                  </svg>
+                </div>
+                <span className="text-gray-300 group-hover:text-white transition-colors">Machine Management</span>
+              </div>
+              <svg className="w-4 h-4 text-gray-500 group-hover:text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+            </a>
+          </div>
+        </div>
+
+        {/* User App Link */}
+        <div className="mt-6 text-center">
+          <button
+            onClick={() => router.push('/dashboard')}
+            className="text-gray-400 hover:text-white text-sm transition-colors"
+          >
+            View as regular user &rarr;
+          </button>
+        </div>
+      </main>
     </div>
   );
 }
