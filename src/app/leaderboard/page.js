@@ -68,12 +68,16 @@ export default function LeaderboardPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-900 text-white p-4 md:p-6">
-      <div className="max-w-6xl mx-auto">
+    <div className="min-h-screen relative p-4 md:p-6">
+      <div className="max-w-6xl mx-auto relative z-10">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-3xl md:text-4xl font-bold mb-2">🏆 Leaderboard</h1>
-          <p className="text-gray-400">Top GAMBINO players and recent winners</p>
+          <h1 className="text-3xl md:text-4xl font-bold mb-2">
+            <span className="bg-gradient-to-r from-yellow-400 via-yellow-500 to-amber-600 bg-clip-text text-transparent">
+              Leaderboard
+            </span>
+          </h1>
+          <p className="text-neutral-400">Top network participants and recent activity</p>
         </div>
 
         {/* Stats Cards */}

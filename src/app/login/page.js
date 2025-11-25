@@ -47,21 +47,10 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-slate-900 to-black relative overflow-hidden">
-      {/* Subtle Background Effects */}
-      <div className="absolute inset-0">
-        {/* Grid pattern */}
-        <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,.02)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,.02)_1px,transparent_1px)] bg-[size:100px_100px]"></div>
-        
-        {/* Floating geometric elements */}
-        <div className="absolute top-20 left-10 w-32 h-32 border border-yellow-500/10 rounded-xl rotate-12 animate-pulse"></div>
-        <div className="absolute top-40 right-20 w-24 h-24 border border-amber-400/10 rounded-full animate-bounce" style={{ animationDuration: '3s' }}></div>
-        <div className="absolute bottom-32 left-20 w-40 h-40 border border-orange-500/10 rounded-2xl rotate-45 animate-pulse" style={{ animationDuration: '4s' }}></div>
-        <div className="absolute bottom-20 right-10 w-28 h-28 border border-yellow-600/10 rounded-lg -rotate-12 animate-bounce" style={{ animationDuration: '5s' }}></div>
-      </div>
+    <div className="min-h-screen relative flex items-center justify-center py-8">
+      {/* Background is in layout.js */}
 
-      {/* Main Content */}
-      <div className="relative z-10 flex items-center justify-center min-h-screen p-6">
+      <div className="w-full max-w-md mx-auto px-4 relative z-10">
         <div className="max-w-md w-full space-y-8">
           
           {/* Professional Header */}
@@ -81,13 +70,13 @@ export default function LoginPage() {
             </div>
             
             {/* Brand Identity */}
-            <h1 className="text-3xl font-bold mb-2">
-              <span className="bg-gradient-to-r from-yellow-400 to-amber-500 bg-clip-text text-transparent">
-                GAMBINO GOLD
+            <h1 className="text-3xl md:text-4xl font-extrabold mb-4">
+              <span className="text-white">Sign in to </span>
+              <span className="bg-gradient-to-r from-yellow-400 via-yellow-500 to-amber-600 bg-clip-text text-transparent">
+                Gambino Gold
               </span>
             </h1>
-            <p className="text-lg text-gray-300 mb-2">Mining Infrastructure Platform</p>
-            <p className="text-gray-400 text-sm">Access Network Dashboard</p>
+            <p className="text-neutral-400 text-sm">Access your dashboard and wallet</p>
           </div>
 
           {/* Login Card */}
@@ -209,10 +198,28 @@ export default function LoginPage() {
             </div>
           </div>
 
-          {/* Professional Footer */}
-          <div className="text-center text-gray-500 text-xs space-y-1">
-            <p>© 2025 Gambino Gold. Mining infrastructure platform.</p>
-            <p>Building sustainable community wealth through transparent technology.</p>
+          {/* Footer Links */}
+          <div className="text-center mt-6 space-y-4">
+            <p className="text-sm text-neutral-400">
+              Don't have an account?{' '}
+              <Link href="/onboard" className="text-yellow-400 hover:text-yellow-300 font-medium transition-colors">
+                Create one here
+              </Link>
+            </p>
+
+            <div className="flex items-center justify-center gap-4 text-xs text-neutral-500">
+              <Link href="https://gambino.gold/legal/terms" className="hover:text-neutral-400 transition-colors">
+                Terms
+              </Link>
+              <span>•</span>
+              <Link href="https://gambino.gold/legal/privacy" className="hover:text-neutral-400 transition-colors">
+                Privacy
+              </Link>
+              <span>•</span>
+              <Link href="https://gambino.gold/support" className="hover:text-neutral-400 transition-colors">
+                Support
+              </Link>
+            </div>
           </div>
         </div>
       </div>

@@ -93,45 +93,8 @@ export default function OnboardPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-slate-900 to-black text-neutral-100 relative overflow-hidden">
-      
-      {/* Enhanced background effects - matching home page */}
-      <div className="fixed inset-0 pointer-events-none z-0">
-        {/* Mobile-optimized floating particles */}
-        <div className="absolute top-16 left-[8%] w-2 h-2 md:w-3 md:h-3 bg-yellow-400/30 md:bg-yellow-400/50 rounded-full animate-pulse delay-0"></div>
-        <div className="absolute top-32 right-[12%] w-1.5 h-1.5 md:w-2 md:h-2 bg-amber-300/40 md:bg-amber-300/60 rounded-full animate-pulse delay-1000"></div>
-        <div className="absolute top-[25%] left-[15%] w-2.5 h-2.5 md:w-4 md:h-4 bg-yellow-500/25 md:bg-yellow-500/40 rounded-full animate-pulse delay-2000"></div>
-        <div className="absolute top-[45%] right-[20%] w-1.5 h-1.5 md:w-2 md:h-2 bg-yellow-300/30 md:bg-yellow-300/50 rounded-full animate-pulse delay-500"></div>
-        <div className="absolute top-[65%] left-[25%] w-2 h-2 md:w-3 md:h-3 bg-amber-400/35 md:bg-amber-400/55 rounded-full animate-pulse delay-3000"></div>
-        <div className="absolute bottom-32 right-[10%] w-2.5 h-2.5 md:w-3 md:h-3 bg-yellow-500/30 md:bg-yellow-500/45 rounded-full animate-pulse delay-2500"></div>
-        <div className="absolute bottom-16 left-[18%] w-1.5 h-1.5 md:w-2.5 md:h-2.5 bg-amber-500/30 md:bg-amber-500/40 rounded-full animate-pulse delay-4000"></div>
-        
-        {/* Micro sparkles */}
-        <div className="absolute top-[20%] left-[50%] w-1 h-1 bg-yellow-200/50 md:bg-yellow-200/70 rounded-full animate-ping" style={{animationDuration: '3s', animationDelay: '0.5s'}}></div>
-        <div className="absolute top-[60%] right-[40%] w-1 h-1 bg-amber-200/50 md:bg-amber-200/70 rounded-full animate-ping" style={{animationDuration: '2.5s', animationDelay: '1.2s'}}></div>
-        <div className="absolute bottom-[25%] left-[60%] w-1 h-1 bg-yellow-100/60 md:bg-yellow-100/80 rounded-full animate-ping" style={{animationDuration: '3.5s', animationDelay: '2.1s'}}></div>
-      </div>
-
-      {/* Enhanced gradient backgrounds */}
-      <div className="fixed inset-0 pointer-events-none z-0">
-        <div className="absolute top-0 right-0 w-64 h-64 md:w-96 md:h-96 bg-gradient-to-br from-yellow-500/15 md:from-yellow-500/20 to-amber-600/8 md:to-amber-600/12 rounded-full blur-2xl md:blur-3xl transform translate-x-20 -translate-y-20 md:translate-x-32 md:-translate-y-32"></div>
-        <div className="absolute bottom-0 left-0 w-56 h-56 md:w-80 md:h-80 bg-gradient-to-tr from-amber-600/18 md:from-amber-600/25 to-yellow-500/10 md:to-yellow-500/15 rounded-full blur-2xl md:blur-3xl transform -translate-x-16 translate-y-16 md:-translate-x-24 md:translate-y-24"></div>
-        <div className="absolute top-1/2 right-1/4 w-48 h-48 md:w-64 md:h-64 bg-gradient-to-br from-yellow-400/12 md:from-yellow-400/18 to-transparent rounded-full blur-xl md:blur-2xl"></div>
-        <div className="absolute top-1/4 left-1/4 w-40 h-40 md:w-48 md:h-48 bg-gradient-to-tr from-amber-500/15 md:from-amber-500/20 to-transparent rounded-full blur-lg md:blur-xl"></div>
-        
-        {/* Grid pattern */}
-        <div className="absolute inset-0 opacity-[0.08] md:opacity-[0.15]">
-          <div className="absolute inset-0" style={{
-            backgroundImage: 'radial-gradient(circle at 1px 1px, rgba(234, 179, 8, 0.3) 1px, transparent 0)',
-            backgroundSize: '50px 50px md:80px 80px'
-          }}></div>
-        </div>
-        
-        {/* Geometric shapes */}
-        <div className="absolute top-1/4 left-1/4 w-24 h-24 md:w-32 md:h-32 border border-yellow-500/15 md:border-yellow-500/25 rounded-lg rotate-45 animate-spin" style={{animationDuration: '25s'}}></div>
-        <div className="absolute bottom-1/3 right-1/3 w-20 h-20 md:w-24 md:h-24 border border-amber-400/20 md:border-amber-400/30 rounded-full animate-ping" style={{animationDuration: '5s'}}></div>
-        <div className="absolute top-3/4 left-2/3 w-16 h-16 md:w-20 md:h-20 border-2 border-yellow-300/18 md:border-yellow-300/25 rounded-lg rotate-12 animate-pulse" style={{animationDuration: '6s'}}></div>
-      </div>
+    <div className="min-h-screen relative">
+      {/* Background is in layout.js */}
 
       <div className="mx-auto max-w-2xl px-4 py-8 relative z-10">
         
@@ -147,11 +110,12 @@ export default function OnboardPage() {
           </div>
           
           <h1 className="text-3xl md:text-4xl font-extrabold mb-2">
+            <span className="text-white">Join </span>
             <span className="bg-gradient-to-r from-yellow-400 via-yellow-500 to-amber-600 bg-clip-text text-transparent">
-              Welcome to GAMBINO
+              Gambino Gold
             </span>
           </h1>
-          <p className="text-lg text-neutral-300">Join the mining network</p>
+          <p className="text-neutral-400">Access the mining infrastructure network</p>
         </div>
 
         {/* Progress indicator */}
@@ -388,7 +352,7 @@ export default function OnboardPage() {
             <div className="text-2xl font-bold bg-gradient-to-r from-green-400 to-emerald-500 bg-clip-text text-transparent mb-2">
               Account Created!
             </div>
-            <p className="text-neutral-400 mb-6">Welcome to the Gambino mining network</p>
+            <p className="text-neutral-400 mb-6">Welcome to the Gambino Gold network</p>
             <div className="w-8 h-8 border-2 border-yellow-400 border-t-transparent rounded-full mx-auto animate-spin"></div>
             <p className="text-sm text-neutral-500 mt-4">Redirecting to dashboard...</p>
           </div>

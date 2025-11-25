@@ -13,53 +13,16 @@ export default function Home() {
 
   if (!mounted) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-slate-900 to-black flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center">
         <div className="animate-spin rounded-full h-8 w-8 border-2 border-yellow-400 border-r-transparent"></div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-slate-900 to-black text-neutral-100 relative overflow-hidden">
-      
-      {/* Enhanced background effects - optimized for mobile */}
-      <div className="fixed inset-0 pointer-events-none z-0">
-        {/* Mobile-optimized floating particles */}
-        <div className="absolute top-16 left-[8%] w-2 h-2 md:w-3 md:h-3 bg-yellow-400/30 md:bg-yellow-400/50 rounded-full animate-pulse delay-0"></div>
-        <div className="absolute top-32 right-[12%] w-1.5 h-1.5 md:w-2 md:h-2 bg-amber-300/40 md:bg-amber-300/60 rounded-full animate-pulse delay-1000"></div>
-        <div className="absolute top-[25%] left-[15%] w-2.5 h-2.5 md:w-4 md:h-4 bg-yellow-500/25 md:bg-yellow-500/40 rounded-full animate-pulse delay-2000"></div>
-        <div className="absolute top-[45%] right-[20%] w-1.5 h-1.5 md:w-2 md:h-2 bg-yellow-300/30 md:bg-yellow-300/50 rounded-full animate-pulse delay-500"></div>
-        <div className="absolute top-[65%] left-[25%] w-2 h-2 md:w-3 md:h-3 bg-amber-400/35 md:bg-amber-400/55 rounded-full animate-pulse delay-3000"></div>
-        <div className="absolute bottom-32 right-[10%] w-2.5 h-2.5 md:w-3 md:h-3 bg-yellow-500/30 md:bg-yellow-500/45 rounded-full animate-pulse delay-2500"></div>
-        <div className="absolute bottom-16 left-[18%] w-1.5 h-1.5 md:w-2.5 md:h-2.5 bg-amber-500/30 md:bg-amber-500/40 rounded-full animate-pulse delay-4000"></div>
-        
-        {/* Micro sparkles - visible on mobile */}
-        <div className="absolute top-[20%] left-[50%] w-1 h-1 bg-yellow-200/50 md:bg-yellow-200/70 rounded-full animate-ping" style={{animationDuration: '3s', animationDelay: '0.5s'}}></div>
-        <div className="absolute top-[60%] right-[40%] w-1 h-1 bg-amber-200/50 md:bg-amber-200/70 rounded-full animate-ping" style={{animationDuration: '2.5s', animationDelay: '1.2s'}}></div>
-        <div className="absolute bottom-[25%] left-[60%] w-1 h-1 bg-yellow-100/60 md:bg-yellow-100/80 rounded-full animate-ping" style={{animationDuration: '3.5s', animationDelay: '2.1s'}}></div>
-      </div>
+    <div className="min-h-screen relative">
+      {/* Background is now in layout.js */}
 
-      {/* Enhanced gradient backgrounds - mobile visible */}
-      <div className="fixed inset-0 pointer-events-none z-0">
-        <div className="absolute top-0 right-0 w-64 h-64 md:w-96 md:h-96 bg-gradient-to-br from-yellow-500/15 md:from-yellow-500/20 to-amber-600/8 md:to-amber-600/12 rounded-full blur-2xl md:blur-3xl transform translate-x-20 -translate-y-20 md:translate-x-32 md:-translate-y-32"></div>
-        <div className="absolute bottom-0 left-0 w-56 h-56 md:w-80 md:h-80 bg-gradient-to-tr from-amber-600/18 md:from-amber-600/25 to-yellow-500/10 md:to-yellow-500/15 rounded-full blur-2xl md:blur-3xl transform -translate-x-16 translate-y-16 md:-translate-x-24 md:translate-y-24"></div>
-        <div className="absolute top-1/2 right-1/4 w-48 h-48 md:w-64 md:h-64 bg-gradient-to-br from-yellow-400/12 md:from-yellow-400/18 to-transparent rounded-full blur-xl md:blur-2xl"></div>
-        <div className="absolute top-1/4 left-1/4 w-40 h-40 md:w-48 md:h-48 bg-gradient-to-tr from-amber-500/15 md:from-amber-500/20 to-transparent rounded-full blur-lg md:blur-xl"></div>
-        
-        {/* Mobile-visible grid pattern */}
-        <div className="absolute inset-0 opacity-[0.08] md:opacity-[0.15]">
-          <div className="absolute inset-0" style={{
-            backgroundImage: 'radial-gradient(circle at 1px 1px, rgba(234, 179, 8, 0.3) 1px, transparent 0)',
-            backgroundSize: '50px 50px md:80px 80px'
-          }}></div>
-        </div>
-        
-        {/* Mobile-visible geometric shapes */}
-        <div className="absolute top-1/4 left-1/4 w-24 h-24 md:w-32 md:h-32 border border-yellow-500/15 md:border-yellow-500/25 rounded-lg rotate-45 animate-spin" style={{animationDuration: '25s'}}></div>
-        <div className="absolute bottom-1/3 right-1/3 w-20 h-20 md:w-24 md:h-24 border border-amber-400/20 md:border-amber-400/30 rounded-full animate-ping" style={{animationDuration: '5s'}}></div>
-        <div className="absolute top-3/4 left-2/3 w-16 h-16 md:w-20 md:h-20 border-2 border-yellow-300/18 md:border-yellow-300/25 rounded-lg rotate-12 animate-pulse" style={{animationDuration: '6s'}}></div>
-      </div>
-      
       <div className="mx-auto max-w-6xl px-4 py-8 relative z-10">
         {/* Enhanced Hero with better mobile styling */}
         <div className="text-center py-12 md:py-16">
@@ -78,12 +41,14 @@ export default function Home() {
           </div>
 
           <h1 className="text-4xl md:text-5xl font-extrabold mb-4">
+            <span className="text-white">Access the </span>
             <span className="bg-gradient-to-r from-yellow-400 via-yellow-500 to-amber-600 bg-clip-text text-transparent">
-              GAMBINO GOLD
+              Gambino Gold
             </span>
+            <span className="text-white"> Network</span>
           </h1>
-          <p className="text-lg md:text-xl text-neutral-300 mb-8 max-w-md mx-auto">
-            Farm Luck. Mine Destiny.
+          <p className="text-lg md:text-xl text-neutral-300 mb-8 max-w-2xl mx-auto">
+            Manage your utility tokens, track your participation, and access mining infrastructure tools.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Link href="/onboard" className="inline-flex items-center justify-center rounded-xl px-8 py-4 text-lg font-bold bg-yellow-500 text-black hover:bg-yellow-400 transition-all duration-300 hover:shadow-lg hover:shadow-yellow-500/25">
@@ -140,14 +105,17 @@ export default function Home() {
           </Link>
         </div>
 
-        {/* Enhanced Status Bar */}
+        {/* Status Bar */}
         <div className="mt-12 text-center">
-          <div className="inline-flex items-center gap-3 rounded-full border border-neutral-800 bg-neutral-900/50 backdrop-blur-sm px-6 py-3 text-sm text-neutral-300 shadow-lg">
-            <div className="h-2 w-2 rounded-full bg-green-500 animate-pulse shadow-lg shadow-green-500/50"></div>
-            <span className="font-medium">Network Online</span>
-            <span className="text-neutral-500">•</span>
-            <span>Ready to Use</span>
+          <div className="inline-flex items-center gap-2 rounded-full border border-neutral-800 bg-neutral-900/50 px-4 py-2 text-sm text-neutral-300 backdrop-blur-sm">
+            <div className="h-2 w-2 rounded-full bg-green-500 animate-pulse"></div>
+            Network Online
           </div>
+        </div>
+
+        {/* Footer note */}
+        <div className="mt-8 text-center text-xs text-neutral-500">
+          <p>18+ only at licensed partner venues. <a href="https://gambino.gold/legal/terms" className="text-yellow-500/70 hover:text-yellow-400">Terms</a> apply.</p>
         </div>
       </div>
     </div>
