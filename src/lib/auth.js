@@ -302,8 +302,8 @@ export function useAuth(options = {}) {
         redirectTo: data.user.redirectTo || data.redirectTo
       });
 
-      // Use server-determined redirect
-      const redirectUrl = data.redirectTo || getUserRedirectUrl(data.user);
+      // Always use getUserRedirectUrl to properly route admin users to admin.gambino.gold
+      const redirectUrl = getUserRedirectUrl(data.user);
       window.location.href = redirectUrl;
 
       return data;
