@@ -37,7 +37,7 @@ export default function Navbar() {
           </div>
           <div className="font-extrabold text-xl tracking-tight">
             <span className="bg-gradient-to-r from-yellow-400 via-yellow-500 to-amber-600 bg-clip-text text-transparent">
-              GAMBINO GOLD APP
+              Gambino Gold
             </span>
           </div>
         </Link>
