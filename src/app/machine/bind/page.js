@@ -102,10 +102,10 @@ function MachineBinder() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-900 flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center relative">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-yellow-500 mx-auto mb-4"></div>
-          <p className="text-gray-400">Validating machine...</p>
+          <p className="text-neutral-400">Validating machine...</p>
         </div>
       </div>
     );
@@ -113,15 +113,14 @@ function MachineBinder() {
 
   if (error && !machineInfo) {
     return (
-      <div className="min-h-screen bg-gray-900 flex items-center justify-center px-4">
+      <div className="min-h-screen flex items-center justify-center px-4 relative">
         <div className="max-w-md w-full">
-          <div className="bg-gray-800 rounded-lg p-6 text-center">
-            <div className="text-4xl mb-4">❌</div>
+          <div className="bg-neutral-900/80 backdrop-blur-sm border border-neutral-800 rounded-xl p-6 text-center">
             <h1 className="text-xl font-bold text-white mb-2">Invalid QR Code</h1>
-            <p className="text-gray-400 mb-4">{error}</p>
-            <Link 
+            <p className="text-neutral-400 mb-4">{error}</p>
+            <Link
               href="/dashboard"
-              className="bg-yellow-600 hover:bg-yellow-700 text-white px-4 py-2 rounded-lg inline-block"
+              className="bg-gradient-to-r from-yellow-400 to-amber-500 hover:from-yellow-500 hover:to-amber-600 text-black font-semibold px-4 py-2 rounded-lg inline-block transition-all"
             >
               Go to Dashboard
             </Link>
@@ -133,15 +132,14 @@ function MachineBinder() {
 
   if (bound) {
     return (
-      <div className="min-h-screen bg-gray-900 flex items-center justify-center px-4">
+      <div className="min-h-screen flex items-center justify-center px-4 relative">
         <div className="max-w-md w-full">
-          <div className="bg-gray-800 rounded-lg p-6 text-center">
-            <div className="text-4xl mb-4">🎰</div>
-            <h1 className="text-xl font-bold text-white mb-2">Successfully Connected!</h1>
-            <p className="text-gray-400 mb-4">
+          <div className="bg-neutral-900/80 backdrop-blur-sm border border-neutral-800 rounded-xl p-6 text-center">
+            <h1 className="text-xl font-bold text-green-400 mb-2">Successfully Connected!</h1>
+            <p className="text-neutral-400 mb-4">
               You're now bound to <strong className="text-white">{machineInfo?.name || machineInfo?.machineId}</strong>
             </p>
-            
+
             {sessionInfo && (
               <div className="bg-green-900/20 border border-green-500/30 p-4 rounded-lg mb-4">
                 <div className="text-left">
@@ -155,24 +153,24 @@ function MachineBinder() {
                 </div>
               </div>
             )}
-            
+
             <div className="bg-blue-900/20 border border-blue-500/30 p-4 rounded-lg mb-4">
               <p className="text-blue-300 text-sm">
-                Your gaming session is now active. The machine is reserved for you. 
+                Your gaming session is now active. The machine is reserved for you.
                 You can view your session status anytime from your dashboard.
               </p>
             </div>
-            
+
             <div className="flex gap-3">
-              <Link 
+              <Link
                 href="/dashboard"
-                className="flex-1 bg-yellow-600 hover:bg-yellow-700 text-white px-4 py-2 rounded-lg text-center font-medium"
+                className="flex-1 bg-gradient-to-r from-yellow-400 to-amber-500 hover:from-yellow-500 hover:to-amber-600 text-black font-semibold px-4 py-2 rounded-lg text-center transition-all"
               >
                 View Dashboard
               </Link>
-              <Link 
-                href="/account"
-                className="flex-1 bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded-lg text-center"
+              <Link
+                href="/dashboard?tab=account"
+                className="flex-1 bg-neutral-800 hover:bg-neutral-700 border border-neutral-700 text-white px-4 py-2 rounded-lg text-center transition-all"
               >
                 My Account
               </Link>
@@ -185,36 +183,35 @@ function MachineBinder() {
 
   if (!user) {
     return (
-      <div className="min-h-screen bg-gray-900 flex items-center justify-center px-4">
+      <div className="min-h-screen flex items-center justify-center px-4 relative">
         <div className="max-w-md w-full">
-          <div className="bg-gray-800 rounded-lg p-6">
+          <div className="bg-neutral-900/80 backdrop-blur-sm border border-neutral-800 rounded-xl p-6">
             <div className="text-center mb-6">
-              <div className="text-4xl mb-4">🎰</div>
               <h1 className="text-xl font-bold text-white mb-2">Machine Access</h1>
               {machineInfo && (
-                <div className="bg-gray-700 rounded-lg p-4 mb-4">
+                <div className="bg-neutral-800/50 border border-neutral-700 rounded-lg p-4 mb-4">
                   <h2 className="font-medium text-white">{machineInfo.name || machineInfo.machineId}</h2>
-                  <p className="text-sm text-gray-400">{machineInfo.location || 'Gaming machine'}</p>
-                  <p className="text-xs text-gray-500 mt-1">
+                  <p className="text-sm text-neutral-400">{machineInfo.location || 'Gaming machine'}</p>
+                  <p className="text-xs text-neutral-500 mt-1">
                     {machineInfo.storeName} • {machineInfo.gameType || 'Game'}
                   </p>
                 </div>
               )}
-              <p className="text-gray-400 mb-4">
+              <p className="text-neutral-400 mb-4">
                 Please log in to bind to this machine and start playing.
               </p>
             </div>
 
             <button
               onClick={handleLogin}
-              className="w-full bg-yellow-600 hover:bg-yellow-700 text-white py-3 px-4 rounded-lg font-medium mb-3"
+              className="w-full bg-gradient-to-r from-yellow-400 to-amber-500 hover:from-yellow-500 hover:to-amber-600 text-black font-semibold py-3 px-4 rounded-lg mb-3 transition-all"
             >
               Log In to Play
             </button>
 
             <div className="text-center">
-              <p className="text-sm text-gray-400 mb-2">Don't have an account?</p>
-              <Link 
+              <p className="text-sm text-neutral-400 mb-2">Don't have an account?</p>
+              <Link
                 href="/onboard"
                 className="text-yellow-400 hover:text-yellow-300 text-sm font-medium"
               >
@@ -229,16 +226,15 @@ function MachineBinder() {
 
   if (existingSession) {
     return (
-      <div className="min-h-screen bg-gray-900 flex items-center justify-center px-4">
+      <div className="min-h-screen flex items-center justify-center px-4 relative">
         <div className="max-w-md w-full">
-          <div className="bg-gray-800 rounded-lg p-6">
+          <div className="bg-neutral-900/80 backdrop-blur-sm border border-neutral-800 rounded-xl p-6">
             <div className="text-center mb-6">
-              <div className="text-4xl mb-4">⏳</div>
               <h1 className="text-xl font-bold text-white mb-2">Machine In Use</h1>
               {machineInfo && (
-                <div className="bg-gray-700 rounded-lg p-4 mb-4">
+                <div className="bg-neutral-800/50 border border-neutral-700 rounded-lg p-4 mb-4">
                   <h2 className="font-medium text-white">{machineInfo.name || machineInfo.machineId}</h2>
-                  <p className="text-sm text-gray-400">{machineInfo.location || 'Gaming machine'}</p>
+                  <p className="text-sm text-neutral-400">{machineInfo.location || 'Gaming machine'}</p>
                 </div>
               )}
               <div className="bg-yellow-900/20 border border-yellow-500/30 p-4 rounded-lg mb-4">
@@ -254,15 +250,15 @@ function MachineBinder() {
             </div>
 
             <div className="flex gap-3">
-              <Link 
+              <Link
                 href="/dashboard"
-                className="flex-1 bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded-lg text-center"
+                className="flex-1 bg-neutral-800 hover:bg-neutral-700 border border-neutral-700 text-white px-4 py-2 rounded-lg text-center transition-all"
               >
                 Dashboard
               </Link>
               <button
                 onClick={() => window.location.reload()}
-                className="flex-1 bg-yellow-600 hover:bg-yellow-700 text-white px-4 py-2 rounded-lg"
+                className="flex-1 bg-gradient-to-r from-yellow-400 to-amber-500 hover:from-yellow-500 hover:to-amber-600 text-black font-semibold px-4 py-2 rounded-lg transition-all"
               >
                 Try Again
               </button>
@@ -274,26 +270,25 @@ function MachineBinder() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-900 flex items-center justify-center px-4">
+    <div className="min-h-screen flex items-center justify-center px-4 relative">
       <div className="max-w-md w-full">
-        <div className="bg-gray-800 rounded-lg p-6">
+        <div className="bg-neutral-900/80 backdrop-blur-sm border border-neutral-800 rounded-xl p-6">
           <div className="text-center mb-6">
-            <div className="text-4xl mb-4">🎮</div>
             <h1 className="text-xl font-bold text-white mb-2">Ready to Play!</h1>
-            <p className="text-sm text-gray-400 mb-4">Welcome back, {user?.firstName || user?.email}</p>
-            
+            <p className="text-sm text-neutral-400 mb-4">Welcome back, {user?.firstName || user?.email}</p>
+
             {machineInfo && (
-              <div className="bg-gray-700 rounded-lg p-4 mb-4">
+              <div className="bg-neutral-800/50 border border-neutral-700 rounded-lg p-4 mb-4">
                 <h2 className="font-medium text-white">{machineInfo.name || machineInfo.machineId}</h2>
-                <p className="text-sm text-gray-400">{machineInfo.location || 'Gaming machine'}</p>
-                <p className="text-xs text-gray-500 mt-1">
+                <p className="text-sm text-neutral-400">{machineInfo.location || 'Gaming machine'}</p>
+                <p className="text-xs text-neutral-500 mt-1">
                   {machineInfo.storeName} • {machineInfo.gameType || 'Game'}
                 </p>
                 <div className="flex items-center justify-center mt-2">
-                  <span className={`inline-block px-2 py-1 rounded text-xs ${
-                    machineInfo.status === 'active' 
-                      ? 'bg-green-600 text-white' 
-                      : 'bg-yellow-600 text-white'
+                  <span className={`inline-block px-2 py-1 rounded text-xs font-medium ${
+                    machineInfo.status === 'active'
+                      ? 'bg-green-500/20 text-green-400 border border-green-500/30'
+                      : 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30'
                   }`}>
                     {machineInfo.status}
                   </span>
@@ -311,21 +306,21 @@ function MachineBinder() {
           <button
             onClick={handleBind}
             disabled={binding || machineInfo?.status !== 'active'}
-            className="w-full bg-yellow-600 hover:bg-yellow-700 disabled:bg-yellow-800 disabled:cursor-not-allowed text-white py-3 px-4 rounded-lg font-medium mb-3"
+            className="w-full bg-gradient-to-r from-yellow-400 to-amber-500 hover:from-yellow-500 hover:to-amber-600 disabled:from-neutral-600 disabled:to-neutral-700 disabled:cursor-not-allowed text-black disabled:text-neutral-400 font-semibold py-3 px-4 rounded-lg mb-3 transition-all"
           >
             {binding ? 'Connecting...' : 'Connect to Machine'}
           </button>
 
           <div className="flex gap-3 text-sm">
-            <Link 
+            <Link
               href="/dashboard"
-              className="flex-1 text-center bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded-lg"
+              className="flex-1 text-center bg-neutral-800 hover:bg-neutral-700 border border-neutral-700 text-white px-4 py-2 rounded-lg transition-all"
             >
               Dashboard
             </Link>
-            <Link 
+            <Link
               href="/leaderboard"
-              className="flex-1 text-center bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded-lg"
+              className="flex-1 text-center bg-neutral-800 hover:bg-neutral-700 border border-neutral-700 text-white px-4 py-2 rounded-lg transition-all"
             >
               Leaderboard
             </Link>
@@ -339,7 +334,7 @@ function MachineBinder() {
 export default function MachineBindPage() {
   return (
     <Suspense fallback={
-      <div className="min-h-screen bg-gray-900 flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center relative">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-yellow-500"></div>
       </div>
     }>

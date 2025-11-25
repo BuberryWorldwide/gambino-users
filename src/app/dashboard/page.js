@@ -1,21 +1,19 @@
 'use client';
-import { useState, useEffect, useRef } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect, useRef, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { getToken } from '@/lib/auth';
 import api from '@/lib/api';
 
 // Import tab components
 import OverviewTab from './components/tabs/OverviewTab';
 import WalletTab from './components/tabs/WalletTab';
-import GamingTab from './components/tabs/GamingTab';
-import SettingsTab from './components/tabs/SettingsTab';
+import AccountTab from './components/tabs/AccountTab';
 
-// Tab configuration - updated for professional terminology
+// Tab configuration - simplified for clarity
 const TABS = [
-  { id: 'overview', label: 'Overview', icon: '📊' },
-  { id: 'wallet', label: 'Infrastructure', icon: '⚡' },
-  { id: 'gaming', label: 'Network Access', icon: '🔗' },
-  { id: 'settings', label: 'Settings', icon: '⚙️' }
+  { id: 'overview', label: 'Overview' },
+  { id: 'wallet', label: 'Wallet' },
+  { id: 'account', label: 'Account' }
 ];
 
 function LoadingSpinner() {
@@ -24,14 +22,19 @@ function LoadingSpinner() {
   );
 }
 
-export default function UserDashboard() {
+function DashboardContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const pollerRef = useRef(null);
-  
+
+  // Get initial tab from URL query parameter
+  const tabFromUrl = searchParams.get('tab');
+  const initialTab = tabFromUrl && ['overview', 'wallet', 'account'].includes(tabFromUrl) ? tabFromUrl : 'overview';
+
   // Core state
   const [mounted, setMounted] = useState(false);
-  const [activeTab, setActiveTab] = useState('overview');
-  const [loadedTabs, setLoadedTabs] = useState(new Set(['overview']));
+  const [activeTab, setActiveTab] = useState(initialTab);
+  const [loadedTabs, setLoadedTabs] = useState(new Set([initialTab]));
   
   // Shared data state (available to all tabs)
   const [profile, setProfile] = useState(null);
@@ -50,6 +53,15 @@ export default function UserDashboard() {
       return;
     }
   }, [router]);
+
+  // Update active tab when URL changes
+  useEffect(() => {
+    const urlTab = searchParams.get('tab');
+    if (urlTab && ['overview', 'wallet', 'account'].includes(urlTab) && urlTab !== activeTab) {
+      setActiveTab(urlTab);
+      setLoadedTabs(prev => new Set([...prev, urlTab]));
+    }
+  }, [searchParams]);
 
   // Fetch shared data on mount
   useEffect(() => {
@@ -236,8 +248,8 @@ export default function UserDashboard() {
 
   if (!profile) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-slate-900 to-black flex items-center justify-center">
-        <div className="flex items-center gap-3 text-gray-400">
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="flex items-center gap-3 text-neutral-400">
           <LoadingSpinner />
           <span>Loading your dashboard...</span>
         </div>
@@ -246,18 +258,8 @@ export default function UserDashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-slate-900 to-black relative overflow-hidden">
-      {/* Background Effects - Same as login */}
-      <div className="absolute inset-0">
-        {/* Grid pattern */}
-        <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,.02)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,.02)_1px,transparent_1px)] bg-[size:100px_100px]"></div>
-        
-        {/* Floating geometric elements */}
-        <div className="absolute top-20 left-10 w-32 h-32 border border-yellow-500/10 rounded-xl rotate-12 animate-pulse"></div>
-        <div className="absolute top-40 right-20 w-24 h-24 border border-amber-400/10 rounded-full animate-bounce" style={{ animationDuration: '3s' }}></div>
-        <div className="absolute bottom-32 left-20 w-40 h-40 border border-orange-500/10 rounded-2xl rotate-45 animate-pulse" style={{ animationDuration: '4s' }}></div>
-        <div className="absolute bottom-20 right-10 w-28 h-28 border border-yellow-600/10 rounded-lg -rotate-12 animate-bounce" style={{ animationDuration: '5s' }}></div>
-      </div>
+    <div className="min-h-screen relative">
+      {/* Background is in layout.js */}
 
       {/* Main Content */}
       <div className="relative z-10">
@@ -279,11 +281,11 @@ export default function UserDashboard() {
                 </div>
                 <div>
                   <h1 className="text-xl font-bold">
-                    <span className="bg-gradient-to-r from-yellow-400 to-amber-500 bg-clip-text text-transparent">
-                      GAMBINO GOLD
+                    <span className="bg-gradient-to-r from-yellow-400 via-yellow-500 to-amber-600 bg-clip-text text-transparent">
+                      Gambino Gold
                     </span>
                   </h1>
-                  <p className="text-gray-400 text-sm">Network Dashboard</p>
+                  <p className="text-neutral-400 text-sm">Network Dashboard</p>
                 </div>
               </div>
               
@@ -353,10 +355,7 @@ export default function UserDashboard() {
                       : 'text-gray-400 hover:text-gray-200 hover:bg-gray-700/50'
                   }`}
                 >
-                  <div className="flex items-center justify-center gap-2">
-                    <span className="text-sm">{tab.icon}</span>
-                    {tab.label}
-                  </div>
+  {tab.label}
                 </button>
               ))}
             </nav>
@@ -367,17 +366,13 @@ export default function UserDashboard() {
             {activeTab === 'overview' && (
               <OverviewTab {...sharedContext} />
             )}
-            
+
             {activeTab === 'wallet' && loadedTabs.has('wallet') && (
               <WalletTab {...sharedContext} />
             )}
-            
-            {activeTab === 'gaming' && loadedTabs.has('gaming') && (
-              <GamingTab {...sharedContext} />
-            )}
-            
-            {activeTab === 'settings' && loadedTabs.has('settings') && (
-              <SettingsTab {...sharedContext} />
+
+            {activeTab === 'account' && loadedTabs.has('account') && (
+              <AccountTab {...sharedContext} />
             )}
 
             {/* Show loading for unloaded tabs */}
@@ -399,5 +394,20 @@ export default function UserDashboard() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function UserDashboard() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="flex items-center gap-3 text-neutral-400">
+          <LoadingSpinner />
+          <span>Loading your dashboard...</span>
+        </div>
+      </div>
+    }>
+      <DashboardContent />
+    </Suspense>
   );
 }

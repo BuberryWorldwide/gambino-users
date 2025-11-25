@@ -153,33 +153,29 @@ export default function AdminDashboardPage() {
           title="Network Participants"
           value={formatNumber(metrics.users.total)}
           subtitle={`${formatNumber(metrics.users.active)} active`}
-          icon="👥"
           color="green"
           href="/admin/users"
         />
-        
+
         <AdminMetricCard
           title="Token Supply"
           value={formatNumber(metrics.tokens.issued)}
           subtitle="Total issued"
-          icon="🪙"
           color="yellow"
         />
-        
+
         <AdminMetricCard
-          title="Infrastructure Nodes"
+          title="Stores"
           value={formatNumber(metrics.stores.active)}
           subtitle="Active locations"
-          icon="🏢"
           color="orange"
           href="/admin/stores"
         />
-        
+
         <AdminMetricCard
           title="Network Volume"
           value={`$${formatNumber(metrics.transactions.volume)}`}
           subtitle={`${formatNumber(metrics.transactions.total)} transfers`}
-          icon="📊"
           color="blue"
           href="/admin/metrics"
         />
@@ -195,42 +191,37 @@ export default function AdminDashboardPage() {
               <>
                 <AdminActionCard
                   href="/admin/users"
-                  title="Network Participants"
+                  title="Participants"
                   description="User accounts and access control"
-                  icon="👥"
                   color="green"
                 />
                 <AdminActionCard
                   href="/admin/stores"
-                  title="Infrastructure Nodes"
-                  description="Network locations and configuration"
-                  icon="🏢"
+                  title="Stores"
+                  description="Locations and configuration"
                   color="orange"
                 />
                 <AdminActionCard
                   href="/admin/treasury"
-                  title="Treasury Management"
+                  title="Treasury"
                   description="Token operations and liquidity"
-                  icon="💰"
                   color="yellow"
                 />
               </>
             )}
-            
+
             {(admin?.role === 'venue_manager' || admin?.role === 'venue_staff') && (
               <>
                 <AdminActionCard
                   href="/admin/venues"
-                  title="My Network"
+                  title="My Venues"
                   description="Venue oversight and management"
-                  icon="🏪"
                   color="blue"
                 />
                 <AdminActionCard
                   href="/admin/reports"
                   title="Reports"
                   description="Performance and analytics"
-                  icon="📋"
                   color="green"
                 />
               </>
@@ -294,24 +285,21 @@ export default function AdminDashboardPage() {
 }
 
 // Action Card Component
-const AdminActionCard = ({ href, title, description, icon, color }) => {
+const AdminActionCard = ({ href, title, description, color }) => {
   const colors = {
-    green: 'hover:bg-green-700/30 hover:border-green-500/50 group-hover:text-green-200 group-hover:bg-green-500/30',
-    orange: 'hover:bg-orange-700/30 hover:border-orange-500/50 group-hover:text-orange-200 group-hover:bg-orange-500/30',
-    yellow: 'hover:bg-yellow-700/30 hover:border-yellow-500/50 group-hover:text-yellow-200 group-hover:bg-yellow-500/30',
-    blue: 'hover:bg-blue-700/30 hover:border-blue-500/50 group-hover:text-blue-200 group-hover:bg-blue-500/30'
+    green: 'hover:bg-green-700/30 hover:border-green-500/50',
+    orange: 'hover:bg-orange-700/30 hover:border-orange-500/50',
+    yellow: 'hover:bg-yellow-700/30 hover:border-yellow-500/50',
+    blue: 'hover:bg-blue-700/30 hover:border-blue-500/50'
   };
 
   const colorClasses = colors[color] || colors.yellow;
 
   return (
-    <a 
+    <a
       href={href}
-      className={`group bg-gray-700/30 border border-gray-600/50 rounded-xl p-4 transition-all duration-300 backdrop-blur-sm flex items-center hover:transform hover:scale-[1.02] ${colorClasses}`}
+      className={`group bg-gray-700/30 border border-gray-600/50 rounded-xl p-4 transition-all duration-300 backdrop-blur-sm block hover:transform hover:scale-[1.02] ${colorClasses}`}
     >
-      <div className={`w-12 h-12 bg-${color}-500/20 rounded-xl flex items-center justify-center mr-4 transition-colors duration-300 ${colorClasses}`}>
-        <span className="text-2xl">{icon}</span>
-      </div>
       <div>
         <div className="font-semibold text-white transition-colors duration-300">
           {title}

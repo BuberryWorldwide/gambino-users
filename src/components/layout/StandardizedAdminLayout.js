@@ -33,24 +33,24 @@ export default function StandardizedAdminLayout({
   // Navigation based on user role
   const getNavItems = () => {
     const baseItems = [
-      { href: '/admin', label: 'Dashboard', icon: '📊' }
+      { href: '/admin', label: 'Dashboard' }
     ];
 
     if (user?.role === 'super_admin' || user?.role === 'gambino_ops') {
       return [
         ...baseItems,
-        { href: '/admin/users', label: 'Network Participants', icon: '👥' },
-        { href: '/admin/stores', label: 'Infrastructure Nodes', icon: '🏢' },
-        { href: '/admin/treasury', label: 'Treasury Management', icon: '💰' },
-        { href: '/admin/metrics', label: 'Analytics', icon: '📈' }
+        { href: '/admin/users', label: 'Participants' },
+        { href: '/admin/stores', label: 'Stores' },
+        { href: '/admin/treasury', label: 'Treasury' },
+        { href: '/admin/metrics', label: 'Analytics' }
       ];
     }
 
     if (user?.role === 'venue_manager' || user?.role === 'venue_staff') {
       return [
         ...baseItems,
-        { href: '/admin/venues', label: 'My Network', icon: '🏪' },
-        { href: '/admin/reports', label: 'Reports', icon: '📋' }
+        { href: '/admin/venues', label: 'My Venues' },
+        { href: '/admin/reports', label: 'Reports' }
       ];
     }
 
@@ -231,12 +231,11 @@ export const AdminButton = ({
   );
 };
 
-export const AdminMetricCard = ({ 
-  title, 
-  value, 
-  subtitle, 
-  icon, 
-  trend, 
+export const AdminMetricCard = ({
+  title,
+  value,
+  subtitle,
+  trend,
   color = 'yellow',
   href
 }) => {
@@ -286,22 +285,15 @@ export const AdminMetricCard = ({
     >
       <div className="flex items-center justify-between">
         <div className="flex-1">
-          <div className="flex items-center mb-3">
-            <div className={`w-12 h-12 ${colorScheme.bg} rounded-xl flex items-center justify-center mr-4 transition-colors duration-300`}>
-              <div className={`w-6 h-6 ${colorScheme.icon} rounded-sm flex items-center justify-center text-black font-bold text-xs`}>
-                {icon}
-              </div>
+          <div className="mb-3">
+            <div className={`font-semibold text-white ${colorScheme.text} transition-colors duration-300`}>
+              {title}
             </div>
-            <div>
-              <div className={`font-semibold text-white ${colorScheme.text} transition-colors duration-300`}>
-                {title}
+            {subtitle && (
+              <div className={`text-sm text-gray-400 ${colorScheme.subtext} transition-colors duration-300`}>
+                {subtitle}
               </div>
-              {subtitle && (
-                <div className={`text-sm text-gray-400 ${colorScheme.subtext} transition-colors duration-300`}>
-                  {subtitle}
-                </div>
-              )}
-            </div>
+            )}
           </div>
           <div className="text-2xl font-bold text-white mb-1">
             {value}

@@ -496,13 +496,13 @@ export default function StoreDetailPage({ params }) {
           <div className="mb-8">
             <div className="flex space-x-6 border-b border-gray-700/50">
               {[
-                { id: 'details', label: 'Store Details', icon: '🏪' },
-                { id: 'financial', label: 'Financial Summary', icon: '💵' },  // ADD THIS LINE
-                { id: 'wallet', label: 'Wallet', icon: '💰' },
-                { id: 'machines', label: 'Machines', icon: '🎰', count: machineStats.total },
-                { id: 'reports', label: 'Reports', icon: '📊' },
-                { id: 'analytics', label: 'Analytics', icon: '📈' },
-                { id: 'hardware', label: 'Hardware Mapping', icon: '🔌' }
+                { id: 'details', label: 'Details' },
+                { id: 'financial', label: 'Financial' },
+                { id: 'wallet', label: 'Wallet' },
+                { id: 'machines', label: 'Machines', count: machineStats.total },
+                { id: 'reports', label: 'Reports' },
+                { id: 'analytics', label: 'Analytics' },
+                { id: 'hardware', label: 'Hardware' }
               ].map((tab) => (
                 <button
                   key={tab.id}
@@ -513,7 +513,6 @@ export default function StoreDetailPage({ params }) {
                       : 'text-gray-400 border-transparent hover:text-white hover:border-gray-500'
                   }`}
                 >
-                  <span>{tab.icon}</span>
                   <span>{tab.label}</span>
                   {tab.count !== undefined && tab.count > 0 && (
                     <span className="bg-gray-600/50 text-gray-300 text-xs px-2 py-1 rounded-full">

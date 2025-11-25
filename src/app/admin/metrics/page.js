@@ -164,71 +164,54 @@ export default function AdminMetricsPage() {
       )}
 
       <div className="mb-8">
-        <h2 className="text-2xl font-bold text-white mb-6 flex items-center gap-3">
-          <div className="w-8 h-8 bg-gradient-to-r from-yellow-400 to-amber-500 rounded-lg flex items-center justify-center">
-            <span className="text-black font-bold">🪙</span>
-          </div>
-          Token Economics
-        </h2>
+        <h2 className="text-2xl font-bold text-white mb-6">Token Economics</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           <AdminMetricCard
             title="Total Supply"
             value={formatNumber(metrics?.tokenStats?.totalGambinoIssued)}
             subtitle="GG Tokens"
-            icon="🎯"
             color="yellow"
           />
           <AdminMetricCard
             title="Circulating"
             value={formatNumber(metrics?.tokenStats?.circulatingSupply)}
             subtitle="In circulation"
-            icon="🔄"
             color="blue"
           />
           <AdminMetricCard
             title="Current Price"
             value={formatCurrency(metrics?.tokenStats?.currentPrice)}
             subtitle="Per token"
-            icon="💵"
             color="green"
           />
           <AdminMetricCard
             title="24h Volume"
             value={formatCurrency(metrics?.tokenStats?.volume24h)}
             subtitle="Trading volume"
-            icon="📊"
             color="orange"
           />
         </div>
       </div>
 
       <div className="mb-8">
-        <h2 className="text-2xl font-bold text-white mb-6 flex items-center gap-3">
-          <div className="w-8 h-8 bg-gradient-to-r from-blue-400 to-purple-500 rounded-lg flex items-center justify-center">
-            <span className="text-white font-bold">👥</span>
-          </div>
-          Network Participants
-        </h2>
+        <h2 className="text-2xl font-bold text-white mb-6">Network Participants</h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <AdminMetricCard
             title="Total Users"
             value={formatNumber(metrics?.userStats?.totalUsers)}
             subtitle="Registered accounts"
-            icon="👤"
             color="blue"
           />
           <AdminMetricCard
             title="Active Users"
             value={formatNumber(metrics?.userStats?.activeUsers)}
             subtitle="Last 30 days"
-            icon="⚡"
             color="green"
           />
           <AdminMetricCard
             title="Transactions"
             value={formatNumber(metrics?.userStats?.totalTransactions)}
             subtitle="Total network activity"
-            icon="📈"
             color="purple"
           />
         </div>
@@ -238,10 +221,7 @@ export default function AdminMetricsPage() {
         <div className="mb-8">
           <AdminCard>
             <div className="flex items-center justify-between mb-6">
-              <h2 className="text-2xl font-bold text-white flex items-center gap-3">
-                <span className="text-2xl">🏆</span>
-                Top Players
-              </h2>
+              <h2 className="text-2xl font-bold text-white">Top Players</h2>
               <a 
                 href="/leaderboard" 
                 className="text-yellow-400 hover:text-yellow-300 text-sm font-medium"

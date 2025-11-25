@@ -1,11 +1,10 @@
-import { useState, useEffect } from 'react';
-import api from '@/lib/api';
+import { useState } from 'react';
 
-function StatBox({ label, value, sub, highlight = false }) {
+function StatCard({ label, value, sub, highlight = false }) {
   return (
-    <div className={`stat-box ${highlight ? 'ring-2 ring-yellow-500/30' : ''}`}>
-      <div className="stat-value">{value}</div>
-      <div className="stat-label">{label}</div>
+    <div className={`bg-neutral-900/50 border border-neutral-800 rounded-xl p-4 ${highlight ? 'ring-1 ring-yellow-500/30' : ''}`}>
+      <span className="text-xs text-neutral-500 uppercase tracking-wider">{label}</span>
+      <div className="text-2xl font-bold text-white mt-1">{value}</div>
       {sub && <div className="text-xs text-neutral-500 mt-1">{sub}</div>}
     </div>
   );
@@ -13,401 +12,177 @@ function StatBox({ label, value, sub, highlight = false }) {
 
 function LoadingSpinner() {
   return (
-    <div className="loading-spinner w-5 h-5 text-yellow-500"></div>
+    <div className="w-4 h-4 border-2 border-yellow-400 border-t-transparent rounded-full animate-spin"></div>
   );
 }
 
-export default function OverviewTab({ 
-  profile, 
+export default function OverviewTab({
+  profile,
   balances,
-  currentSession, 
-  setError, 
-  setSuccess, 
+  currentSession,
+  setError,
+  setSuccess,
   refreshSession,
-  refreshProfile 
+  refreshBalances,
+  refreshProfile
 }) {
-  // Profile editing
-  const [profileForm, setProfileForm] = useState({
-    firstName: profile?.firstName || '',
-    lastName: profile?.lastName || '',
-    email: profile?.email || '',
-    phone: profile?.phone || ''
-  });
-  const [showEditProfile, setShowEditProfile] = useState(false);
-  const [profileError, setProfileError] = useState('');
-  const [profileSuccess, setProfileSuccess] = useState('');
+  const [refreshingBalance, setRefreshingBalance] = useState(false);
 
-  // Wallet generation
-  const [generatingWallet, setGeneratingWallet] = useState(false);
-
-  // Update form when profile changes
-  useEffect(() => {
-    if (profile) {
-      setProfileForm({
-        firstName: profile.firstName || '',
-        lastName: profile.lastName || '',
-        email: profile.email || '',
-        phone: profile.phone || ''
-      });
-    }
-  }, [profile]);
-
-  // Calculate stats from the actual profile data
+  // Balance values
   const cachedGambinoBalance = profile?.cachedGambinoBalance || 0;
   const cachedSolBalance = profile?.cachedSolBalance || 0;
   const cachedUsdcBalance = profile?.cachedUsdcBalance || 0;
+
+  // Use live balances if available, otherwise cached
+  const ggBalance = balances?.GG !== undefined ? Number(balances.GG || 0) : cachedGambinoBalance;
+  const solBalance = balances?.SOL !== undefined ? Number(balances.SOL) : cachedSolBalance;
+  const usdcBalance = balances?.USDC !== undefined ? Number(balances.USDC || 0) : cachedUsdcBalance;
+
+  // Stats from profile
   const gluck = profile?.gluckScore || 0;
   const tier = profile?.tier || 'none';
   const jackMajor = profile?.majorJackpots || 0;
   const jackMinor = profile?.minorJackpots || 0;
-  const jackTotal = (jackMajor + jackMinor);
-  const uniqueMachines = new Set(profile?.machinesPlayed || []).size;
-
-  // Check when balances were last updated
-  const balanceLastUpdated = profile?.balanceLastUpdated;
-  const isBalanceStale = !balanceLastUpdated || 
-    (Date.now() - new Date(balanceLastUpdated).getTime() > 5 * 60 * 1000);
-
-  const walletStatus = profile?.walletAddress ? 
-    (isBalanceStale ? 'Syncing...' : 'Connected') : 
-    'No Wallet Yet';
+  const jackTotal = jackMajor + jackMinor;
 
   const handleEndSession = async () => {
     try {
+      const api = (await import('@/lib/api')).default;
       await api.post('/api/users/end-session');
       await refreshSession();
-      setSuccess('Session ended successfully');
+      setSuccess('Session ended');
+      setTimeout(() => setSuccess(''), 3000);
     } catch (err) {
       setError('Failed to end session');
     }
   };
 
-  const handleEditProfile = () => {
-    setProfileForm({
-      firstName: profile?.firstName || '',
-      lastName: profile?.lastName || '',
-      email: profile?.email || '',
-      phone: profile?.phone || ''
-    });
-    setShowEditProfile(true);
-  };
+  const handleRefreshBalance = async () => {
+    if (!profile?.walletAddress || refreshingBalance) return;
 
-  const handleProfileSubmit = async (e) => {
-    e.preventDefault();
-    setProfileError('');
-    setProfileSuccess('');
-
+    setRefreshingBalance(true);
     try {
-      const res = await api.put('/api/users/profile', profileForm);
-      
-      if (res.data?.success) {
-        setProfileSuccess('Profile updated successfully!');
-        await refreshProfile();
-        setShowEditProfile(false);
-        setTimeout(() => setProfileSuccess(''), 3000);
-      }
+      await refreshBalances();
+      await refreshProfile();
+      setSuccess('Balances refreshed!');
+      setTimeout(() => setSuccess(''), 3000);
     } catch (err) {
-      setProfileError(err?.response?.data?.error || 'Failed to update profile');
-    }
-  };
-
-  const handleGenerateWallet = async () => {
-    setGeneratingWallet(true);
-    setError('');
-    try {
-      const res = await api.post('/api/wallet/generate');
-      if (res.data?.success) {
-        await refreshProfile();
-        setSuccess('Wallet generated successfully!');
-        setTimeout(() => setSuccess(''), 3000);
-      }
-    } catch (err) {
-      setError(err?.response?.data?.error || 'Failed to generate wallet');
+      setError('Failed to refresh balances');
     } finally {
-      setGeneratingWallet(false);
+      setRefreshingBalance(false);
     }
   };
 
   return (
     <div className="space-y-6">
-      {/* Profile Success Message */}
-      {profileSuccess && (
-        <div className="bg-green-900/20 border border-green-500 text-green-300 p-3 rounded-lg backdrop-blur-sm text-sm">
-          {profileSuccess}
-        </div>
-      )}
-
-      {/* Stats Grid - Using actual database values */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
-        <StatBox 
-          label="GAMBINO Balance" 
-          value={cachedGambinoBalance.toLocaleString()} 
-          sub={walletStatus}
-          highlight={!profile?.walletAddress}
-        />
-        <StatBox 
-          label="SOL Balance" 
-          value={cachedSolBalance.toFixed(4)} 
-          sub={walletStatus}
-        />
-        <StatBox 
-          label="USDC Balance" 
-          value={`$${cachedUsdcBalance.toFixed(2)}`} 
-          sub={walletStatus}
-        />
-        <StatBox 
-          label="Glück Score" 
-          value={gluck.toLocaleString()} 
-          sub={`Tier: ${tier.toUpperCase()}`} 
-          highlight={gluck > 1000}
-        />
-        <StatBox 
-          label="Jackpots Won" 
-          value={jackTotal.toLocaleString()} 
-          sub={`Major ${jackMajor} • Minor ${jackMinor}`} 
-          highlight={jackTotal > 0}
-        />
-        <StatBox 
-          label="Machines Played" 
-          value={uniqueMachines} 
-          sub="Total unique machines" 
-        />
-      </div>
-
-      {/* Current Machine Session */}
+      {/* Current Session */}
       {currentSession && (
-        <div className="card">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-bold text-white">Currently Playing</h2>
-            <div className="flex items-center gap-2 text-sm text-green-400">
-              <div className="h-2 w-2 bg-green-500 rounded-full animate-pulse"></div>
-              Active Session
-            </div>
-          </div>
-          <div className="bg-green-900/20 border border-green-500/30 p-4 rounded-lg">
-            <div className="flex justify-between items-start">
+        <div className="bg-green-900/20 border border-green-500/30 rounded-xl p-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="h-3 w-3 bg-green-500 rounded-full animate-pulse"></div>
               <div>
-                <h3 className="font-medium text-white">{currentSession.machineName || currentSession.machineId}</h3>
-                <p className="text-sm text-green-300">{currentSession.storeName}</p>
-                <p className="text-xs text-green-500 mt-1">
-                  Started: {new Date(currentSession.startedAt).toLocaleTimeString()}
-                  {currentSession.duration && ` • ${currentSession.duration} min`}
-                </p>
+                <p className="text-white font-medium">{currentSession.machineName || currentSession.machineId}</p>
+                <p className="text-sm text-green-400">{currentSession.storeName}</p>
               </div>
-              <button
-                onClick={handleEndSession}
-                className="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded text-sm transition-colors"
-              >
-                End Session
-              </button>
             </div>
+            <button
+              onClick={handleEndSession}
+              className="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white text-sm rounded-lg transition-colors"
+            >
+              End Session
+            </button>
           </div>
         </div>
       )}
 
-      {/* Profile Management */}
-      <div className="card">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 md:mb-6 gap-4">
-          <h2 className="text-lg md:text-xl font-bold text-white">Profile Information</h2>
-          <button 
-            onClick={() => setShowEditProfile(!showEditProfile)}
-            className="btn btn-ghost text-sm"
-          >
-            {showEditProfile ? 'Cancel Edit' : 'Edit Profile'}
-          </button>
-        </div>
-        
-        {!showEditProfile ? (
-          <div className="grid gap-4 lg:grid-cols-2">
-            <div>
-              <div className="label mb-2">Full Name</div>
-              <div className="bg-neutral-800/50 p-3 rounded border border-neutral-700 text-neutral-300">
-                {profile?.firstName} {profile?.lastName}
-              </div>
-            </div>
-            <div>
-              <div className="label mb-2">Email Address</div>
-              <div className="bg-neutral-800/50 p-3 rounded border border-neutral-700 text-neutral-300 break-all">
-                {profile?.email || 'Loading...'}
-              </div>
-            </div>
-            <div>
-              <div className="label mb-2">Phone Number</div>
-              <div className="bg-neutral-800/50 p-3 rounded border border-neutral-700 text-neutral-300">
-                {profile?.phone || 'Not set'}
-              </div>
-            </div>
-            <div>
-              <div className="label mb-2">Member Since</div>
-              <div className="bg-neutral-800/50 p-3 rounded border border-neutral-700 text-neutral-300">
-                {profile?.createdAt ? new Date(profile.createdAt).toLocaleDateString() : 'N/A'}
-              </div>
-            </div>
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {profileError && (
-              <div className="bg-red-900/20 border border-red-500 text-red-300 p-3 rounded text-sm">
-                {profileError}
-              </div>
-            )}
-
-            <form onSubmit={handleProfileSubmit} className="space-y-4">
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div>
-                  <label className="label">First Name</label>
-                  <input 
-                    type="text" 
-                    className="input mt-1"
-                    value={profileForm.firstName}
-                    onChange={(e) => setProfileForm(prev => ({...prev, firstName: e.target.value}))}
-                    required
-                    placeholder="Enter first name"
-                  />
-                </div>
-                <div>
-                  <label className="label">Last Name</label>
-                  <input 
-                    type="text" 
-                    className="input mt-1"
-                    value={profileForm.lastName}
-                    onChange={(e) => setProfileForm(prev => ({...prev, lastName: e.target.value}))}
-                    required
-                    placeholder="Enter last name"
-                  />
-                </div>
-              </div>
-              <div>
-                <label className="label">Email Address</label>
-                <input 
-                  type="email" 
-                  className="input mt-1"
-                  value={profileForm.email}
-                  onChange={(e) => setProfileForm(prev => ({...prev, email: e.target.value}))}
-                  required
-                  placeholder="Enter email address"
-                />
-              </div>
-              <div>
-                <label className="label">Phone Number</label>
-                <input 
-                  type="tel" 
-                  className="input mt-1"
-                  value={profileForm.phone}
-                  onChange={(e) => setProfileForm(prev => ({...prev, phone: e.target.value}))}
-                  placeholder="Enter phone number"
-                />
-              </div>
-              <div className="flex flex-col sm:flex-row gap-2">
-                <button type="submit" className="btn btn-primary">Update Profile</button>
-                <button type="button" onClick={() => setShowEditProfile(false)} className="btn btn-ghost">
-                  Cancel
-                </button>
-              </div>
-            </form>
-          </div>
-        )}
-      </div>
-
-      {/* Wallet Management Quick Actions */}
-      <div className="card">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-bold text-white">Wallet Management</h2>
-          <div className="flex items-center gap-2 text-xs text-neutral-400">
-            <div className={`h-2 w-2 rounded-full ${profile?.walletAddress ? 'bg-green-500' : 'bg-red-500'}`}></div>
-            {profile?.walletAddress ? 'Connected' : 'No Wallet'}
-          </div>
-        </div>
-
-        {!profile?.walletAddress ? (
-          <div className="text-center py-8">
-            <div className="w-12 h-12 mx-auto mb-4 rounded-full bg-yellow-500/10 flex items-center justify-center">
-              <div className="w-6 h-6 rounded-full border-2 border-yellow-500/50"></div>
-            </div>
-            <p className="text-neutral-400 mb-6">No wallet generated yet</p>
-            <button 
-              onClick={handleGenerateWallet}
-              disabled={generatingWallet}
-              className="btn btn-primary"
+      {/* Balances Section */}
+      {profile?.walletAddress ? (
+        <div className="bg-neutral-900/50 border border-neutral-800 rounded-xl p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-white font-semibold">Your Balances</h3>
+            <button
+              onClick={handleRefreshBalance}
+              disabled={refreshingBalance}
+              className="text-xs text-yellow-400 hover:text-yellow-300 disabled:text-neutral-500 transition-colors flex items-center gap-2"
             >
-              {generatingWallet ? (
-                <div className="flex items-center gap-2">
-                  <LoadingSpinner />
-                  Generating...
-                </div>
+              {refreshingBalance ? (
+                <><LoadingSpinner /> Syncing...</>
               ) : (
-                '🔥 Generate Wallet'
+                <>
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  </svg>
+                  Refresh
+                </>
               )}
             </button>
           </div>
-        ) : (
-          <div className="space-y-4">
-            <div>
-              <div className="label mb-2">Wallet Address</div>
-              <div className="bg-neutral-800/50 p-3 rounded border border-neutral-700 text-neutral-300 break-all font-mono text-sm">
-                {profile.walletAddress}
-              </div>
-            </div>
 
-            {/* Enhanced Balance Display */}
-            <div>
-              <div className="label mb-3">Current Balances</div>
-              <div className="balance-grid grid grid-cols-3 gap-4">
-                <div className="balance-item bg-neutral-800/50 p-3 rounded border border-neutral-700">
-                  <p className="text-xs text-neutral-400 uppercase tracking-wider">SOL</p>
-                  <p className="text-lg font-bold text-white mt-1">
-                    {balances?.SOL !== undefined ? 
-                      Number(balances.SOL).toFixed(4) : 
-                      cachedSolBalance.toFixed(4)
-                    }
-                  </p>
-                  {balances?.SOL === undefined && (
-                    <p className="text-xs text-yellow-400">Cached</p>
-                  )}
-                </div>
-                <div className="balance-item bg-neutral-800/50 p-3 rounded border border-neutral-700">
-                  <p className="text-xs text-neutral-400 uppercase tracking-wider">GAMBINO</p>
-                  <p className="text-lg font-bold text-yellow-500 mt-1">
-                    {balances?.GG !== undefined ? 
-                      Number(balances.GG || 0).toLocaleString() : 
-                      cachedGambinoBalance.toLocaleString()
-                    }
-                  </p>
-                  {balances?.GG === undefined && (
-                    <p className="text-xs text-yellow-400">Cached</p>
-                  )}
-                </div>
-                <div className="balance-item bg-neutral-800/50 p-3 rounded border border-neutral-700">
-                  <p className="text-xs text-neutral-400 uppercase tracking-wider">USDC</p>
-                  <p className="text-lg font-bold text-white mt-1">
-                    ${balances?.USDC !== undefined ? 
-                      Number(balances.USDC || 0).toFixed(2) : 
-                      cachedUsdcBalance.toFixed(2)
-                    }
-                  </p>
-                  {balances?.USDC === undefined && (
-                    <p className="text-xs text-yellow-400">Cached</p>
-                  )}
-                </div>
-              </div>
-              {isBalanceStale && (
-                <p className="text-xs text-yellow-400 mt-2 text-center">
-                  ⚠️ Live balances temporarily unavailable - showing cached data
-                </p>
-              )}
+          <div className="grid grid-cols-3 gap-4">
+            <div className="text-center">
+              <p className="text-xs text-neutral-500 uppercase tracking-wider mb-1">SOL</p>
+              <p className="text-2xl font-bold text-white">{solBalance.toFixed(4)}</p>
             </div>
-
-            <div className="bg-neutral-800/30 p-4 rounded-lg border border-neutral-700">
-              <p className="text-sm text-neutral-300 mb-3">
-                Manage your wallet, view transaction history, and transfer tokens in the <strong>Wallet</strong> tab.
-              </p>
-              <div className="flex gap-2 text-sm">
-                <span className="text-neutral-400">Quick actions:</span>
-                <span className="text-yellow-400">Send • Receive • History</span>
-              </div>
+            <div className="text-center">
+              <p className="text-xs text-neutral-500 uppercase tracking-wider mb-1">GAMBINO</p>
+              <p className="text-2xl font-bold text-yellow-400">{ggBalance.toLocaleString()}</p>
+            </div>
+            <div className="text-center">
+              <p className="text-xs text-neutral-500 uppercase tracking-wider mb-1">USDC</p>
+              <p className="text-2xl font-bold text-white">${usdcBalance.toFixed(2)}</p>
             </div>
           </div>
-        )}
+        </div>
+      ) : (
+        <div className="bg-neutral-900/50 border border-neutral-800 rounded-xl p-6 text-center">
+          <div className="w-12 h-12 mx-auto mb-3 rounded-full bg-yellow-500/10 flex items-center justify-center">
+            <svg className="w-6 h-6 text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+            </svg>
+          </div>
+          <p className="text-white font-medium mb-1">No Wallet Connected</p>
+          <p className="text-neutral-400 text-sm">Set up your wallet in the Wallet tab to see your balances</p>
+        </div>
+      )}
+
+      {/* Stats Grid */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <StatCard
+          label="Glück Score"
+          value={gluck.toLocaleString()}
+          sub={`Tier: ${tier.toUpperCase()}`}
+          highlight={gluck > 1000}
+        />
+        <StatCard
+          label="Total Jackpots"
+          value={jackTotal}
+          sub={`${jackMajor} major • ${jackMinor} minor`}
+          highlight={jackTotal > 0}
+        />
+        <StatCard
+          label="Status"
+          value={currentSession ? 'Active' : 'Idle'}
+          sub={currentSession ? 'In session' : 'Not playing'}
+        />
+        <StatCard
+          label="Member Since"
+          value={profile?.createdAt ? new Date(profile.createdAt).toLocaleDateString('en-US', { month: 'short', year: 'numeric' }) : 'N/A'}
+        />
+      </div>
+
+      {/* Quick Info */}
+      <div className="bg-neutral-900/50 border border-neutral-800 rounded-xl p-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-white font-medium">{profile?.firstName} {profile?.lastName}</p>
+            <p className="text-sm text-neutral-400">{profile?.email}</p>
+          </div>
+          <div className="text-right">
+            <p className="text-xs text-neutral-500">Account</p>
+            <p className="text-sm text-green-400">{profile?.isActive === false ? 'Inactive' : 'Active'}</p>
+          </div>
+        </div>
       </div>
     </div>
   );

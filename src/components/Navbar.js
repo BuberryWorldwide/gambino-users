@@ -72,9 +72,9 @@ export default function Navbar() {
                 Dashboard
               </Link>
               <Link
-                href="/account"
+                href="/dashboard?tab=account"
                 className={`text-sm transition-all duration-200 hover:text-yellow-400 ${
-                  pathname === '/account' ? 'text-yellow-400 font-medium' : 'text-neutral-300'
+                  pathname === '/dashboard' ? 'text-neutral-300' : 'text-neutral-300'
                 }`}
               >
                 Account
@@ -166,10 +166,8 @@ export default function Navbar() {
                   </Link>
 
                   <Link
-                    href="/account"
-                    className={`px-3 py-3 text-sm transition-colors hover:text-white hover:bg-neutral-800/30 rounded-lg ${
-                      pathname === '/account' ? 'text-yellow-400 bg-neutral-800/20' : 'text-neutral-300'
-                    }`}
+                    href="/dashboard?tab=account"
+                    className="px-3 py-3 text-sm transition-colors hover:text-white hover:bg-neutral-800/30 rounded-lg text-neutral-300"
                     onClick={closeMobileMenu}
                   >
                     <div className="flex items-center gap-3">

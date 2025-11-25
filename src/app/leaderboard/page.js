@@ -59,12 +59,11 @@ export default function LeaderboardPage() {
     return 'text-white';
   };
 
-  const getRankIcon = (rank) => {
-    if (rank === 1) return '👑';
-    if (rank === 2) return '🥈';
-    if (rank === 3) return '🥉';
-    if (rank <= 10) return '⭐';
-    return '';
+  const getRankBadge = (rank) => {
+    if (rank === 1) return 'bg-yellow-500 text-black';
+    if (rank === 2) return 'bg-gray-300 text-black';
+    if (rank === 3) return 'bg-orange-400 text-black';
+    return null;
   };
 
   return (
@@ -119,42 +118,39 @@ export default function LeaderboardPage() {
           <button
             onClick={() => setActiveTab('balance')}
             className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-              activeTab === 'balance' 
-                ? 'bg-yellow-600 text-white' 
+              activeTab === 'balance'
+                ? 'bg-yellow-600 text-white'
                 : 'text-gray-400 hover:text-white hover:bg-gray-700'
             }`}
           >
-            💰 By Balance
+            By Balance
           </button>
           <button
             onClick={() => setActiveTab('jackpots')}
             className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-              activeTab === 'jackpots' 
-                ? 'bg-yellow-600 text-white' 
+              activeTab === 'jackpots'
+                ? 'bg-yellow-600 text-white'
                 : 'text-gray-400 hover:text-white hover:bg-gray-700'
             }`}
           >
-            🎰 By Jackpots
+            By Jackpots
           </button>
           <button
             onClick={() => setActiveTab('recent')}
             className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-              activeTab === 'recent' 
-                ? 'bg-yellow-600 text-white' 
+              activeTab === 'recent'
+                ? 'bg-yellow-600 text-white'
                 : 'text-gray-400 hover:text-white hover:bg-gray-700'
             }`}
           >
-            ⚡ Recent Winners
+            Recent Winners
           </button>
         </div>
 
         {/* Error Display */}
         {error && (
           <div className="bg-red-900/20 border border-red-500 text-red-300 p-4 rounded-lg mb-6">
-            <div className="flex items-center">
-              <span className="text-red-500 mr-2">⚠️</span>
-              {error}
-            </div>
+            {error}
           </div>
         )}
 
@@ -167,7 +163,6 @@ export default function LeaderboardPage() {
             </div>
           ) : leaderboardData.length === 0 ? (
             <div className="p-8 text-center">
-              <div className="text-4xl mb-4">🏆</div>
               <p className="text-gray-400">No data available</p>
             </div>
           ) : (
@@ -206,12 +201,15 @@ export default function LeaderboardPage() {
                   {leaderboardData.map((player, index) => (
                     <tr key={index} className="hover:bg-gray-750">
                       <td className="py-3 px-4">
-                        <div className="flex items-center gap-2">
+                        {getRankBadge(player.rank || index + 1) ? (
+                          <span className={`inline-flex items-center justify-center w-8 h-8 rounded-full font-bold text-sm ${getRankBadge(player.rank || index + 1)}`}>
+                            {player.rank || index + 1}
+                          </span>
+                        ) : (
                           <span className={`font-bold ${getRankColor(player.rank || index + 1)}`}>
                             #{player.rank || index + 1}
                           </span>
-                          <span className="text-lg">{getRankIcon(player.rank || index + 1)}</span>
-                        </div>
+                        )}
                       </td>
                       <td className="py-3 px-4">
                         <div>
