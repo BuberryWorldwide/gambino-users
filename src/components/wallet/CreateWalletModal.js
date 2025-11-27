@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Keypair } from '@solana/web3.js';
 import * as bip39 from 'bip39';
+import bs58 from 'bs58';
 
 // Security: Generate wallet entirely client-side
 // The private key / seed phrase NEVER leaves the browser
@@ -36,6 +37,8 @@ export default function CreateWalletModal({
 
   // Copy state
   const [copied, setCopied] = useState(false);
+  const [copiedPrivKey, setCopiedPrivKey] = useState(false);
+  const [showPrivateKey, setShowPrivateKey] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
@@ -61,6 +64,8 @@ export default function CreateWalletModal({
       setAckNeverShare(false);
       setAckSavedSecurely(false);
       setCopied(false);
+      setCopiedPrivKey(false);
+      setShowPrivateKey(false);
       setError('');
     }
   }, [isOpen]);
@@ -112,6 +117,31 @@ export default function CreateWalletModal({
       document.body.removeChild(textArea);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
+    }
+  };
+
+  const getPrivateKeyBase58 = () => {
+    if (!privateKeyBytes) return '';
+    return bs58.encode(new Uint8Array(privateKeyBytes));
+  };
+
+  const handleCopyPrivateKey = async () => {
+    const privKey = getPrivateKeyBase58();
+    try {
+      await navigator.clipboard.writeText(privKey);
+      setCopiedPrivKey(true);
+      setTimeout(() => setCopiedPrivKey(false), 2000);
+    } catch (err) {
+      const textArea = document.createElement('textarea');
+      textArea.value = privKey;
+      textArea.style.position = 'fixed';
+      textArea.style.left = '-9999px';
+      document.body.appendChild(textArea);
+      textArea.select();
+      document.execCommand('copy');
+      document.body.removeChild(textArea);
+      setCopiedPrivKey(true);
+      setTimeout(() => setCopiedPrivKey(false), 2000);
     }
   };
 
@@ -381,11 +411,58 @@ Generated: ${new Date().toISOString()}
             </div>
 
             {/* Public Key Display */}
-            <div className="mb-6">
+            <div className="mb-4">
               <p className="text-xs text-neutral-400 mb-2">Your Wallet Address (Public Key)</p>
               <div className="bg-neutral-800 rounded-lg p-3 font-mono text-xs text-yellow-400 break-all">
                 {publicKey}
               </div>
+            </div>
+
+            {/* Private Key Section - For easy import to Phantom */}
+            <div className="mb-6">
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-xs text-neutral-400">Private Key (for Phantom import)</p>
+                <button
+                  onClick={() => setShowPrivateKey(!showPrivateKey)}
+                  className="text-xs text-purple-400 hover:text-purple-300 transition-colors"
+                >
+                  {showPrivateKey ? 'Hide' : 'Show'}
+                </button>
+              </div>
+              {showPrivateKey ? (
+                <div className="space-y-2">
+                  <div className="bg-red-900/30 border border-red-500/30 rounded-lg p-3 font-mono text-xs text-red-300 break-all">
+                    {getPrivateKeyBase58()}
+                  </div>
+                  <button
+                    onClick={handleCopyPrivateKey}
+                    className="w-full py-2 px-3 bg-purple-600 hover:bg-purple-500 text-white rounded-lg text-sm transition-colors flex items-center justify-center gap-2"
+                  >
+                    {copiedPrivKey ? (
+                      <>
+                        <svg className="w-4 h-4 text-green-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        </svg>
+                        Private Key Copied!
+                      </>
+                    ) : (
+                      <>
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                        </svg>
+                        Copy Private Key (paste into Phantom)
+                      </>
+                    )}
+                  </button>
+                  <p className="text-xs text-red-400 text-center">
+                    Never share this! Anyone with this key can steal your funds.
+                  </p>
+                </div>
+              ) : (
+                <div className="bg-neutral-800/50 border border-neutral-700 rounded-lg p-3 text-center">
+                  <p className="text-xs text-neutral-500">Click "Show" to reveal private key for easy Phantom import</p>
+                </div>
+              )}
             </div>
 
             <label className="flex items-start gap-3 cursor-pointer group mb-6">
