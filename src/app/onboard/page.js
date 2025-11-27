@@ -38,8 +38,14 @@ export default function OnboardPage() {
           return;
         }
         
-        if (form.password.length < 6) {
-          setError('Password must be at least 6 characters');
+        if (form.password.length < 12) {
+          setError('Password must be at least 12 characters');
+          return;
+        }
+
+        // Check for special character
+        if (!/[!@#$%^&*(),.?":{}|<>]/.test(form.password)) {
+          setError('Password must contain at least one special character');
           return;
         }
         
@@ -214,9 +220,9 @@ export default function OnboardPage() {
                   value={form.password}
                   onChange={e => updateForm('password', e.target.value)}
                   className="w-full px-4 py-3 rounded-xl bg-neutral-800/50 border border-neutral-700 text-white placeholder-neutral-400 focus:outline-none focus:ring-2 focus:ring-yellow-500/50 focus:border-yellow-500/50 transition-all duration-300 backdrop-blur-sm"
-                  placeholder="Password (min 6 characters)"
+                  placeholder="Min 12 chars, include special character"
                   required
-                  minLength={6}
+                  minLength={12}
                 />
               </div>
             </div>

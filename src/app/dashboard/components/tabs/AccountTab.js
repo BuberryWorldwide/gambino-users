@@ -75,8 +75,13 @@ export default function AccountTab({
       return;
     }
 
-    if (passwordForm.newPassword.length < 6) {
-      setPasswordError('New password must be at least 6 characters');
+    if (passwordForm.newPassword.length < 12) {
+      setPasswordError('New password must be at least 12 characters');
+      return;
+    }
+
+    if (!/[!@#$%^&*(),.?":{}|<>]/.test(passwordForm.newPassword)) {
+      setPasswordError('New password must contain at least one special character');
       return;
     }
 
@@ -257,10 +262,11 @@ export default function AccountTab({
               <input
                 type="password"
                 className="w-full px-4 py-3 bg-neutral-800/50 border border-neutral-700 rounded-xl text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-yellow-500/50"
+                placeholder="Min 12 chars, include special character"
                 value={passwordForm.newPassword}
                 onChange={(e) => setPasswordForm(prev => ({...prev, newPassword: e.target.value}))}
                 required
-                minLength={6}
+                minLength={12}
               />
             </div>
             <div>
