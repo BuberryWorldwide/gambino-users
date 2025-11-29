@@ -21,7 +21,8 @@ export default function AccountTab({
   const [profileForm, setProfileForm] = useState({
     firstName: '',
     lastName: '',
-    phone: ''
+    phone: '',
+    dateOfBirth: ''
   });
   const [showEditProfile, setShowEditProfile] = useState(false);
   const [savingProfile, setSavingProfile] = useState(false);
@@ -42,7 +43,8 @@ export default function AccountTab({
       setProfileForm({
         firstName: profile.firstName || '',
         lastName: profile.lastName || '',
-        phone: profile.phone || ''
+        phone: profile.phone || '',
+        dateOfBirth: profile.dateOfBirth ? profile.dateOfBirth.split('T')[0] : ''
       });
     }
   }, [profile]);
@@ -151,11 +153,30 @@ export default function AccountTab({
               <p className="text-white">{profile?.phone || 'Not set'}</p>
             </div>
             <div>
+              <p className="text-xs text-neutral-500 mb-1">Date of Birth</p>
+              <p className={`${profile?.dateOfBirth ? 'text-white' : 'text-amber-400'}`}>
+                {profile?.dateOfBirth
+                  ? new Date(profile.dateOfBirth).toLocaleDateString()
+                  : 'Not set - Required for age verification'}
+              </p>
+            </div>
+            <div>
               <p className="text-xs text-neutral-500 mb-1">Member Since</p>
               <p className="text-white">
                 {profile?.createdAt ? new Date(profile.createdAt).toLocaleDateString() : 'N/A'}
               </p>
             </div>
+            {profile?.ageVerified && (
+              <div>
+                <p className="text-xs text-neutral-500 mb-1">Age Verification</p>
+                <p className="text-green-400 flex items-center gap-1">
+                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                  </svg>
+                  Verified
+                </p>
+              </div>
+            )}
           </div>
         ) : (
           <form onSubmit={handleProfileSubmit} className="space-y-4">
@@ -181,15 +202,31 @@ export default function AccountTab({
                 />
               </div>
             </div>
-            <div>
-              <label className="text-xs text-neutral-400 mb-1 block">Phone Number</label>
-              <input
-                type="tel"
-                className="w-full px-4 py-3 bg-neutral-800/50 border border-neutral-700 rounded-xl text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-yellow-500/50"
-                value={profileForm.phone}
-                onChange={(e) => setProfileForm(prev => ({...prev, phone: e.target.value}))}
-                placeholder="Optional"
-              />
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div>
+                <label className="text-xs text-neutral-400 mb-1 block">Phone Number</label>
+                <input
+                  type="tel"
+                  className="w-full px-4 py-3 bg-neutral-800/50 border border-neutral-700 rounded-xl text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-yellow-500/50"
+                  value={profileForm.phone}
+                  onChange={(e) => setProfileForm(prev => ({...prev, phone: e.target.value}))}
+                  placeholder="Optional"
+                />
+              </div>
+              <div>
+                <label className="text-xs text-neutral-400 mb-1 block">
+                  Date of Birth {!profile?.dateOfBirth && <span className="text-amber-400">(Required)</span>}
+                </label>
+                <input
+                  type="date"
+                  className="w-full px-4 py-3 bg-neutral-800/50 border border-neutral-700 rounded-xl text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-yellow-500/50"
+                  value={profileForm.dateOfBirth}
+                  onChange={(e) => setProfileForm(prev => ({...prev, dateOfBirth: e.target.value}))}
+                  max={new Date(new Date().setFullYear(new Date().getFullYear() - 18)).toISOString().split('T')[0]}
+                  required={!profile?.dateOfBirth}
+                />
+                <p className="text-xs text-neutral-500 mt-1">Must be 18 years or older</p>
+              </div>
             </div>
             <div className="flex gap-2">
               <button
@@ -206,7 +243,8 @@ export default function AccountTab({
                   setProfileForm({
                     firstName: profile?.firstName || '',
                     lastName: profile?.lastName || '',
-                    phone: profile?.phone || ''
+                    phone: profile?.phone || '',
+                    dateOfBirth: profile?.dateOfBirth ? profile.dateOfBirth.split('T')[0] : ''
                   });
                 }}
                 className="px-4 py-2 bg-neutral-800 hover:bg-neutral-700 text-neutral-300 rounded-xl transition-colors"
