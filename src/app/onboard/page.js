@@ -13,16 +13,18 @@ export default function OnboardPage() {
 
   const [form, setForm] = useState({
     // Step 1: Personal info
-    firstName: '', 
-    lastName: '', 
-    email: '', 
-    phone: '', 
+    firstName: '',
+    lastName: '',
+    email: '',
+    phone: '',
     password: '',
+    dateOfBirth: '',
     // Step 2: Legal agreements
     agreedToTerms: false,
     agreedToPrivacy: false,
     agreedToMarketing: false,
-    readWhitepaper: false
+    readWhitepaper: false,
+    confirmedAge18: false
   });
 
   const router = useRouter();
@@ -48,22 +50,45 @@ export default function OnboardPage() {
           setError('Password must contain at least one special character');
           return;
         }
-        
+
+        // Validate date of birth
+        if (!form.dateOfBirth) {
+          setError('Date of birth is required');
+          return;
+        }
+
+        // Check if 21+
+        const dob = new Date(form.dateOfBirth);
+        const today = new Date();
+        let age = today.getFullYear() - dob.getFullYear();
+        const monthDiff = today.getMonth() - dob.getMonth();
+        if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < dob.getDate())) {
+          age--;
+        }
+        if (age < 18) {
+          setError('You must be 18 years or older to register');
+          return;
+        }
+
         setStep(2);
 
       } else if (step === 2) {
         // STEP 2: Terms & Privacy validation
-        if (!form.agreedToTerms) { 
-          setError('You must agree to the Terms of Service'); 
-          return; 
+        if (!form.agreedToTerms) {
+          setError('You must agree to the Terms of Service');
+          return;
         }
-        if (!form.agreedToPrivacy) { 
-          setError('You must agree to the Privacy Policy'); 
-          return; 
+        if (!form.agreedToPrivacy) {
+          setError('You must agree to the Privacy Policy');
+          return;
+        }
+        if (!form.confirmedAge18) {
+          setError('You must confirm that you are 18 years or older');
+          return;
         }
 
         setLoading(true);
-        
+
         // REGISTER USER (using existing backend endpoint)
         try {
           const { data } = await api.post('/api/users/register', {
@@ -71,7 +96,8 @@ export default function OnboardPage() {
             lastName: form.lastName,
             email: form.email,
             phone: form.phone,
-            password: form.password
+            password: form.password,
+            dateOfBirth: form.dateOfBirth
           });
           
           // Registration successful, set token and redirect
@@ -213,6 +239,21 @@ export default function OnboardPage() {
 
               <div>
                 <label className="block text-sm font-medium text-neutral-300 mb-2">
+                  Date of Birth *
+                </label>
+                <input
+                  type="date"
+                  value={form.dateOfBirth}
+                  onChange={e => updateForm('dateOfBirth', e.target.value)}
+                  className="w-full px-4 py-3 rounded-xl bg-neutral-800/50 border border-neutral-700 text-white placeholder-neutral-400 focus:outline-none focus:ring-2 focus:ring-yellow-500/50 focus:border-yellow-500/50 transition-all duration-300 backdrop-blur-sm"
+                  required
+                  max={new Date(new Date().setFullYear(new Date().getFullYear() - 18)).toISOString().split('T')[0]}
+                />
+                <p className="text-xs text-neutral-500 mt-1">You must be 18 years or older</p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-neutral-300 mb-2">
                   Password *
                 </label>
                 <input
@@ -229,7 +270,7 @@ export default function OnboardPage() {
 
             <button
               onClick={nextStep}
-              disabled={loading || !form.firstName.trim() || !form.lastName.trim() || !form.email.trim() || !form.password}
+              disabled={loading || !form.firstName.trim() || !form.lastName.trim() || !form.email.trim() || !form.password || !form.dateOfBirth}
               className="w-full mt-8 inline-flex items-center justify-center rounded-xl px-8 py-4 text-lg font-bold bg-gradient-to-r from-yellow-400 to-amber-500 text-black hover:from-yellow-500 hover:to-amber-600 transition-all duration-300 hover:shadow-lg hover:shadow-yellow-500/25 disabled:opacity-50 disabled:cursor-not-allowed transform hover:scale-105"
             >
               {loading ? (
@@ -283,6 +324,18 @@ export default function OnboardPage() {
                       I agree to the <a href="https://gambino.gold/legal/privacy" target="_blank" className="text-yellow-400 hover:text-yellow-300 underline">Privacy Policy</a>
                     </span>
                   </label>
+
+                  <label className="flex items-start space-x-3 cursor-pointer group">
+                    <input
+                      type="checkbox"
+                      checked={form.confirmedAge18}
+                      onChange={e => updateForm('confirmedAge18', e.target.checked)}
+                      className="mt-1 w-4 h-4 text-yellow-500 bg-neutral-800 border-neutral-600 rounded focus:ring-yellow-500/50 focus:ring-2"
+                    />
+                    <span className="text-sm text-neutral-300 group-hover:text-neutral-200 transition-colors">
+                      I confirm that I am <span className="text-yellow-400 font-semibold">18 years of age or older</span> and eligible to participate
+                    </span>
+                  </label>
                 </div>
               </div>
 
@@ -332,7 +385,7 @@ export default function OnboardPage() {
 
             <button
               onClick={nextStep}
-              disabled={loading || !form.agreedToTerms || !form.agreedToPrivacy}
+              disabled={loading || !form.agreedToTerms || !form.agreedToPrivacy || !form.confirmedAge18}
               className="w-full mt-8 inline-flex items-center justify-center rounded-xl px-8 py-4 text-lg font-bold bg-gradient-to-r from-yellow-400 to-amber-500 text-black hover:from-yellow-500 hover:to-amber-600 transition-all duration-300 hover:shadow-lg hover:shadow-yellow-500/25 disabled:opacity-50 disabled:cursor-not-allowed transform hover:scale-105"
             >
               {loading ? (
