@@ -236,6 +236,7 @@ export function useAuth(options = {}) {
   const [token, setTokenState] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [errorCode, setErrorCode] = useState(null);
 
   // Initialize auth state
   useEffect(() => {
@@ -276,10 +277,11 @@ export function useAuth(options = {}) {
     try {
       setLoading(true);
       setError(null);
+      setErrorCode(null);
 
-      const response = await api.post('/api/auth/login', { 
-        email: email.toLowerCase().trim(), 
-        password 
+      const response = await api.post('/api/auth/login', {
+        email: email.toLowerCase().trim(),
+        password
       });
 
       const data = response.data;
@@ -307,7 +309,17 @@ export function useAuth(options = {}) {
       return data;
     } catch (err) {
       const errorMessage = err.response?.data?.error || err.message || 'Login failed';
+      const code = err.response?.data?.code || null;
+      const responseEmail = err.response?.data?.email || null;
+
       setError(errorMessage);
+      setErrorCode(code);
+
+      // Return error details for special handling (like EMAIL_NOT_VERIFIED)
+      if (code === 'EMAIL_NOT_VERIFIED') {
+        return { code, email: responseEmail, error: errorMessage };
+      }
+
       throw new Error(errorMessage);
     } finally {
       setLoading(false);
@@ -437,6 +449,7 @@ export function useAuth(options = {}) {
     token,
     loading,
     error,
+    errorCode,
     isAuthenticated: !!(token && user),
     canAccessAdmin: canAccessAdmin(user),
     hasPermission: (permission) => hasPermission(permission, user),
@@ -444,6 +457,6 @@ export function useAuth(options = {}) {
     login,
     logout,
     refreshAuth,
-    clearError: () => setError(null)
+    clearError: () => { setError(null); setErrorCode(null); }
   };
 }

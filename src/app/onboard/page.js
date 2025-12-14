@@ -6,6 +6,89 @@ import api from '@/lib/api';
 import { setToken } from '@/lib/auth';
 import { useRouter } from 'next/navigation';
 
+// Email Verification Pending Component
+function VerificationPendingStep({ email, setError }) {
+  const [resending, setResending] = useState(false);
+  const [resendSuccess, setResendSuccess] = useState(false);
+
+  const handleResend = async () => {
+    setResending(true);
+    setError('');
+    setResendSuccess(false);
+
+    try {
+      await api.post('/api/users/resend-verification', { email });
+      setResendSuccess(true);
+    } catch (err) {
+      setError(err.response?.data?.error || 'Failed to resend verification email');
+    } finally {
+      setResending(false);
+    }
+  };
+
+  return (
+    <div className="text-center backdrop-blur-sm border border-neutral-800 bg-neutral-900/50 rounded-2xl p-8 shadow-2xl">
+      {/* Email icon */}
+      <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-gradient-to-r from-yellow-400/20 to-amber-500/20 flex items-center justify-center border border-yellow-500/30">
+        <svg className="w-10 h-10 text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+        </svg>
+      </div>
+
+      <h2 className="text-2xl font-bold bg-gradient-to-r from-yellow-400 to-amber-500 bg-clip-text text-transparent mb-3">
+        Check Your Email
+      </h2>
+
+      <p className="text-neutral-300 mb-2">
+        We've sent a verification link to:
+      </p>
+      <p className="text-yellow-400 font-medium mb-6 break-all">
+        {email}
+      </p>
+
+      <div className="bg-neutral-800/50 rounded-xl p-4 mb-6 border border-neutral-700/50">
+        <p className="text-neutral-400 text-sm">
+          Click the link in your email to verify your account and get started. The link expires in 24 hours.
+        </p>
+      </div>
+
+      {resendSuccess && (
+        <div className="mb-4 p-3 rounded-xl border border-green-500/30 bg-green-900/20">
+          <p className="text-green-300 text-sm">Verification email sent! Check your inbox.</p>
+        </div>
+      )}
+
+      <div className="space-y-3">
+        <button
+          onClick={handleResend}
+          disabled={resending}
+          className="w-full px-6 py-3 rounded-xl border border-neutral-600 text-neutral-300 hover:bg-neutral-800 hover:border-neutral-500 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {resending ? (
+            <span className="flex items-center justify-center gap-2">
+              <div className="w-4 h-4 border-2 border-neutral-400 border-t-transparent rounded-full animate-spin"></div>
+              Sending...
+            </span>
+          ) : (
+            "Didn't receive it? Resend Email"
+          )}
+        </button>
+
+        <a
+          href="/login"
+          className="block w-full px-6 py-3 rounded-xl bg-gradient-to-r from-yellow-400 to-amber-500 text-black font-bold hover:from-yellow-500 hover:to-amber-600 transition-all duration-300"
+        >
+          Go to Login
+        </a>
+      </div>
+
+      <p className="text-neutral-500 text-xs mt-6">
+        Make sure to check your spam folder if you don't see the email.
+      </p>
+    </div>
+  );
+}
+
 export default function OnboardPage() {
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
@@ -99,11 +182,16 @@ export default function OnboardPage() {
             password: form.password,
             dateOfBirth: form.dateOfBirth
           });
-          
-          // Registration successful, set token and redirect
-          if (data.accessToken) {
+
+          // Check if email verification is required
+          if (data.requiresVerification) {
+            // Store email for resend functionality
+            sessionStorage.setItem('pendingVerificationEmail', form.email);
+            setStep(3); // Show verification pending screen
+          } else if (data.accessToken) {
+            // Legacy flow: immediate login (for backwards compatibility)
             setToken(data.accessToken);
-            setStep(3);
+            setStep(4);
             setTimeout(() => router.push('/dashboard'), 1500);
           } else {
             setError('Registration completed but no access token received');
@@ -153,14 +241,14 @@ export default function OnboardPage() {
         {/* Progress indicator */}
         <div className="flex justify-center mb-8">
           <div className="flex space-x-3">
-            {[1, 2, 3].map(i => (
-              <div 
-                key={i} 
+            {[1, 2, 3, 4].map(i => (
+              <div
+                key={i}
                 className={`w-3 h-3 rounded-full transition-all duration-300 ${
-                  step >= i 
-                    ? 'bg-gradient-to-r from-yellow-400 to-amber-500 shadow-lg shadow-yellow-500/25' 
+                  step >= i
+                    ? 'bg-gradient-to-r from-yellow-400 to-amber-500 shadow-lg shadow-yellow-500/25'
                     : 'bg-neutral-600'
-                }`} 
+                }`}
               />
             ))}
           </div>
@@ -400,8 +488,13 @@ export default function OnboardPage() {
           </div>
         )}
 
-        {/* STEP 3: Success */}
+        {/* STEP 3: Email Verification Pending */}
         {step === 3 && (
+          <VerificationPendingStep email={form.email} setError={setError} />
+        )}
+
+        {/* STEP 4: Success (after email verification or legacy flow) */}
+        {step === 4 && (
           <div className="text-center backdrop-blur-sm border border-neutral-800 bg-neutral-900/50 rounded-2xl p-8 shadow-2xl">
             <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-gradient-to-r from-green-400 to-emerald-500 flex items-center justify-center">
               <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">

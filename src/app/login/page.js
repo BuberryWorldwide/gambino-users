@@ -4,18 +4,23 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/lib/auth';
+import api from '@/lib/api';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [remember, setRemember] = useState(true);
-  
-  const { 
-    login, 
-    loading, 
-    error, 
-    isAuthenticated, 
-    clearError 
+  const [unverifiedEmail, setUnverifiedEmail] = useState(null);
+  const [resending, setResending] = useState(false);
+  const [resendSuccess, setResendSuccess] = useState(false);
+
+  const {
+    login,
+    loading,
+    error,
+    isAuthenticated,
+    clearError,
+    errorCode
   } = useAuth();
 
   // Redirect if already authenticated
@@ -27,16 +32,43 @@ export default function LoginPage() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
+
     if (!email.trim() || !password) {
       return;
     }
 
     try {
       clearError();
-      await login(email.trim(), password, remember);
+      setUnverifiedEmail(null);
+      setResendSuccess(false);
+      const result = await login(email.trim(), password, remember);
+
+      // Check if login returned an unverified email error
+      if (result?.code === 'EMAIL_NOT_VERIFIED') {
+        setUnverifiedEmail(result.email || email.trim());
+      }
     } catch (err) {
       console.error('Login failed:', err);
+      // Check if the error response contains email not verified code
+      if (err?.response?.data?.code === 'EMAIL_NOT_VERIFIED') {
+        setUnverifiedEmail(err.response.data.email || email.trim());
+      }
+    }
+  };
+
+  const handleResendVerification = async () => {
+    if (!unverifiedEmail) return;
+
+    setResending(true);
+    setResendSuccess(false);
+
+    try {
+      await api.post('/api/users/resend-verification', { email: unverifiedEmail });
+      setResendSuccess(true);
+    } catch (err) {
+      console.error('Failed to resend verification:', err);
+    } finally {
+      setResending(false);
     }
   };
 
@@ -44,6 +76,8 @@ export default function LoginPage() {
     if (error) {
       clearError();
     }
+    setUnverifiedEmail(null);
+    setResendSuccess(false);
   };
 
   return (
@@ -90,6 +124,24 @@ export default function LoginPage() {
                     <div className="w-2 h-2 bg-red-400 rounded-full mr-3"></div>
                     <p className="text-red-200 text-sm font-medium">{error}</p>
                   </div>
+
+                  {/* Resend verification option for unverified emails */}
+                  {unverifiedEmail && (
+                    <div className="mt-3 pt-3 border-t border-red-500/20">
+                      {resendSuccess ? (
+                        <p className="text-green-300 text-sm">Verification email sent! Check your inbox.</p>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={handleResendVerification}
+                          disabled={resending}
+                          className="text-yellow-400 hover:text-yellow-300 text-sm font-medium transition-colors disabled:opacity-50"
+                        >
+                          {resending ? 'Sending...' : 'Resend verification email'}
+                        </button>
+                      )}
+                    </div>
+                  )}
                 </div>
               )}
 
