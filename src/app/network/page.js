@@ -4,7 +4,6 @@ import { useState, useEffect } from 'react';
 import {
   MapPin,
   Server,
-  Monitor,
   Users,
   RefreshCw,
   ArrowLeft,
@@ -42,7 +41,6 @@ export default function NetworkPage() {
         lastUpdated: new Date(),
         locations: data.network.locations,
         hubs: data.network.hubs,
-        machines: data.network.machines,
         activity: data.activity
       });
 
@@ -56,7 +54,6 @@ export default function NetworkPage() {
         lastUpdated: new Date(),
         locations: { total: 0, active: 0 },
         hubs: { total: 0, online: 0 },
-        machines: { total: 0, online: 0 },
         activity: { totalUsers: 0 }
       });
     } finally {
@@ -144,7 +141,7 @@ export default function NetworkPage() {
             )}
 
             {/* Main Stats Grid */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-3 gap-4">
               {/* Locations */}
               <div className="bg-neutral-900/50 border border-neutral-800 rounded-xl p-4">
                 <div className="flex items-center gap-2 mb-3">
@@ -173,20 +170,6 @@ export default function NetworkPage() {
                 </div>
               </div>
 
-              {/* Machines */}
-              <div className="bg-neutral-900/50 border border-neutral-800 rounded-xl p-4">
-                <div className="flex items-center gap-2 mb-3">
-                  <div className="w-8 h-8 rounded-lg bg-green-500/20 flex items-center justify-center">
-                    <Monitor className="w-4 h-4 text-green-400" />
-                  </div>
-                  <span className="text-xs text-neutral-500 uppercase tracking-wider">Machines</span>
-                </div>
-                <div className="text-2xl font-bold text-white">
-                  {networkStats?.machines?.online || 0}
-                  <span className="text-sm text-neutral-500 font-normal ml-1">/ {networkStats?.machines?.total || 0}</span>
-                </div>
-              </div>
-
               {/* Users */}
               <div className="bg-neutral-900/50 border border-neutral-800 rounded-xl p-4">
                 <div className="flex items-center gap-2 mb-3">
@@ -207,14 +190,10 @@ export default function NetworkPage() {
                 <Zap className="w-4 h-4 text-yellow-400" />
                 Network Activity
               </h3>
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-2 gap-4">
                 <div>
                   <div className="text-xs text-neutral-500 mb-1">System Uptime</div>
                   <div className="text-lg font-semibold text-white">{formatUptime(networkStats?.uptime)}</div>
-                </div>
-                <div>
-                  <div className="text-xs text-neutral-500 mb-1">Total Devices</div>
-                  <div className="text-lg font-semibold text-white">{(networkStats?.hubs?.total || 0) + (networkStats?.machines?.total || 0)}</div>
                 </div>
                 <div>
                   <div className="text-xs text-neutral-500 mb-1">Network Coverage</div>
