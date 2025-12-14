@@ -1,6 +1,18 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import {
+  MapPin,
+  Server,
+  Monitor,
+  Trophy,
+  RefreshCw,
+  ArrowLeft,
+  CheckCircle,
+  AlertCircle,
+  XCircle,
+  Zap
+} from 'lucide-react';
 
 export default function NetworkPage() {
   const [networkStats, setNetworkStats] = useState(null);
@@ -15,27 +27,23 @@ export default function NetworkPage() {
 
   const loadNetworkStats = async () => {
     try {
-      const startTime = Date.now();
       const apiUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'https://api.gambino.gold';
 
-      const healthRes = await fetch(`${apiUrl}/health`);
-      const health = await healthRes.json();
-      const responseTime = Date.now() - startTime;
+      const res = await fetch(`${apiUrl}/api/network/status`);
+      const data = await res.json();
 
-      let uptime = 0;
-      if (health.uptime) {
-        uptime = typeof health.uptime === 'number' ? health.uptime : parseInt(health.uptime);
-      } else if (health.startTime) {
-        uptime = Math.floor((Date.now() - new Date(health.startTime).getTime()) / 1000);
+      if (!data.success) {
+        throw new Error(data.error || 'Failed to fetch status');
       }
 
       setNetworkStats({
-        status: health.status === 'OK' ? 'online' : 'degraded',
-        uptime: uptime,
-        database: health.database || 'connected',
+        status: data.status,
+        uptime: data.uptime,
         lastUpdated: new Date(),
-        version: health.version || '1.0.0',
-        apiResponseTime: responseTime
+        locations: data.network.locations,
+        hubs: data.network.hubs,
+        machines: data.network.machines,
+        activity: data.activity
       });
 
       setError('');
@@ -45,10 +53,11 @@ export default function NetworkPage() {
       setNetworkStats({
         status: 'offline',
         uptime: 0,
-        database: 'disconnected',
         lastUpdated: new Date(),
-        version: 'unknown',
-        apiResponseTime: 0
+        locations: { total: 0, active: 0 },
+        hubs: { total: 0, online: 0 },
+        machines: { total: 0, online: 0 },
+        activity: { jackpotsLast24h: 0, jackpotsAllTime: 0 }
       });
     } finally {
       setLoading(false);
@@ -77,14 +86,12 @@ export default function NetworkPage() {
             href="/"
             className="inline-flex items-center gap-2 text-neutral-500 hover:text-white text-sm mb-6 transition-colors"
           >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-            </svg>
+            <ArrowLeft className="w-4 h-4" />
             Back to Home
           </a>
 
           <h1 className="text-3xl font-bold mb-2">Network Status</h1>
-          <p className="text-neutral-400">Real-time infrastructure monitoring</p>
+          <p className="text-neutral-400">Real-time Gambino network monitoring</p>
         </div>
 
         {loading ? (
@@ -105,11 +112,14 @@ export default function NetworkPage() {
             }`}>
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <div className={`w-3 h-3 rounded-full ${
-                    networkStats?.status === 'online' ? 'bg-green-500 animate-pulse' :
-                    networkStats?.status === 'degraded' ? 'bg-yellow-500' : 'bg-red-500'
-                  }`}></div>
-                  <span className={`font-medium capitalize ${
+                  {networkStats?.status === 'online' ? (
+                    <CheckCircle className="w-5 h-5 text-green-500" />
+                  ) : networkStats?.status === 'degraded' ? (
+                    <AlertCircle className="w-5 h-5 text-yellow-500" />
+                  ) : (
+                    <XCircle className="w-5 h-5 text-red-500" />
+                  )}
+                  <span className={`font-medium ${
                     networkStats?.status === 'online' ? 'text-green-400' :
                     networkStats?.status === 'degraded' ? 'text-yellow-400' : 'text-red-400'
                   }`}>
@@ -119,8 +129,9 @@ export default function NetworkPage() {
                 </div>
                 <button
                   onClick={loadNetworkStats}
-                  className="text-sm text-neutral-400 hover:text-white transition-colors"
+                  className="flex items-center gap-2 text-sm text-neutral-400 hover:text-white transition-colors"
                 >
+                  <RefreshCw className="w-4 h-4" />
                   Refresh
                 </button>
               </div>
@@ -132,28 +143,85 @@ export default function NetworkPage() {
               </div>
             )}
 
-            {/* Stats Grid */}
+            {/* Main Stats Grid */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              {/* Locations */}
               <div className="bg-neutral-900/50 border border-neutral-800 rounded-xl p-4">
-                <div className="text-xs text-neutral-500 uppercase tracking-wider mb-1">Uptime</div>
-                <div className="text-xl font-bold text-white">{formatUptime(networkStats?.uptime)}</div>
-              </div>
-
-              <div className="bg-neutral-900/50 border border-neutral-800 rounded-xl p-4">
-                <div className="text-xs text-neutral-500 uppercase tracking-wider mb-1">Database</div>
-                <div className={`text-xl font-bold ${networkStats?.database === 'connected' ? 'text-green-400' : 'text-red-400'}`}>
-                  {networkStats?.database === 'connected' ? 'Connected' : 'Disconnected'}
+                <div className="flex items-center gap-2 mb-3">
+                  <div className="w-8 h-8 rounded-lg bg-blue-500/20 flex items-center justify-center">
+                    <MapPin className="w-4 h-4 text-blue-400" />
+                  </div>
+                  <span className="text-xs text-neutral-500 uppercase tracking-wider">Locations</span>
+                </div>
+                <div className="text-2xl font-bold text-white">
+                  {networkStats?.locations?.active || 0}
+                  <span className="text-sm text-neutral-500 font-normal ml-1">active</span>
                 </div>
               </div>
 
+              {/* Hubs */}
               <div className="bg-neutral-900/50 border border-neutral-800 rounded-xl p-4">
-                <div className="text-xs text-neutral-500 uppercase tracking-wider mb-1">Response Time</div>
-                <div className="text-xl font-bold text-white">{networkStats?.apiResponseTime || '--'}ms</div>
+                <div className="flex items-center gap-2 mb-3">
+                  <div className="w-8 h-8 rounded-lg bg-purple-500/20 flex items-center justify-center">
+                    <Server className="w-4 h-4 text-purple-400" />
+                  </div>
+                  <span className="text-xs text-neutral-500 uppercase tracking-wider">Hubs</span>
+                </div>
+                <div className="text-2xl font-bold text-white">
+                  {networkStats?.hubs?.online || 0}
+                  <span className="text-sm text-neutral-500 font-normal ml-1">/ {networkStats?.hubs?.total || 0}</span>
+                </div>
               </div>
 
+              {/* Machines */}
               <div className="bg-neutral-900/50 border border-neutral-800 rounded-xl p-4">
-                <div className="text-xs text-neutral-500 uppercase tracking-wider mb-1">Version</div>
-                <div className="text-xl font-bold text-white">{networkStats?.version || '--'}</div>
+                <div className="flex items-center gap-2 mb-3">
+                  <div className="w-8 h-8 rounded-lg bg-green-500/20 flex items-center justify-center">
+                    <Monitor className="w-4 h-4 text-green-400" />
+                  </div>
+                  <span className="text-xs text-neutral-500 uppercase tracking-wider">Machines</span>
+                </div>
+                <div className="text-2xl font-bold text-white">
+                  {networkStats?.machines?.online || 0}
+                  <span className="text-sm text-neutral-500 font-normal ml-1">/ {networkStats?.machines?.total || 0}</span>
+                </div>
+              </div>
+
+              {/* Jackpots 24h */}
+              <div className="bg-neutral-900/50 border border-neutral-800 rounded-xl p-4">
+                <div className="flex items-center gap-2 mb-3">
+                  <div className="w-8 h-8 rounded-lg bg-yellow-500/20 flex items-center justify-center">
+                    <Trophy className="w-4 h-4 text-yellow-400" />
+                  </div>
+                  <span className="text-xs text-neutral-500 uppercase tracking-wider">Jackpots (24h)</span>
+                </div>
+                <div className="text-2xl font-bold text-white">
+                  {networkStats?.activity?.jackpotsLast24h || 0}
+                </div>
+              </div>
+            </div>
+
+            {/* Activity Section */}
+            <div className="bg-neutral-900/50 border border-neutral-800 rounded-xl p-5">
+              <h3 className="text-sm font-medium text-neutral-400 mb-4 flex items-center gap-2">
+                <Zap className="w-4 h-4 text-yellow-400" />
+                Network Activity
+              </h3>
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                <div>
+                  <div className="text-xs text-neutral-500 mb-1">System Uptime</div>
+                  <div className="text-lg font-semibold text-white">{formatUptime(networkStats?.uptime)}</div>
+                </div>
+                <div>
+                  <div className="text-xs text-neutral-500 mb-1">Total Jackpots</div>
+                  <div className="text-lg font-semibold text-white">{networkStats?.activity?.jackpotsAllTime?.toLocaleString() || 0}</div>
+                </div>
+                <div>
+                  <div className="text-xs text-neutral-500 mb-1">Network Coverage</div>
+                  <div className="text-lg font-semibold text-white">
+                    {networkStats?.locations?.active || 0} locations
+                  </div>
+                </div>
               </div>
             </div>
 
