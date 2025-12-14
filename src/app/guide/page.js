@@ -3,6 +3,42 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import {
+  UserPlus,
+  LayoutDashboard,
+  Wallet,
+  Download,
+  KeyRound,
+  Trophy,
+  SendHorizontal,
+  Rocket,
+  ChevronDown,
+  Check,
+  ExternalLink,
+  ChevronRight,
+  AlertTriangle,
+  Lightbulb,
+  BookOpen,
+  CircleHelp,
+  Home,
+  ArrowLeft,
+  Mail
+} from 'lucide-react';
+
+// Icon component mapping
+const StepIcon = ({ name, className = "w-6 h-6" }) => {
+  const icons = {
+    userPlus: UserPlus,
+    dashboard: LayoutDashboard,
+    wallet: Wallet,
+    download: Download,
+    key: KeyRound,
+    trophy: Trophy,
+    send: SendHorizontal,
+  };
+  const Icon = icons[name];
+  return Icon ? <Icon className={className} /> : null;
+};
 
 // Step data with all content
 const STEPS = [
@@ -10,7 +46,7 @@ const STEPS = [
     id: 1,
     title: 'Create Your Account',
     description: 'Sign up for Gambino Gold in just a few minutes',
-    icon: '👤',
+    icon: 'userPlus',
     content: {
       intro: 'Getting started is easy. Create your account to access your personal dashboard and wallet.',
       steps: [
@@ -36,7 +72,7 @@ const STEPS = [
     id: 2,
     title: 'Explore Your Dashboard',
     description: 'Learn what you can see and do on your personal dashboard',
-    icon: '📊',
+    icon: 'dashboard',
     content: {
       intro: 'Once logged in, your dashboard is your home base. Here\'s what you\'ll find.',
       steps: [
@@ -58,7 +94,7 @@ const STEPS = [
     id: 3,
     title: 'Understand Your Wallet',
     description: 'Learn the basics of crypto wallets in simple terms',
-    icon: '👛',
+    icon: 'wallet',
     content: {
       intro: 'When you signed up, we automatically created a crypto wallet for you. Here\'s what that means.',
       steps: [
@@ -81,7 +117,7 @@ const STEPS = [
     id: 4,
     title: 'Install Phantom Wallet',
     description: 'Set up Phantom to manage your tokens on other apps',
-    icon: '👻',
+    icon: 'download',
     content: {
       intro: 'Phantom is a popular wallet app that lets you manage your crypto across different apps and websites. This step is optional but recommended.',
       steps: [
@@ -104,7 +140,7 @@ const STEPS = [
     id: 5,
     title: 'Import Your Wallet to Phantom',
     description: 'Connect your Gambino wallet to Phantom for full control',
-    icon: '🔑',
+    icon: 'key',
     content: {
       intro: 'Import your Gambino wallet into Phantom so you can manage your tokens anywhere.',
       steps: [
@@ -129,7 +165,7 @@ const STEPS = [
     id: 6,
     title: 'Start Earning Tokens',
     description: 'Play at partner locations to earn GAMBINO and build your Glück Score',
-    icon: '🎰',
+    icon: 'trophy',
     content: {
       intro: 'Now for the fun part! Here\'s how you earn GAMBINO tokens and climb the ranks.',
       steps: [
@@ -153,7 +189,7 @@ const STEPS = [
     id: 7,
     title: 'Withdraw & Use Your Tokens',
     description: 'Learn how to send, trade, and use your GAMBINO tokens',
-    icon: '💸',
+    icon: 'send',
     content: {
       intro: 'Your earned tokens are yours to keep. Here\'s what you can do with them.',
       steps: [
@@ -223,7 +259,7 @@ export default function GuidePage() {
           <div className="flex items-center justify-center mb-6">
             <div className="relative">
               <div className="w-20 h-20 rounded-2xl bg-gradient-to-r from-yellow-400 to-amber-500 flex items-center justify-center shadow-2xl">
-                <span className="text-4xl">🚀</span>
+                <Rocket className="w-10 h-10 text-black" />
               </div>
               <div className="absolute -inset-3 bg-gradient-to-r from-yellow-400/20 to-amber-500/20 rounded-3xl blur-xl"></div>
             </div>
@@ -252,8 +288,8 @@ export default function GuidePage() {
             />
           </div>
           {progressPercent === 100 && (
-            <p className="text-green-400 text-sm mt-2 text-center font-medium">
-              🎉 Congratulations! You've completed the guide!
+            <p className="text-green-400 text-sm mt-2 text-center font-medium flex items-center justify-center gap-2">
+              <Check className="w-4 h-4" /> Congratulations! You've completed the guide!
             </p>
           )}
         </div>
@@ -286,16 +322,16 @@ export default function GuidePage() {
                     }`}
                   >
                     {isCompleted ? (
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                      </svg>
+                      <Check className="w-5 h-5" />
                     ) : (
                       <span className="text-neutral-500 font-bold text-sm">{step.id}</span>
                     )}
                   </div>
 
                   {/* Icon */}
-                  <div className="text-3xl flex-shrink-0">{step.icon}</div>
+                  <div className="w-10 h-10 rounded-lg bg-yellow-500/20 flex items-center justify-center flex-shrink-0 text-yellow-400">
+                    <StepIcon name={step.icon} className="w-5 h-5" />
+                  </div>
 
                   {/* Title & Description */}
                   <div className="flex-grow min-w-0">
@@ -306,14 +342,9 @@ export default function GuidePage() {
                   </div>
 
                   {/* Expand Arrow */}
-                  <svg
+                  <ChevronDown
                     className={`w-5 h-5 text-neutral-500 flex-shrink-0 transition-transform duration-300 ${isExpanded ? 'rotate-180' : ''}`}
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                  </svg>
+                  />
                 </button>
 
                 {/* Expanded Content */}
@@ -342,7 +373,7 @@ export default function GuidePage() {
                       {step.content.warning && (
                         <div className="mb-4 p-4 bg-red-500/10 border border-red-500/30 rounded-lg">
                           <div className="flex gap-3">
-                            <span className="text-xl">⚠️</span>
+                            <AlertTriangle className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
                             <p className="text-red-300 text-sm">{step.content.warning}</p>
                           </div>
                         </div>
@@ -352,7 +383,7 @@ export default function GuidePage() {
                       {step.content.tip && (
                         <div className="mb-4 p-4 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
                           <div className="flex gap-3">
-                            <span className="text-xl">💡</span>
+                            <Lightbulb className="w-5 h-5 text-yellow-400 flex-shrink-0 mt-0.5" />
                             <p className="text-yellow-200 text-sm">{step.content.tip}</p>
                           </div>
                         </div>
@@ -375,9 +406,7 @@ export default function GuidePage() {
                                 }`}
                               >
                                 {link.text}
-                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                                </svg>
+                                <ExternalLink className="w-4 h-4" />
                               </a>
                             ) : (
                               <Link
@@ -390,9 +419,7 @@ export default function GuidePage() {
                                 }`}
                               >
                                 {link.text}
-                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                                </svg>
+                                <ChevronRight className="w-4 h-4" />
                               </Link>
                             )
                           ))}
@@ -403,13 +430,13 @@ export default function GuidePage() {
                       <div className="mt-5 pt-4 border-t border-neutral-800">
                         <button
                           onClick={(e) => toggleComplete(step.id, e)}
-                          className={`w-full py-3 rounded-lg font-medium transition-all ${
+                          className={`w-full py-3 rounded-lg font-medium transition-all flex items-center justify-center gap-2 ${
                             isCompleted
                               ? 'bg-green-500/20 text-green-400 border border-green-500/30'
                               : 'bg-neutral-800 text-neutral-300 hover:bg-neutral-700'
                           }`}
                         >
-                          {isCompleted ? '✓ Completed' : 'Mark as Complete'}
+                          {isCompleted ? <><Check className="w-4 h-4" /> Completed</> : 'Mark as Complete'}
                         </button>
                       </div>
                     </div>
@@ -430,20 +457,23 @@ export default function GuidePage() {
             <div className="flex flex-wrap justify-center gap-3">
               <Link
                 href="/help"
-                className="px-5 py-2.5 bg-neutral-800 text-neutral-300 rounded-lg font-medium hover:bg-neutral-700 transition-colors"
+                className="px-5 py-2.5 bg-neutral-800 text-neutral-300 rounded-lg font-medium hover:bg-neutral-700 transition-colors inline-flex items-center gap-2"
               >
+                <CircleHelp className="w-4 h-4" />
                 Help Center
               </Link>
               <Link
                 href="/dashboard"
-                className="px-5 py-2.5 bg-gradient-to-r from-yellow-400 to-amber-500 text-black rounded-lg font-medium hover:from-yellow-500 hover:to-amber-600 transition-all"
+                className="px-5 py-2.5 bg-gradient-to-r from-yellow-400 to-amber-500 text-black rounded-lg font-medium hover:from-yellow-500 hover:to-amber-600 transition-all inline-flex items-center gap-2"
               >
+                <LayoutDashboard className="w-4 h-4" />
                 Go to Dashboard
               </Link>
               <a
                 href="mailto:support@gambino.gold"
-                className="px-5 py-2.5 bg-neutral-800 text-neutral-300 rounded-lg font-medium hover:bg-neutral-700 transition-colors"
+                className="px-5 py-2.5 bg-neutral-800 text-neutral-300 rounded-lg font-medium hover:bg-neutral-700 transition-colors inline-flex items-center gap-2"
               >
+                <Mail className="w-4 h-4" />
                 Contact Support
               </a>
             </div>
@@ -456,9 +486,7 @@ export default function GuidePage() {
             href="/"
             className="inline-flex items-center gap-2 text-neutral-400 hover:text-yellow-400 transition-colors text-sm"
           >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-            </svg>
+            <ArrowLeft className="w-4 h-4" />
             Back to Home
           </Link>
         </div>
