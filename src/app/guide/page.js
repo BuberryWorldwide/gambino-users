@@ -164,21 +164,20 @@ const STEPS = [
   {
     id: 6,
     title: 'Start Earning Tokens',
-    description: 'Play at partner locations to earn GAMBINO and build your Glück Score',
+    description: 'Visit partner locations to earn GAMBINO and build your Glück Score',
     icon: 'trophy',
     content: {
       intro: 'Now for the fun part! Here\'s how you earn GAMBINO tokens and climb the ranks.',
       steps: [
-        'Visit a <strong>Gambino partner location</strong> with gaming machines',
-        'Play games on machines connected to the <strong>Gambino network</strong>',
-        'Your play earns you <strong>Glück Score</strong> (luck points)',
-        'Win <strong>jackpots</strong> to earn bonus Glück Score and GAMBINO tokens',
-        'Your <strong>Tier</strong> is determined by your Glück Score and jackpot history',
+        'Visit a <strong>Gambino partner location</strong>',
+        'Use machines connected to the <strong>Gambino network</strong>',
+        'Your activity earns you <strong>Glück Score</strong> (luck points)',
+        'Your <strong>Tier</strong> is determined by your Glück Score',
         '<strong>Tier progression:</strong> None → Tier 3 → Tier 2 → Tier 1',
         'Higher tiers earn <strong>better rewards</strong> and bonuses',
         'Check the <strong>Leaderboard</strong> to see how you rank against others'
       ],
-      tip: 'Playing at different machines and locations can help boost your Glück Score faster!',
+      tip: 'Visiting different locations can help boost your Glück Score faster!',
       links: [
         { text: 'View Leaderboard', href: '/leaderboard', primary: true },
         { text: 'Check Network Status', href: '/network' }

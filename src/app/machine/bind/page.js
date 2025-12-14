@@ -156,7 +156,7 @@ function MachineBinder() {
 
             <div className="bg-blue-900/20 border border-blue-500/30 p-4 rounded-lg mb-4">
               <p className="text-blue-300 text-sm">
-                Your gaming session is now active. The machine is reserved for you.
+                Your session is now active. The machine is reserved for you.
                 You can view your session status anytime from your dashboard.
               </p>
             </div>

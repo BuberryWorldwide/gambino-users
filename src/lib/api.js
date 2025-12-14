@@ -215,7 +215,7 @@ export const userAPI = {
   },
 
   /**
-   * Get user's current gaming session
+   * Get user's current session
    */
   getCurrentSession: async () => {
     const response = await api.get('/api/users/current-session');
@@ -226,14 +226,14 @@ export const userAPI = {
    * Get user's session history
    */
   getSessionHistory: async (limit = 20) => {
-    const response = await api.get('/api/users/session-history', { 
-      params: { limit } 
+    const response = await api.get('/api/users/session-history', {
+      params: { limit }
     });
     return response.data;
   },
 
   /**
-   * End current gaming session
+   * End current session
    */
   endSession: async () => {
     const response = await api.post('/api/users/end-session');

@@ -5,7 +5,7 @@ import {
   MapPin,
   Server,
   Monitor,
-  Trophy,
+  Users,
   RefreshCw,
   ArrowLeft,
   CheckCircle,
@@ -57,7 +57,7 @@ export default function NetworkPage() {
         locations: { total: 0, active: 0 },
         hubs: { total: 0, online: 0 },
         machines: { total: 0, online: 0 },
-        activity: { jackpotsLast24h: 0, jackpotsAllTime: 0 }
+        activity: { totalUsers: 0 }
       });
     } finally {
       setLoading(false);
@@ -187,16 +187,16 @@ export default function NetworkPage() {
                 </div>
               </div>
 
-              {/* Jackpots 24h */}
+              {/* Users */}
               <div className="bg-neutral-900/50 border border-neutral-800 rounded-xl p-4">
                 <div className="flex items-center gap-2 mb-3">
                   <div className="w-8 h-8 rounded-lg bg-yellow-500/20 flex items-center justify-center">
-                    <Trophy className="w-4 h-4 text-yellow-400" />
+                    <Users className="w-4 h-4 text-yellow-400" />
                   </div>
-                  <span className="text-xs text-neutral-500 uppercase tracking-wider">Jackpots (24h)</span>
+                  <span className="text-xs text-neutral-500 uppercase tracking-wider">Users</span>
                 </div>
                 <div className="text-2xl font-bold text-white">
-                  {networkStats?.activity?.jackpotsLast24h || 0}
+                  {networkStats?.activity?.totalUsers?.toLocaleString() || 0}
                 </div>
               </div>
             </div>
@@ -207,14 +207,14 @@ export default function NetworkPage() {
                 <Zap className="w-4 h-4 text-yellow-400" />
                 Network Activity
               </h3>
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-3 gap-4">
                 <div>
                   <div className="text-xs text-neutral-500 mb-1">System Uptime</div>
                   <div className="text-lg font-semibold text-white">{formatUptime(networkStats?.uptime)}</div>
                 </div>
                 <div>
-                  <div className="text-xs text-neutral-500 mb-1">Total Jackpots</div>
-                  <div className="text-lg font-semibold text-white">{networkStats?.activity?.jackpotsAllTime?.toLocaleString() || 0}</div>
+                  <div className="text-xs text-neutral-500 mb-1">Total Devices</div>
+                  <div className="text-lg font-semibold text-white">{(networkStats?.hubs?.total || 0) + (networkStats?.machines?.total || 0)}</div>
                 </div>
                 <div>
                   <div className="text-xs text-neutral-500 mb-1">Network Coverage</div>

@@ -5,11 +5,10 @@ export default function LeaderboardTable({ rows = [] }) {
         <thead className="text-zinc-400">
           <tr>
             <th className="text-left py-2">#</th>
-            <th className="text-left py-2">Player</th>
+            <th className="text-left py-2">User</th>
             <th className="text-left py-2">Glück</th>
             <th className="text-left py-2">Tier</th>
-            <th className="text-left py-2">Jackpots</th>
-            <th className="text-left py-2">Machines</th>
+            <th className="text-left py-2">Balance</th>
             <th className="text-left py-2">Member Since</th>
           </tr>
         </thead>
@@ -20,8 +19,7 @@ export default function LeaderboardTable({ rows = [] }) {
               <td className="py-2">{r.email}</td>
               <td className="py-2">{r.gluckScore}</td>
               <td className="py-2">{r.tier}</td>
-              <td className="py-2">{r.totalJackpots} (⟁ {r.majorJackpots} / △ {r.minorJackpots})</td>
-              <td className="py-2">{r.uniqueMachines}</td>
+              <td className="py-2">{r.balance || 0} GAMB</td>
               <td className="py-2">{new Date(r.memberSince).toLocaleDateString()}</td>
             </tr>
           ))}
