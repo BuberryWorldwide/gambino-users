@@ -149,25 +149,12 @@ export function isAuthenticated() {
 
 /**
  * Get user's redirect URL based on role and server response
+ * Note: This is the user-facing app (app.gambino.gold), so all users go to /dashboard
+ * Admin routes are handled by admin.gambino.gold
  */
 export function getUserRedirectUrl(userData) {
-  // Use server-provided redirect if available
-  if (userData?.redirectTo) {
-    return userData.redirectTo;
-  }
-
-  // Fallback based on role
-  const role = userData?.role;
-  switch (role) {
-    case 'super_admin':
-    case 'gambino_ops':
-    case 'venue_manager':
-    case 'venue_staff':
-      return '/admin/dashboard';
-    case 'user':
-    default:
-      return '/dashboard';
-  }
+  // All users go to dashboard in this app - admin routes are in admin.gambino.gold
+  return '/dashboard';
 }
 
 /**
