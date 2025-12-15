@@ -156,7 +156,7 @@ export default function AccountTab({
               <p className="text-xs text-neutral-500 mb-1">Date of Birth</p>
               <p className={`${profile?.dateOfBirth ? 'text-white' : 'text-amber-400'}`}>
                 {profile?.dateOfBirth
-                  ? new Date(profile.dateOfBirth).toLocaleDateString()
+                  ? new Date(profile.dateOfBirth).toLocaleDateString('en-US', { timeZone: 'UTC' })
                   : 'Not set - Required for age verification'}
               </p>
             </div>
