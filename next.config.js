@@ -14,7 +14,7 @@ const nextConfig = {
               "default-src 'self'",
 
               // Scripts: self + inline (required for Next.js) + eval (for wallet adapters)
-              "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
+              "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://static.cloudflareinsights.com https://vercel.live https://*.vercel-analytics.com https://*.vercel-insights.com",
 
               // Styles: self + inline (required for Tailwind CSS)
               "style-src 'self' 'unsafe-inline'",
@@ -25,7 +25,7 @@ const nextConfig = {
               // Fonts: self only (no external fonts detected)
               "font-src 'self' data:",
 
-              // API connections: backend + Solana RPC endpoints
+              // API connections: backend + Solana RPC endpoints + analytics
               "connect-src 'self' " + [
                 "https://api.gambino.gold",
                 "http://localhost:3001",
@@ -36,6 +36,9 @@ const nextConfig = {
                 "wss://phantom.app",
                 // MetaMask wallet connections
                 "https://metamask.io",
+                // Cloudflare & Vercel analytics
+                "https://cloudflareinsights.com",
+                "https://*.vercel-insights.com",
               ].join(' '),
 
               // Frames: wallet providers + legal pages
