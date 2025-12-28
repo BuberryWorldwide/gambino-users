@@ -260,12 +260,12 @@ export default function LoginPage() {
             </p>
 
             <div className="flex items-center justify-center gap-4 text-xs text-neutral-500">
-              <Link href="https://gambino.gold/legal/terms" className="hover:text-neutral-400 transition-colors">
-                Terms
+              <Link href="https://gambino.gold/legal/vdv-terms" className="hover:text-neutral-400 transition-colors">
+                VDV Terms
               </Link>
               <span>•</span>
-              <Link href="https://gambino.gold/legal/privacy" className="hover:text-neutral-400 transition-colors">
-                Privacy
+              <Link href="https://gambino.gold/legal/vdv-privacy" className="hover:text-neutral-400 transition-colors">
+                VDV Privacy
               </Link>
               <span>•</span>
               <Link href="https://gambino.gold/support" className="hover:text-neutral-400 transition-colors">

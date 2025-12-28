@@ -397,7 +397,7 @@ export default function OnboardPage() {
                       className="mt-1 w-4 h-4 text-yellow-500 bg-neutral-800 border-neutral-600 rounded focus:ring-yellow-500/50 focus:ring-2"
                     />
                     <span className="text-sm text-neutral-300 group-hover:text-neutral-200 transition-colors">
-                      I agree to the <a href="https://gambino.gold/legal/terms" target="_blank" className="text-yellow-400 hover:text-yellow-300 underline">Terms of Service</a>
+                      I agree to the <a href="https://gambino.gold/legal/vdv-terms" target="_blank" className="text-yellow-400 hover:text-yellow-300 underline">VDV Terms of Service</a>
                     </span>
                   </label>
 
@@ -409,7 +409,7 @@ export default function OnboardPage() {
                       className="mt-1 w-4 h-4 text-yellow-500 bg-neutral-800 border-neutral-600 rounded focus:ring-yellow-500/50 focus:ring-2"
                     />
                     <span className="text-sm text-neutral-300 group-hover:text-neutral-200 transition-colors">
-                      I agree to the <a href="https://gambino.gold/legal/privacy" target="_blank" className="text-yellow-400 hover:text-yellow-300 underline">Privacy Policy</a>
+                      I agree to the <a href="https://gambino.gold/legal/vdv-privacy" target="_blank" className="text-yellow-400 hover:text-yellow-300 underline">VDV Privacy Policy</a>
                     </span>
                   </label>
 
