@@ -2,10 +2,10 @@
 import axios from 'axios';
 import { getToken, clearToken, getUserRedirectUrl, getUser } from './auth';
 
-// Get API URL from environment
-const API_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 
-               process.env.NEXT_PUBLIC_API_URL || 
-               '';
+// Get API URL from environment (trim to remove any trailing newlines)
+const API_URL = (process.env.NEXT_PUBLIC_BACKEND_URL ||
+               process.env.NEXT_PUBLIC_API_URL ||
+               '').trim();
 
 if (!API_URL && typeof window !== 'undefined') {
   console.warn('NEXT_PUBLIC_BACKEND_URL not set; using same-origin requests');
@@ -508,8 +508,8 @@ export const publicAPI = {
   }
 };
 
-// Arca Protocol API base URL
-const ARCA_API_URL = process.env.NEXT_PUBLIC_ARCA_API_URL || 'https://api.arca-protocol.com';
+// Arca Protocol API base URL (trim to remove any trailing newlines)
+const ARCA_API_URL = (process.env.NEXT_PUBLIC_ARCA_API_URL || 'https://api.arca-protocol.com').trim();
 
 /**
  * Mining API - Entropy mining session management

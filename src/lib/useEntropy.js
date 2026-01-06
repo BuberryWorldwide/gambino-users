@@ -7,7 +7,8 @@
 
 import { useState, useEffect, useCallback } from 'react';
 
-const ARCA_ROUTER_URL = process.env.NEXT_PUBLIC_ARCA_ROUTER_URL || 'https://arca-router.fly.dev';
+// Use same API URL as api.js for consistency (trim to remove any trailing newlines)
+const ARCA_API_URL = (process.env.NEXT_PUBLIC_ARCA_API_URL || 'https://api.arca-protocol.com').trim();
 
 /**
  * Fetch entropy stats for a wallet address
@@ -32,7 +33,7 @@ export function useEntropy(walletAddress) {
 
     try {
       // Fetch aggregate stats
-      const statsRes = await fetch(`${ARCA_ROUTER_URL}/v1/stats/supplier/${walletAddress}`);
+      const statsRes = await fetch(`${ARCA_API_URL}/v1/stats/supplier/${walletAddress}`);
 
       if (statsRes.status === 404) {
         // No entropy yet - that's ok
@@ -59,7 +60,7 @@ export function useEntropy(walletAddress) {
       setStats(statsData.stats);
 
       // Fetch recent packets
-      const recentRes = await fetch(`${ARCA_ROUTER_URL}/v1/stats/supplier/${walletAddress}/recent?limit=5`);
+      const recentRes = await fetch(`${ARCA_API_URL}/v1/stats/supplier/${walletAddress}/recent?limit=5`);
 
       if (recentRes.ok) {
         const recentData = await recentRes.json();
@@ -103,7 +104,7 @@ export function useEntropyLeaderboard(limit = 10) {
     setError(null);
 
     try {
-      const res = await fetch(`${ARCA_ROUTER_URL}/v1/stats/leaderboard?limit=${limit}`);
+      const res = await fetch(`${ARCA_API_URL}/v1/stats/leaderboard?limit=${limit}`);
 
       if (!res.ok) {
         throw new Error(`Failed to fetch leaderboard: ${res.status}`);
