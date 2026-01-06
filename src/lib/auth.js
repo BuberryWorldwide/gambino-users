@@ -189,7 +189,7 @@ export function canAccessVenue(storeId, userData = null) {
     return true;
   }
   
-  // Regular users can access all for gameplay
+  // Regular users can access all for mining
   if (user.role === 'user') {
     return true;
   }

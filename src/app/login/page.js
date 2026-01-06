@@ -5,7 +5,7 @@ import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/lib/auth';
-import api, { gamesAPI } from '@/lib/api';
+import api from '@/lib/api';
 
 // Wrapper component to handle Suspense for useSearchParams
 export default function LoginPage() {
@@ -48,12 +48,13 @@ function LoginContent() {
   // Redirect if already authenticated
   useEffect(() => {
     if (isAuthenticated && !redirecting) {
-      // If returnTo is a game URL, create session and redirect
-      const isGameRedirect = returnTo && returnTo.includes('play.gambino.gold');
-      if (isGameRedirect) {
+      // If returnTo is a mining session URL, create session and redirect
+      const isMiningRedirect = returnTo && returnTo.includes('play.gambino.gold');
+      if (isMiningRedirect) {
         setRedirecting(true);
-        gamesAPI.createSession()
-          .then(session => {
+        api.post('/api/games/session')
+          .then(res => {
+            const session = res.data;
             const separator = returnTo.includes('?') ? '&' : '?';
             window.location.href = `${returnTo}${separator}token=${encodeURIComponent(session.gameToken)}`;
           })
@@ -79,16 +80,16 @@ function LoginContent() {
       setUnverifiedEmail(null);
       setResendSuccess(false);
 
-      // If returnTo is a game URL, we'll handle the redirect ourselves
-      const isGameRedirect = returnTo && returnTo.includes('play.gambino.gold');
+      // If returnTo is a mining session URL, we'll handle the redirect ourselves
+      const isMiningRedirect = returnTo && returnTo.includes('play.gambino.gold');
 
       // Set redirecting BEFORE login to prevent useEffect race condition
-      if (isGameRedirect) {
+      if (isMiningRedirect) {
         setRedirecting(true);
       }
 
-      // Pass skipRedirect if we're handling game redirect
-      const result = await login(email.trim(), password, remember, isGameRedirect);
+      // Pass skipRedirect if we're handling mining redirect
+      const result = await login(email.trim(), password, remember, isMiningRedirect);
 
       // Check if login returned an unverified email error
       if (result?.code === 'EMAIL_NOT_VERIFIED') {
@@ -97,13 +98,14 @@ function LoginContent() {
       }
 
       // Handle game redirect - create game session and redirect with token
-      if (isGameRedirect && result?.success) {
+      if (isMiningRedirect && result?.success) {
         try {
-          const session = await gamesAPI.createSession();
+          const res = await api.post('/api/games/session');
+          const session = res.data;
           const separator = returnTo.includes('?') ? '&' : '?';
           window.location.href = `${returnTo}${separator}token=${encodeURIComponent(session.gameToken)}`;
-        } catch (gameErr) {
-          console.error('Failed to create game session:', gameErr);
+        } catch (sessionErr) {
+          console.error('Failed to create game session:', sessionErr);
           // Fallback to dashboard if game session fails
           window.location.href = '/dashboard';
         }
