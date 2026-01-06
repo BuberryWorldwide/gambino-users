@@ -1,4 +1,6 @@
 import { useState } from 'react';
+import { useEntropy } from '@/lib/useEntropy';
+import { gamesAPI } from '@/lib/api';
 
 function StatCard({ label, value, sub, highlight = false }) {
   return (
@@ -27,6 +29,24 @@ export default function OverviewTab({
   refreshProfile
 }) {
   const [refreshingBalance, setRefreshingBalance] = useState(false);
+  const [launchingGame, setLaunchingGame] = useState(null);
+
+  // Launch a game with authenticated session
+  const handleLaunchGame = async (gameId) => {
+    try {
+      setLaunchingGame(gameId);
+      const gameUrl = await gamesAPI.launchGame(gameId);
+      window.open(gameUrl, '_blank');
+    } catch (error) {
+      console.error('Failed to launch game:', error);
+      setError?.(error.message || 'Failed to launch game');
+    } finally {
+      setLaunchingGame(null);
+    }
+  };
+
+  // Fetch entropy stats using wallet address as supplier_id
+  const { stats: entropyStats, loading: entropyLoading, refresh: refreshEntropy } = useEntropy(profile?.walletAddress);
 
   // Balance values
   const cachedGambinoBalance = profile?.cachedGambinoBalance || 0;
@@ -145,6 +165,113 @@ export default function OverviewTab({
           <p className="text-neutral-400 text-sm">Set up your wallet in the Wallet tab to see your balances</p>
         </div>
       )}
+
+      {/* Entropy Stats Section */}
+      {profile?.walletAddress && (
+        <div className="bg-neutral-900/50 border border-neutral-800 rounded-xl p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-white font-semibold flex items-center gap-2">
+              <svg className="w-5 h-5 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z" />
+              </svg>
+              Entropy Contributions
+            </h3>
+            <button
+              onClick={refreshEntropy}
+              disabled={entropyLoading}
+              className="text-xs text-purple-400 hover:text-purple-300 disabled:text-neutral-500 transition-colors flex items-center gap-2"
+            >
+              {entropyLoading ? (
+                <><LoadingSpinner /> Loading...</>
+              ) : (
+                <>
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  </svg>
+                  Refresh
+                </>
+              )}
+            </button>
+          </div>
+
+          {entropyStats?.totalPackets > 0 ? (
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="text-center p-3 bg-neutral-800/50 rounded-lg">
+                <p className="text-xs text-neutral-500 uppercase tracking-wider mb-1">Total Bits</p>
+                <p className="text-xl font-bold text-purple-400">{entropyStats.totalBitsVerified?.toFixed(0) || 0}</p>
+              </div>
+              <div className="text-center p-3 bg-neutral-800/50 rounded-lg">
+                <p className="text-xs text-neutral-500 uppercase tracking-wider mb-1">Packets</p>
+                <p className="text-xl font-bold text-white">{entropyStats.totalPackets || 0}</p>
+              </div>
+              <div className="text-center p-3 bg-neutral-800/50 rounded-lg">
+                <p className="text-xs text-neutral-500 uppercase tracking-wider mb-1">Quality</p>
+                <p className="text-xl font-bold text-green-400">{((entropyStats.avgQuality || 0) * 100).toFixed(0)}%</p>
+              </div>
+              <div className="text-center p-3 bg-neutral-800/50 rounded-lg">
+                <p className="text-xs text-neutral-500 uppercase tracking-wider mb-1">Anchored</p>
+                <p className="text-xl font-bold text-blue-400">{entropyStats.anchoredPackets || 0}</p>
+              </div>
+            </div>
+          ) : (
+            <div className="text-center py-6">
+              <div className="w-12 h-12 mx-auto mb-3 rounded-full bg-purple-500/10 flex items-center justify-center">
+                <svg className="w-6 h-6 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                </svg>
+              </div>
+              <p className="text-white font-medium mb-1">No Entropy Yet</p>
+              <p className="text-neutral-400 text-sm">Play games to contribute entropy and earn rewards!</p>
+            </div>
+          )}
+
+          {entropyStats?.lastPacketAt && (
+            <div className="mt-3 pt-3 border-t border-neutral-700 text-xs text-neutral-500 text-center">
+              Last contribution: {new Date(entropyStats.lastPacketAt).toLocaleDateString()} at {new Date(entropyStats.lastPacketAt).toLocaleTimeString()}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Play Games Section */}
+      <div className="bg-gradient-to-br from-purple-900/30 to-indigo-900/30 border border-purple-500/20 rounded-xl p-6">
+        <div className="flex items-center gap-2 mb-4">
+          <svg className="w-5 h-5 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          <h3 className="text-lg font-semibold text-white">Play & Earn Entropy</h3>
+        </div>
+        <p className="text-neutral-400 text-sm mb-4">
+          Play games to contribute entropy to the Arca Protocol network and earn rewards!
+        </p>
+        <div className="grid grid-cols-2 gap-3">
+          <button
+            onClick={() => handleLaunchGame('balloon-pop')}
+            disabled={launchingGame}
+            className="flex items-center justify-center gap-2 bg-gradient-to-r from-pink-500 to-red-500 hover:from-pink-600 hover:to-red-600 disabled:opacity-50 text-white font-medium py-3 px-4 rounded-lg transition-all"
+          >
+            {launchingGame === 'balloon-pop' ? (
+              <LoadingSpinner />
+            ) : (
+              <span>🎈</span>
+            )}
+            Balloon Pop
+          </button>
+          <button
+            onClick={() => handleLaunchGame('fog')}
+            disabled={launchingGame}
+            className="flex items-center justify-center gap-2 bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 disabled:opacity-50 text-white font-medium py-3 px-4 rounded-lg transition-all"
+          >
+            {launchingGame === 'fog' ? (
+              <LoadingSpinner />
+            ) : (
+              <span>🌫️</span>
+            )}
+            Fog of War
+          </button>
+        </div>
+      </div>
 
       {/* Stats Grid */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">

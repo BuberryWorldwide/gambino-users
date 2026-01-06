@@ -259,8 +259,12 @@ export function useAuth(options = {}) {
 
   /**
    * Login function using unified endpoint
+   * @param {string} email - User email
+   * @param {string} password - User password
+   * @param {boolean} remember - Remember me flag
+   * @param {boolean} skipRedirect - If true, don't redirect after login (caller will handle)
    */
-  const login = useCallback(async (email, password, remember = true) => {
+  const login = useCallback(async (email, password, remember = true, skipRedirect = false) => {
     try {
       setLoading(true);
       setError(null);
@@ -289,11 +293,13 @@ export function useAuth(options = {}) {
         redirectTo: data.user.redirectTo || data.redirectTo
       });
 
-      // Always use getUserRedirectUrl to properly route admin users to admin.gambino.gold
-      const redirectUrl = getUserRedirectUrl(data.user);
-      window.location.href = redirectUrl;
+      // Skip redirect if caller will handle it (e.g., game redirects)
+      if (!skipRedirect) {
+        const redirectUrl = getUserRedirectUrl(data.user);
+        window.location.href = redirectUrl;
+      }
 
-      return data;
+      return { ...data, success: true };
     } catch (err) {
       const errorMessage = err.response?.data?.error || err.message || 'Login failed';
       const code = err.response?.data?.code || null;

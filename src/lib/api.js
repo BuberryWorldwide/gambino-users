@@ -508,6 +508,44 @@ export const publicAPI = {
   }
 };
 
+/**
+ * Games API - Entropy game session management
+ */
+export const gamesAPI = {
+  /**
+   * Create a game session for playing entropy games
+   * Returns a short-lived token and wallet address
+   */
+  createSession: async () => {
+    const response = await api.post('/api/games/session');
+    return response.data;
+  },
+
+  /**
+   * Launch a game with authenticated session
+   * @param {string} gameId - 'balloon-pop' or 'fog'
+   */
+  launchGame: async (gameId) => {
+    const session = await gamesAPI.createSession();
+    if (!session.success) {
+      throw new Error(session.error || 'Failed to create game session');
+    }
+
+    const gameUrls = {
+      'balloon-pop': process.env.NEXT_PUBLIC_GAME_BALLOON_POP || 'https://play.gambino.gold/balloon-pop',
+      'fog': process.env.NEXT_PUBLIC_GAME_FOG || 'https://play.gambino.gold/fog'
+    };
+
+    const baseUrl = gameUrls[gameId];
+    if (!baseUrl) {
+      throw new Error(`Unknown game: ${gameId}`);
+    }
+
+    // Return URL with token for redirect
+    return `${baseUrl}?token=${encodeURIComponent(session.gameToken)}`;
+  }
+};
+
 // --- Helper Functions ---
 
 /**
