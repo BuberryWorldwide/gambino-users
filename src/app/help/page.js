@@ -101,7 +101,7 @@ export default function HelpPage() {
       category: 'Platform',
       content: (
         <div className="space-y-4">
-          <p>Glück Score is your activity rating on the platform. It increases based on your participation and gameplay.</p>
+          <p>Glück Score is your activity rating on the platform. It increases based on your participation and mining contributions.</p>
           <p>Higher scores unlock better tiers with additional benefits.</p>
         </div>
       )
@@ -112,7 +112,7 @@ export default function HelpPage() {
       category: 'Platform',
       content: (
         <div className="space-y-4">
-          <p>An active session means you're currently playing at one of our partner locations.</p>
+          <p>An active session means you're currently mining at one of our partner locations.</p>
           <p>You can end your session anytime from the Dashboard. Sessions also end automatically when you leave.</p>
         </div>
       )

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useEntropy } from '@/lib/useEntropy';
-import { gamesAPI } from '@/lib/api';
+import { miningAPI } from '@/lib/api';
 
 function StatCard({ label, value, sub, highlight = false }) {
   return (
@@ -29,19 +29,19 @@ export default function OverviewTab({
   refreshProfile
 }) {
   const [refreshingBalance, setRefreshingBalance] = useState(false);
-  const [launchingGame, setLaunchingGame] = useState(null);
+  const [launchingSession, setLaunchingSession] = useState(null);
 
-  // Launch a game with authenticated session
-  const handleLaunchGame = async (gameId) => {
+  // Launch a mining session with authenticated session
+  const handleLaunchMining = async (sessionType) => {
     try {
-      setLaunchingGame(gameId);
-      const gameUrl = await gamesAPI.launchGame(gameId);
-      window.open(gameUrl, '_blank');
+      setLaunchingSession(sessionType);
+      const sessionUrl = await miningAPI.launchSession(sessionType);
+      window.open(sessionUrl, '_blank');
     } catch (error) {
-      console.error('Failed to launch game:', error);
-      setError?.(error.message || 'Failed to launch game');
+      console.error('Failed to launch mining session:', error);
+      setError?.(error.message || 'Failed to launch mining session');
     } finally {
-      setLaunchingGame(null);
+      setLaunchingSession(null);
     }
   };
 
@@ -61,9 +61,9 @@ export default function OverviewTab({
   // Stats from profile
   const gluck = profile?.gluckScore || 0;
   const tier = profile?.tier || 'none';
-  const jackMajor = profile?.majorJackpots || 0;
-  const jackMinor = profile?.minorJackpots || 0;
-  const jackTotal = jackMajor + jackMinor;
+  const majorEvents = profile?.majorMiningEvents || profile?.majorJackpots || 0;
+  const minorEvents = profile?.minorMiningEvents || profile?.minorJackpots || 0;
+  const totalEvents = majorEvents + minorEvents;
 
   const handleEndSession = async () => {
     try {
@@ -221,7 +221,7 @@ export default function OverviewTab({
                 </svg>
               </div>
               <p className="text-white font-medium mb-1">No Entropy Yet</p>
-              <p className="text-neutral-400 text-sm">Play games to contribute entropy and earn rewards!</p>
+              <p className="text-neutral-400 text-sm">Start mining sessions to contribute entropy and earn rewards!</p>
             </div>
           )}
 
@@ -233,25 +233,25 @@ export default function OverviewTab({
         </div>
       )}
 
-      {/* Play Games Section */}
+      {/* Mining Sessions Section */}
       <div className="bg-gradient-to-br from-purple-900/30 to-indigo-900/30 border border-purple-500/20 rounded-xl p-6">
         <div className="flex items-center gap-2 mb-4">
           <svg className="w-5 h-5 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
-          <h3 className="text-lg font-semibold text-white">Play & Earn Entropy</h3>
+          <h3 className="text-lg font-semibold text-white">Mine & Earn Entropy</h3>
         </div>
         <p className="text-neutral-400 text-sm mb-4">
-          Play games to contribute entropy to the Arca Protocol network and earn rewards!
+          Start mining sessions to contribute entropy to the Arca Protocol network and earn rewards!
         </p>
         <div className="grid grid-cols-2 gap-3">
           <button
-            onClick={() => handleLaunchGame('balloon-pop')}
-            disabled={launchingGame}
+            onClick={() => handleLaunchMining('balloon-pop')}
+            disabled={launchingSession}
             className="flex items-center justify-center gap-2 bg-gradient-to-r from-pink-500 to-red-500 hover:from-pink-600 hover:to-red-600 disabled:opacity-50 text-white font-medium py-3 px-4 rounded-lg transition-all"
           >
-            {launchingGame === 'balloon-pop' ? (
+            {launchingSession === 'balloon-pop' ? (
               <LoadingSpinner />
             ) : (
               <span>🎈</span>
@@ -259,11 +259,11 @@ export default function OverviewTab({
             Balloon Pop
           </button>
           <button
-            onClick={() => handleLaunchGame('fog')}
-            disabled={launchingGame}
+            onClick={() => handleLaunchMining('fog')}
+            disabled={launchingSession}
             className="flex items-center justify-center gap-2 bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 disabled:opacity-50 text-white font-medium py-3 px-4 rounded-lg transition-all"
           >
-            {launchingGame === 'fog' ? (
+            {launchingSession === 'fog' ? (
               <LoadingSpinner />
             ) : (
               <span>🌫️</span>
@@ -282,15 +282,15 @@ export default function OverviewTab({
           highlight={gluck > 1000}
         />
         <StatCard
-          label="Total Jackpots"
-          value={jackTotal}
-          sub={`${jackMajor} major • ${jackMinor} minor`}
-          highlight={jackTotal > 0}
+          label="Mining Events"
+          value={totalEvents}
+          sub={`${majorEvents} major • ${minorEvents} minor`}
+          highlight={totalEvents > 0}
         />
         <StatCard
           label="Status"
           value={currentSession ? 'Active' : 'Idle'}
-          sub={currentSession ? 'In session' : 'Not playing'}
+          sub={currentSession ? 'In session' : 'Not mining'}
         />
         <StatCard
           label="Member Since"

@@ -1,40 +1,18 @@
 // src/app/login/page.js - Gambino Gold professional login page
 'use client';
 
-import { useState, useEffect, Suspense } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/lib/auth';
-import api, { gamesAPI } from '@/lib/api';
+import api from '@/lib/api';
 
-// Wrapper component to handle Suspense for useSearchParams
 export default function LoginPage() {
-  return (
-    <Suspense fallback={<LoginLoading />}>
-      <LoginContent />
-    </Suspense>
-  );
-}
-
-function LoginLoading() {
-  return (
-    <div className="min-h-screen flex items-center justify-center">
-      <div className="w-8 h-8 border-2 border-yellow-400 border-t-transparent rounded-full animate-spin"></div>
-    </div>
-  );
-}
-
-function LoginContent() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [remember, setRemember] = useState(true);
   const [unverifiedEmail, setUnverifiedEmail] = useState(null);
   const [resending, setResending] = useState(false);
   const [resendSuccess, setResendSuccess] = useState(false);
-  const [redirecting, setRedirecting] = useState(false);
-
-  const searchParams = useSearchParams();
-  const returnTo = searchParams.get('returnTo');
 
   const {
     login,
@@ -47,25 +25,10 @@ function LoginContent() {
 
   // Redirect if already authenticated
   useEffect(() => {
-    if (isAuthenticated && !redirecting) {
-      // If returnTo is a game URL, create session and redirect
-      const isGameRedirect = returnTo && returnTo.includes('play.gambino.gold');
-      if (isGameRedirect) {
-        setRedirecting(true);
-        gamesAPI.createSession()
-          .then(session => {
-            const separator = returnTo.includes('?') ? '&' : '?';
-            window.location.href = `${returnTo}${separator}token=${encodeURIComponent(session.gameToken)}`;
-          })
-          .catch(err => {
-            console.error('Failed to create game session:', err);
-            window.location.href = '/dashboard';
-          });
-      } else {
-        window.location.href = '/dashboard';
-      }
+    if (isAuthenticated) {
+      return;
     }
-  }, [isAuthenticated, returnTo, redirecting]);
+  }, [isAuthenticated]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -78,35 +41,11 @@ function LoginContent() {
       clearError();
       setUnverifiedEmail(null);
       setResendSuccess(false);
-
-      // If returnTo is a game URL, we'll handle the redirect ourselves
-      const isGameRedirect = returnTo && returnTo.includes('play.gambino.gold');
-
-      // Set redirecting BEFORE login to prevent useEffect race condition
-      if (isGameRedirect) {
-        setRedirecting(true);
-      }
-
-      // Pass skipRedirect if we're handling game redirect
-      const result = await login(email.trim(), password, remember, isGameRedirect);
+      const result = await login(email.trim(), password, remember);
 
       // Check if login returned an unverified email error
       if (result?.code === 'EMAIL_NOT_VERIFIED') {
         setUnverifiedEmail(result.email || email.trim());
-        return;
-      }
-
-      // Handle game redirect - create game session and redirect with token
-      if (isGameRedirect && result?.success) {
-        try {
-          const session = await gamesAPI.createSession();
-          const separator = returnTo.includes('?') ? '&' : '?';
-          window.location.href = `${returnTo}${separator}token=${encodeURIComponent(session.gameToken)}`;
-        } catch (gameErr) {
-          console.error('Failed to create game session:', gameErr);
-          // Fallback to dashboard if game session fails
-          window.location.href = '/dashboard';
-        }
       }
     } catch (err) {
       console.error('Login failed:', err);

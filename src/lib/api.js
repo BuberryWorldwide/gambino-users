@@ -509,11 +509,11 @@ export const publicAPI = {
 };
 
 /**
- * Games API - Entropy game session management
+ * Mining API - Entropy mining session management
  */
-export const gamesAPI = {
+export const miningAPI = {
   /**
-   * Create a game session for playing entropy games
+   * Create a mining session for entropy contribution
    * Returns a short-lived token and wallet address
    */
   createSession: async () => {
@@ -522,23 +522,23 @@ export const gamesAPI = {
   },
 
   /**
-   * Launch a game with authenticated session
-   * @param {string} gameId - 'balloon-pop' or 'fog'
+   * Launch a mining session with authentication
+   * @param {string} sessionType - 'balloon-pop' or 'fog'
    */
-  launchGame: async (gameId) => {
-    const session = await gamesAPI.createSession();
+  launchSession: async (sessionType) => {
+    const session = await miningAPI.createSession();
     if (!session.success) {
-      throw new Error(session.error || 'Failed to create game session');
+      throw new Error(session.error || 'Failed to create mining session');
     }
 
-    const gameUrls = {
+    const sessionUrls = {
       'balloon-pop': process.env.NEXT_PUBLIC_GAME_BALLOON_POP || 'https://play.gambino.gold/balloon-pop',
       'fog': process.env.NEXT_PUBLIC_GAME_FOG || 'https://play.gambino.gold/fog'
     };
 
-    const baseUrl = gameUrls[gameId];
+    const baseUrl = sessionUrls[sessionType];
     if (!baseUrl) {
-      throw new Error(`Unknown game: ${gameId}`);
+      throw new Error(`Unknown session type: ${sessionType}`);
     }
 
     // Return URL with token for redirect

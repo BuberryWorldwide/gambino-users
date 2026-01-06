@@ -78,7 +78,7 @@ const STEPS = [
       steps: [
         'After logging in, you\'ll land on your <strong>Dashboard</strong>',
         'The <strong>Balance Section</strong> shows your token holdings (SOL, GAMBINO, USDC)',
-        'Your <strong>Glück Score</strong> shows your luck rating from playing',
+        'Your <strong>Glück Score</strong> shows your contribution rating from mining',
         'The <strong>Tier</strong> display shows your current reward level',
         'Your <strong>Wallet Address</strong> is displayed (tap to copy)',
         'The <strong>Session</strong> section shows if you\'re checked in at a location',
@@ -171,10 +171,10 @@ const STEPS = [
       steps: [
         'Visit a <strong>Gambino partner location</strong>',
         'Use machines connected to the <strong>Gambino network</strong>',
-        'Your activity earns you <strong>Glück Score</strong> (luck points)',
+        'Your activity earns you <strong>Glück Score</strong> (contribution points)',
         'Your <strong>Tier</strong> is determined by your Glück Score',
         '<strong>Tier progression:</strong> None → Tier 3 → Tier 2 → Tier 1',
-        'Higher tiers earn <strong>better rewards</strong> and bonuses',
+        'Higher tiers earn <strong>better mining rewards</strong> and distributions',
         'Check the <strong>Leaderboard</strong> to see how you rank against others'
       ],
       tip: 'Visiting different locations can help boost your Glück Score faster!',

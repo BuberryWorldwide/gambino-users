@@ -88,7 +88,7 @@ function MachineBinder() {
         } else if (err.response.data.session) {
           // Machine in use by someone else
           setExistingSession(err.response.data.session);
-          setError('This machine is currently in use by another player');
+          setError('This machine is currently in use by another user');
         } else {
           setError(err.response.data.error || 'Machine or user conflict');
         }
@@ -191,14 +191,14 @@ function MachineBinder() {
               {machineInfo && (
                 <div className="bg-neutral-800/50 border border-neutral-700 rounded-lg p-4 mb-4">
                   <h2 className="font-medium text-white">{machineInfo.name || machineInfo.machineId}</h2>
-                  <p className="text-sm text-neutral-400">{machineInfo.location || 'Gaming machine'}</p>
+                  <p className="text-sm text-neutral-400">{machineInfo.location || 'Mining station'}</p>
                   <p className="text-xs text-neutral-500 mt-1">
-                    {machineInfo.storeName} • {machineInfo.gameType || 'Game'}
+                    {machineInfo.storeName} • {machineInfo.sessionType || machineInfo.gameType || 'Mining'}
                   </p>
                 </div>
               )}
               <p className="text-neutral-400 mb-4">
-                Please log in to bind to this machine and start playing.
+                Please log in to bind to this machine and start mining.
               </p>
             </div>
 
@@ -206,7 +206,7 @@ function MachineBinder() {
               onClick={handleLogin}
               className="w-full bg-gradient-to-r from-yellow-400 to-amber-500 hover:from-yellow-500 hover:to-amber-600 text-black font-semibold py-3 px-4 rounded-lg mb-3 transition-all"
             >
-              Log In to Play
+              Log In to Mine
             </button>
 
             <div className="text-center">
@@ -234,12 +234,12 @@ function MachineBinder() {
               {machineInfo && (
                 <div className="bg-neutral-800/50 border border-neutral-700 rounded-lg p-4 mb-4">
                   <h2 className="font-medium text-white">{machineInfo.name || machineInfo.machineId}</h2>
-                  <p className="text-sm text-neutral-400">{machineInfo.location || 'Gaming machine'}</p>
+                  <p className="text-sm text-neutral-400">{machineInfo.location || 'Mining station'}</p>
                 </div>
               )}
               <div className="bg-yellow-900/20 border border-yellow-500/30 p-4 rounded-lg mb-4">
                 <p className="text-yellow-300 text-sm">
-                  This machine is currently being used by another player.
+                  This machine is currently being used by another user.
                 </p>
                 {existingSession?.estimatedWaitTime && (
                   <p className="text-yellow-400 text-xs mt-1">
@@ -274,15 +274,15 @@ function MachineBinder() {
       <div className="max-w-md w-full">
         <div className="bg-neutral-900/80 backdrop-blur-sm border border-neutral-800 rounded-xl p-6">
           <div className="text-center mb-6">
-            <h1 className="text-xl font-bold text-white mb-2">Ready to Play!</h1>
+            <h1 className="text-xl font-bold text-white mb-2">Ready to Mine!</h1>
             <p className="text-sm text-neutral-400 mb-4">Welcome back, {user?.firstName || user?.email}</p>
 
             {machineInfo && (
               <div className="bg-neutral-800/50 border border-neutral-700 rounded-lg p-4 mb-4">
                 <h2 className="font-medium text-white">{machineInfo.name || machineInfo.machineId}</h2>
-                <p className="text-sm text-neutral-400">{machineInfo.location || 'Gaming machine'}</p>
+                <p className="text-sm text-neutral-400">{machineInfo.location || 'Mining station'}</p>
                 <p className="text-xs text-neutral-500 mt-1">
-                  {machineInfo.storeName} • {machineInfo.gameType || 'Game'}
+                  {machineInfo.storeName} • {machineInfo.sessionType || machineInfo.gameType || 'Mining'}
                 </p>
                 <div className="flex items-center justify-center mt-2">
                   <span className={`inline-block px-2 py-1 rounded text-xs font-medium ${
