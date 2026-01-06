@@ -45,11 +45,14 @@ function LoginContent() {
     errorCode
   } = useAuth();
 
+  // Mining interface domain - configurable per licensee deployment
+  const miningDomain = process.env.NEXT_PUBLIC_MINING_DOMAIN || 'play.gambino.gold';
+
   // Redirect if already authenticated
   useEffect(() => {
     if (isAuthenticated && !redirecting) {
       // If returnTo is a mining session URL, create session and redirect
-      const isMiningRedirect = returnTo && returnTo.includes('play.gambino.gold');
+      const isMiningRedirect = returnTo && returnTo.includes(miningDomain);
       if (isMiningRedirect) {
         setRedirecting(true);
         api.post('/api/games/session')
@@ -66,7 +69,7 @@ function LoginContent() {
         window.location.href = '/dashboard';
       }
     }
-  }, [isAuthenticated, returnTo, redirecting]);
+  }, [isAuthenticated, returnTo, redirecting, miningDomain]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -81,7 +84,7 @@ function LoginContent() {
       setResendSuccess(false);
 
       // If returnTo is a mining session URL, we'll handle the redirect ourselves
-      const isMiningRedirect = returnTo && returnTo.includes('play.gambino.gold');
+      const isMiningRedirect = returnTo && returnTo.includes(miningDomain);
 
       // Set redirecting BEFORE login to prevent useEffect race condition
       if (isMiningRedirect) {

@@ -531,9 +531,11 @@ export const miningAPI = {
       throw new Error(session.error || 'Failed to create mining session');
     }
 
+    // Mining session URLs - configurable per licensee deployment
+    // Operators (VDV, venues) can override these with their own domains
     const sessionUrls = {
-      'balloon-pop': process.env.NEXT_PUBLIC_GAME_BALLOON_POP || 'https://play.gambino.gold/balloon-pop',
-      'fog': process.env.NEXT_PUBLIC_GAME_FOG || 'https://play.gambino.gold/fog'
+      'balloon-pop': process.env.NEXT_PUBLIC_MINING_BALLOON_URL || 'https://play.gambino.gold/balloon-pop',
+      'fog': process.env.NEXT_PUBLIC_MINING_FOG_URL || 'https://play.gambino.gold/fog'
     };
 
     const baseUrl = sessionUrls[sessionType];
