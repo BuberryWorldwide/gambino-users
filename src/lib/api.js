@@ -508,10 +508,30 @@ export const publicAPI = {
   }
 };
 
+// Arca Protocol API base URL
+const ARCA_API_URL = process.env.NEXT_PUBLIC_ARCA_API_URL || 'https://api.arca-protocol.com';
+
 /**
  * Mining API - Entropy mining session management
  */
 export const miningAPI = {
+  /**
+   * Fetch available mining interfaces from Arca Protocol
+   */
+  getInterfaces: async () => {
+    try {
+      const response = await fetch(`${ARCA_API_URL}/v1/mining/interfaces`);
+      const data = await response.json();
+      if (!data.success) {
+        throw new Error(data.error || 'Failed to fetch mining interfaces');
+      }
+      return data.interfaces;
+    } catch (error) {
+      console.error('Failed to fetch mining interfaces:', error);
+      return [];
+    }
+  },
+
   /**
    * Create a mining session for entropy contribution
    * Returns a short-lived token and wallet address
@@ -523,28 +543,17 @@ export const miningAPI = {
 
   /**
    * Launch a mining session with authentication
-   * @param {string} sessionType - 'balloon-pop' or 'fog'
+   * @param {string} gameUrl - The full game URL to launch
    */
-  launchSession: async (sessionType) => {
+  launchSession: async (gameUrl) => {
     const session = await miningAPI.createSession();
     if (!session.success) {
       throw new Error(session.error || 'Failed to create mining session');
     }
 
-    // Mining session URLs - configurable per licensee deployment
-    // Operators (VDV, venues) can override these with their own domains
-    const sessionUrls = {
-      'balloon-pop': process.env.NEXT_PUBLIC_MINING_BALLOON_URL || 'https://play.gambino.gold/balloon-pop',
-      'fog': process.env.NEXT_PUBLIC_MINING_FOG_URL || 'https://play.gambino.gold/fog'
-    };
-
-    const baseUrl = sessionUrls[sessionType];
-    if (!baseUrl) {
-      throw new Error(`Unknown session type: ${sessionType}`);
-    }
-
     // Return URL with token for redirect
-    return `${baseUrl}?token=${encodeURIComponent(session.gameToken)}`;
+    const separator = gameUrl.includes('?') ? '&' : '?';
+    return `${gameUrl}${separator}token=${encodeURIComponent(session.gameToken)}`;
   }
 };
 
