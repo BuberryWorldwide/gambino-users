@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useEntropy } from '@/lib/useEntropy';
 import { miningAPI } from '@/lib/api';
 
@@ -30,12 +30,29 @@ export default function OverviewTab({
 }) {
   const [refreshingBalance, setRefreshingBalance] = useState(false);
   const [launchingSession, setLaunchingSession] = useState(null);
+  const [miningInterfaces, setMiningInterfaces] = useState([]);
+  const [loadingInterfaces, setLoadingInterfaces] = useState(true);
+
+  // Fetch mining interfaces on mount
+  useEffect(() => {
+    const fetchInterfaces = async () => {
+      try {
+        const interfaces = await miningAPI.getInterfaces();
+        setMiningInterfaces(interfaces);
+      } catch (error) {
+        console.error('Failed to fetch mining interfaces:', error);
+      } finally {
+        setLoadingInterfaces(false);
+      }
+    };
+    fetchInterfaces();
+  }, []);
 
   // Launch a mining session with authenticated session
-  const handleLaunchMining = async (sessionType) => {
+  const handleLaunchMining = async (gameUrl) => {
     try {
-      setLaunchingSession(sessionType);
-      const sessionUrl = await miningAPI.launchSession(sessionType);
+      setLaunchingSession(gameUrl);
+      const sessionUrl = await miningAPI.launchSession(gameUrl);
       window.open(sessionUrl, '_blank');
     } catch (error) {
       console.error('Failed to launch mining session:', error);
@@ -221,7 +238,7 @@ export default function OverviewTab({
                 </svg>
               </div>
               <p className="text-white font-medium mb-1">No Entropy Yet</p>
-              <p className="text-neutral-400 text-sm">Start mining sessions to contribute entropy and earn rewards!</p>
+              <p className="text-neutral-400 text-sm">Start mining sessions to contribute entropy and receive distributions!</p>
             </div>
           )}
 
@@ -240,37 +257,55 @@ export default function OverviewTab({
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
-          <h3 className="text-lg font-semibold text-white">Mine & Earn Entropy</h3>
+          <h3 className="text-lg font-semibold text-white">Mine & Contribute Entropy</h3>
         </div>
         <p className="text-neutral-400 text-sm mb-4">
-          Start mining sessions to contribute entropy to the Arca Protocol network and earn rewards!
+          Start mining sessions to contribute entropy to the Arca Protocol network and receive distributions!
         </p>
-        <div className="grid grid-cols-2 gap-3">
-          <button
-            onClick={() => handleLaunchMining('balloon-pop')}
-            disabled={launchingSession}
-            className="flex items-center justify-center gap-2 bg-gradient-to-r from-pink-500 to-red-500 hover:from-pink-600 hover:to-red-600 disabled:opacity-50 text-white font-medium py-3 px-4 rounded-lg transition-all"
-          >
-            {launchingSession === 'balloon-pop' ? (
-              <LoadingSpinner />
-            ) : (
-              <span>🎈</span>
-            )}
-            Balloon Pop
-          </button>
-          <button
-            onClick={() => handleLaunchMining('fog')}
-            disabled={launchingSession}
-            className="flex items-center justify-center gap-2 bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 disabled:opacity-50 text-white font-medium py-3 px-4 rounded-lg transition-all"
-          >
-            {launchingSession === 'fog' ? (
-              <LoadingSpinner />
-            ) : (
-              <span>🌫️</span>
-            )}
-            Fog of War
-          </button>
-        </div>
+        {loadingInterfaces ? (
+          <div className="flex items-center justify-center py-4">
+            <LoadingSpinner />
+            <span className="ml-2 text-neutral-400">Loading interfaces...</span>
+          </div>
+        ) : (
+          <div className={`grid gap-3 ${miningInterfaces.length === 1 ? 'grid-cols-1' : 'grid-cols-2'}`}>
+            {miningInterfaces.map((iface) => {
+              // Map Tailwind color names to hex values
+              const colorMap = {
+                'pink-500': '#ec4899',
+                'red-500': '#ef4444',
+                'blue-500': '#3b82f6',
+                'cyan-500': '#06b6d4',
+                'purple-500': '#a855f7',
+                'indigo-500': '#6366f1',
+                'green-500': '#22c55e',
+                'yellow-500': '#eab308',
+                'orange-500': '#f97316'
+              };
+              const fromColor = colorMap[iface.gradient_from] || '#a855f7';
+              const toColor = colorMap[iface.gradient_to] || '#6366f1';
+
+              return (
+                <button
+                  key={iface.slug}
+                  onClick={() => handleLaunchMining(iface.game_url)}
+                  disabled={launchingSession}
+                  className="flex items-center justify-center gap-2 hover:opacity-90 disabled:opacity-50 text-white font-medium py-3 px-4 rounded-lg transition-all"
+                  style={{
+                    background: `linear-gradient(to right, ${fromColor}, ${toColor})`
+                  }}
+                >
+                  {launchingSession === iface.game_url ? (
+                    <LoadingSpinner />
+                  ) : (
+                    <span>{iface.icon}</span>
+                  )}
+                  {iface.name}
+                </button>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {/* Stats Grid */}

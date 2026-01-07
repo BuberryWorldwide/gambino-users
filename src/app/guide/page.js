@@ -163,18 +163,18 @@ const STEPS = [
   },
   {
     id: 6,
-    title: 'Start Earning Tokens',
-    description: 'Visit partner locations to earn GAMBINO and build your Glück Score',
+    title: 'Start Receiving Tokens',
+    description: 'Visit partner locations to receive GAMBINO distributions and build your Glück Score',
     icon: 'trophy',
     content: {
-      intro: 'Now for the fun part! Here\'s how you earn GAMBINO tokens and climb the ranks.',
+      intro: 'Now for the fun part! Here\'s how you receive GAMBINO token distributions and climb the ranks.',
       steps: [
         'Visit a <strong>Gambino partner location</strong>',
         'Use machines connected to the <strong>Gambino network</strong>',
         'Your activity earns you <strong>Glück Score</strong> (contribution points)',
         'Your <strong>Tier</strong> is determined by your Glück Score',
         '<strong>Tier progression:</strong> None → Tier 3 → Tier 2 → Tier 1',
-        'Higher tiers earn <strong>better mining rewards</strong> and distributions',
+        'Higher tiers receive <strong>better mining distributions</strong> and benefits',
         'Check the <strong>Leaderboard</strong> to see how you rank against others'
       ],
       tip: 'Visiting different locations can help boost your Glück Score faster!',
@@ -190,7 +190,7 @@ const STEPS = [
     description: 'Learn how to send, trade, and use your GAMBINO tokens',
     icon: 'send',
     content: {
-      intro: 'Your earned tokens are yours to keep. Here\'s what you can do with them.',
+      intro: 'Your tokens are yours to keep. Here\'s what you can do with them.',
       steps: [
         'Your tokens appear in your <strong>Dashboard balance</strong> automatically',
         'To send tokens to another wallet, you\'ll need <strong>Phantom</strong> set up (Step 5)',
@@ -270,7 +270,7 @@ export default function GuidePage() {
             </span>
           </h1>
           <p className="text-neutral-400 text-lg max-w-xl mx-auto">
-            Your complete guide from signup to earning rewards. Follow these steps to get the most out of Gambino Gold.
+            Your complete guide from signup to receiving distributions. Follow these steps to get the most out of Gambino Gold.
           </p>
         </div>
 
