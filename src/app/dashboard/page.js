@@ -338,8 +338,8 @@ function DashboardContent() {
               </div>
             )}
 
-            {/* Pending Referral Bonus Banner */}
-            {profile?.pendingReferral && (
+            {/* Pending Referral Bonus Banner - show if referred but no wallet yet */}
+            {profile?.referredBy && !profile?.walletAddress && (
               <div className="bg-gradient-to-r from-green-900/40 to-emerald-900/40 border border-green-500/50 rounded-xl p-4 backdrop-blur-sm mb-8">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
@@ -350,19 +350,19 @@ function DashboardContent() {
                     </div>
                     <div>
                       <p className="text-green-200 font-medium">
-                        Referral Bonus Pending!
+                        Referral Bonus Awaiting!
                       </p>
                       <p className="text-green-300/70 text-sm">
-                        {profile.pendingReferral.referrerName} referred you! Complete your first mining session to claim your <span className="font-bold text-green-300">{profile.pendingReferral.bonus} GG</span> bonus.
+                        You were referred by a friend! Set up your wallet to receive your <span className="font-bold text-green-300">welcome bonus</span>.
                       </p>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <span className="px-3 py-1 bg-green-500/20 border border-green-500/30 rounded-full text-green-300 text-xs font-medium">
-                      {profile.pendingReferral.status === 'pending' ? 'Awaiting Session' :
-                       profile.pendingReferral.status === 'verified' ? 'Ready to Claim' : 'Queued'}
-                    </span>
-                  </div>
+                  <button
+                    onClick={() => handleTabChange('wallet')}
+                    className="px-4 py-2 bg-green-500 hover:bg-green-600 text-black font-semibold rounded-lg transition-colors text-sm whitespace-nowrap"
+                  >
+                    Set Up Wallet
+                  </button>
                 </div>
               </div>
             )}
