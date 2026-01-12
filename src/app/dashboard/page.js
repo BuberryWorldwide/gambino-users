@@ -7,12 +7,14 @@ import api from '@/lib/api';
 // Import tab components
 import OverviewTab from './components/tabs/OverviewTab';
 import WalletTab from './components/tabs/WalletTab';
+import ReferralTab from './components/tabs/ReferralTab';
 import AccountTab from './components/tabs/AccountTab';
 
 // Tab configuration - simplified for clarity
 const TABS = [
   { id: 'overview', label: 'Overview' },
   { id: 'wallet', label: 'Wallet' },
+  { id: 'referral', label: 'Referrals' },
   { id: 'account', label: 'Account' }
 ];
 
@@ -29,7 +31,7 @@ function DashboardContent() {
 
   // Get initial tab from URL query parameter
   const tabFromUrl = searchParams.get('tab');
-  const initialTab = tabFromUrl && ['overview', 'wallet', 'account'].includes(tabFromUrl) ? tabFromUrl : 'overview';
+  const initialTab = tabFromUrl && ['overview', 'wallet', 'referral', 'account'].includes(tabFromUrl) ? tabFromUrl : 'overview';
 
   // Core state
   const [mounted, setMounted] = useState(false);
@@ -57,7 +59,7 @@ function DashboardContent() {
   // Update active tab when URL changes
   useEffect(() => {
     const urlTab = searchParams.get('tab');
-    if (urlTab && ['overview', 'wallet', 'account'].includes(urlTab) && urlTab !== activeTab) {
+    if (urlTab && ['overview', 'wallet', 'referral', 'account'].includes(urlTab) && urlTab !== activeTab) {
       setActiveTab(urlTab);
       setLoadedTabs(prev => new Set([...prev, urlTab]));
     }
@@ -394,6 +396,10 @@ function DashboardContent() {
 
             {activeTab === 'wallet' && loadedTabs.has('wallet') && (
               <WalletTab {...sharedContext} />
+            )}
+
+            {activeTab === 'referral' && loadedTabs.has('referral') && (
+              <ReferralTab {...sharedContext} />
             )}
 
             {activeTab === 'account' && loadedTabs.has('account') && (

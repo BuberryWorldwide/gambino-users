@@ -1,13 +1,20 @@
 // src/app/onboard/page.js - Enhanced to match home page styling
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import api from '@/lib/api';
 import { setToken } from '@/lib/auth';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
+
+// Loading spinner component
+function LoadingSpinner() {
+  return (
+    <div className="w-4 h-4 border-2 border-yellow-400 border-t-transparent rounded-full animate-spin"></div>
+  );
+}
 
 // Email Verification Pending Component
-function VerificationPendingStep({ email, setError }) {
+function VerificationPendingStep({ email, setError, referralApplied, referralBonus }) {
   const [resending, setResending] = useState(false);
   const [resendSuccess, setResendSuccess] = useState(false);
 
@@ -52,6 +59,20 @@ function VerificationPendingStep({ email, setError }) {
         </p>
       </div>
 
+      {referralApplied && referralBonus > 0 && (
+        <div className="mb-4 p-4 rounded-xl border border-green-500/30 bg-green-900/20">
+          <div className="flex items-center gap-2 mb-1">
+            <svg className="w-5 h-5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v13m0-13V6a2 2 0 112 2h-2zm0 0V5.5A2.5 2.5 0 109.5 8H12zm-7 4h14M5 12a2 2 0 110-4h14a2 2 0 110 4M5 12v7a2 2 0 002 2h10a2 2 0 002-2v-7" />
+            </svg>
+            <span className="text-green-300 font-medium">Referral Bonus Applied!</span>
+          </div>
+          <p className="text-green-200/80 text-sm">
+            You'll receive <span className="font-bold text-green-300">{referralBonus} GG</span> after your first mining session.
+          </p>
+        </div>
+      )}
+
       {resendSuccess && (
         <div className="mb-4 p-3 rounded-xl border border-green-500/30 bg-green-900/20">
           <p className="text-green-300 text-sm">Verification email sent! Check your inbox.</p>
@@ -89,10 +110,14 @@ function VerificationPendingStep({ email, setError }) {
   );
 }
 
-export default function OnboardPage() {
+function OnboardPageContent() {
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  // Referral state
+  const [referralValidation, setReferralValidation] = useState({ checking: false, valid: null, referrer: null });
+  const [referralResult, setReferralResult] = useState({ applied: false, bonus: 0 });
 
   const [form, setForm] = useState({
     // Step 1: Personal info
@@ -102,6 +127,7 @@ export default function OnboardPage() {
     phone: '',
     password: '',
     dateOfBirth: '',
+    referralCode: '',
     // Step 2: Legal agreements
     agreedToTerms: false,
     agreedToPrivacy: false,
@@ -111,6 +137,61 @@ export default function OnboardPage() {
   });
 
   const router = useRouter();
+  const searchParams = useSearchParams();
+
+  // Read referral code from URL on mount
+  useEffect(() => {
+    const refCode = searchParams.get('ref') || searchParams.get('referral');
+    if (refCode) {
+      updateForm('referralCode', refCode.toUpperCase());
+      // Validate the code from URL
+      validateReferralCode(refCode);
+    }
+  }, [searchParams]);
+
+  // Validate referral code
+  const validateReferralCode = async (code) => {
+    if (!code || code.length < 6) {
+      setReferralValidation({ checking: false, valid: null, referrer: null });
+      return;
+    }
+
+    setReferralValidation({ checking: true, valid: null, referrer: null });
+
+    try {
+      const { data } = await api.post('/api/referral/validate', { code: code.toUpperCase() });
+      setReferralValidation({
+        checking: false,
+        valid: data.valid,
+        referrer: data.referrer,
+        rewards: data.rewards
+      });
+    } catch (err) {
+      setReferralValidation({
+        checking: false,
+        valid: false,
+        referrer: null,
+        error: err.response?.data?.error || 'Invalid code'
+      });
+    }
+  };
+
+  // Debounced referral code validation
+  const handleReferralCodeChange = (value) => {
+    const code = value.toUpperCase().replace(/[^A-Z0-9]/g, '');
+    updateForm('referralCode', code);
+
+    // Clear validation if empty
+    if (!code) {
+      setReferralValidation({ checking: false, valid: null, referrer: null });
+      return;
+    }
+
+    // Validate after user stops typing
+    if (code.length >= 6) {
+      setTimeout(() => validateReferralCode(code), 500);
+    }
+  };
 
   const nextStep = async () => {
     setError('');
@@ -174,14 +255,29 @@ export default function OnboardPage() {
 
         // REGISTER USER (using existing backend endpoint)
         try {
-          const { data } = await api.post('/api/users/register', {
+          const registerPayload = {
             firstName: form.firstName,
             lastName: form.lastName,
             email: form.email,
             phone: form.phone,
             password: form.password,
             dateOfBirth: form.dateOfBirth
-          });
+          };
+
+          // Include referral code if provided and valid
+          if (form.referralCode && referralValidation.valid) {
+            registerPayload.referralCode = form.referralCode;
+          }
+
+          const { data } = await api.post('/api/users/register', registerPayload);
+
+          // Store referral result if applied
+          if (data.user?.referralApplied) {
+            setReferralResult({
+              applied: true,
+              bonus: data.user?.referralBonus || 0
+            });
+          }
 
           // Check if email verification is required
           if (data.requiresVerification) {
@@ -354,6 +450,62 @@ export default function OnboardPage() {
                   minLength={12}
                 />
               </div>
+
+              {/* Referral Code */}
+              <div>
+                <label className="block text-sm font-medium text-neutral-300 mb-2">
+                  Referral Code
+                  <span className="text-neutral-500 font-normal ml-1">(optional)</span>
+                </label>
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={form.referralCode}
+                    onChange={e => handleReferralCodeChange(e.target.value)}
+                    className={`w-full px-4 py-3 rounded-xl bg-neutral-800/50 border text-white placeholder-neutral-400 focus:outline-none focus:ring-2 transition-all duration-300 backdrop-blur-sm uppercase tracking-wider ${
+                      referralValidation.valid === true
+                        ? 'border-green-500/50 focus:ring-green-500/50 focus:border-green-500/50'
+                        : referralValidation.valid === false
+                          ? 'border-red-500/50 focus:ring-red-500/50 focus:border-red-500/50'
+                          : 'border-neutral-700 focus:ring-yellow-500/50 focus:border-yellow-500/50'
+                    }`}
+                    placeholder="Enter code (e.g., ABC123)"
+                    maxLength={20}
+                  />
+                  {/* Validation indicator */}
+                  <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                    {referralValidation.checking && (
+                      <div className="w-5 h-5 border-2 border-yellow-400 border-t-transparent rounded-full animate-spin"></div>
+                    )}
+                    {referralValidation.valid === true && (
+                      <svg className="w-5 h-5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                      </svg>
+                    )}
+                    {referralValidation.valid === false && (
+                      <svg className="w-5 h-5 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    )}
+                  </div>
+                </div>
+                {/* Referral validation feedback */}
+                {referralValidation.valid === true && referralValidation.referrer && (
+                  <div className="mt-2 p-3 rounded-lg bg-green-900/20 border border-green-500/30">
+                    <p className="text-green-300 text-sm">
+                      Referred by <span className="font-semibold">{referralValidation.referrer.firstName}</span>
+                    </p>
+                    {referralValidation.rewards && (
+                      <p className="text-green-200/70 text-xs mt-1">
+                        You'll receive {referralValidation.rewards.newUser} GG bonus after your first session!
+                      </p>
+                    )}
+                  </div>
+                )}
+                {referralValidation.valid === false && referralValidation.error && (
+                  <p className="mt-2 text-red-400 text-sm">{referralValidation.error}</p>
+                )}
+              </div>
             </div>
 
             <button
@@ -490,7 +642,12 @@ export default function OnboardPage() {
 
         {/* STEP 3: Email Verification Pending */}
         {step === 3 && (
-          <VerificationPendingStep email={form.email} setError={setError} />
+          <VerificationPendingStep
+            email={form.email}
+            setError={setError}
+            referralApplied={referralResult.applied}
+            referralBonus={referralResult.bonus}
+          />
         )}
 
         {/* STEP 4: Success (after email verification or legacy flow) */}
@@ -512,8 +669,8 @@ export default function OnboardPage() {
 
         {/* Back to home link */}
         <div className="text-center mt-8">
-          <a 
-            href="/" 
+          <a
+            href="/"
             className="inline-flex items-center gap-2 text-neutral-400 hover:text-yellow-400 transition-colors text-sm"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -524,5 +681,21 @@ export default function OnboardPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+// Export with Suspense wrapper for useSearchParams
+export default function OnboardPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="flex items-center gap-3 text-neutral-400">
+          <LoadingSpinner />
+          <span>Loading...</span>
+        </div>
+      </div>
+    }>
+      <OnboardPageContent />
+    </Suspense>
   );
 }

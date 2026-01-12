@@ -478,6 +478,55 @@ export const walletAPI = {
  */
 
 /**
+ * Referral API methods
+ */
+export const referralAPI = {
+  /**
+   * Validate a referral code (public)
+   */
+  validate: async (code) => {
+    const response = await api.post('/api/referral/validate', { code });
+    return response.data;
+  },
+
+  /**
+   * Get current user's referral statistics
+   */
+  getStats: async () => {
+    const response = await api.get('/api/referral/stats');
+    return response.data;
+  },
+
+  /**
+   * Get referral history (people you've referred)
+   */
+  getHistory: async (page = 1, limit = 20) => {
+    const response = await api.get('/api/referral/history', {
+      params: { page, limit }
+    });
+    return response.data;
+  },
+
+  /**
+   * Get referral leaderboard
+   */
+  getLeaderboard: async (timeframe = 'all') => {
+    const response = await api.get('/api/referral/leaderboard', {
+      params: { timeframe }
+    });
+    return response.data;
+  },
+
+  /**
+   * Track referral share event (analytics)
+   */
+  trackShare: async (platform) => {
+    const response = await api.post('/api/referral/track-share', { platform });
+    return response.data;
+  }
+};
+
+/**
  * Public API methods (no auth required)
  */
 export const publicAPI = {
