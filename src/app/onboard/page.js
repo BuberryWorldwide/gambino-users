@@ -549,7 +549,7 @@ function OnboardPageContent() {
                       className="mt-1 w-4 h-4 text-yellow-500 bg-neutral-800 border-neutral-600 rounded focus:ring-yellow-500/50 focus:ring-2"
                     />
                     <span className="text-sm text-neutral-300 group-hover:text-neutral-200 transition-colors">
-                      I agree to the <a href="https://gambino.gold/legal/vdv-terms" target="_blank" className="text-yellow-400 hover:text-yellow-300 underline">VDV Terms of Service</a>
+                      I agree to the <a href="/legal/terms" target="_blank" className="text-yellow-400 hover:text-yellow-300 underline">Gambino Platform Terms of Service</a>
                     </span>
                   </label>
 
@@ -561,7 +561,7 @@ function OnboardPageContent() {
                       className="mt-1 w-4 h-4 text-yellow-500 bg-neutral-800 border-neutral-600 rounded focus:ring-yellow-500/50 focus:ring-2"
                     />
                     <span className="text-sm text-neutral-300 group-hover:text-neutral-200 transition-colors">
-                      I agree to the <a href="https://gambino.gold/legal/vdv-privacy" target="_blank" className="text-yellow-400 hover:text-yellow-300 underline">VDV Privacy Policy</a>
+                      I agree to the <a href="/legal/privacy" target="_blank" className="text-yellow-400 hover:text-yellow-300 underline">Privacy Policy</a>
                     </span>
                   </label>
 
@@ -610,16 +610,12 @@ function OnboardPageContent() {
                 </div>
               </div>
 
-              {/* Info Links */}
-              <div className="text-center p-4 bg-yellow-500/10 rounded-xl border border-yellow-500/20 backdrop-blur-sm">
-                <p className="text-sm text-neutral-400 mb-2">For complete documentation:</p>
-                <a 
-                  href="/info" 
-                  target="_blank" 
-                  className="text-yellow-400 hover:text-yellow-300 text-sm underline transition-colors"
-                >
-                  View Whitepaper, Terms & Regulatory Info →
-                </a>
+              {/* Service Provider Notice */}
+              <div className="text-center p-4 bg-neutral-800/30 rounded-xl border border-neutral-700/50 backdrop-blur-sm">
+                <p className="text-xs text-neutral-400">
+                  Financial services provided by <span className="text-neutral-300">Volunteer Digital Ventures, LLC</span> in your area.
+                  By continuing, you acknowledge the multi-party service arrangement described in our terms.
+                </p>
               </div>
             </div>
 
