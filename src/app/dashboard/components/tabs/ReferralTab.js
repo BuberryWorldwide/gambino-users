@@ -26,14 +26,40 @@ function StatCard({ label, value, sub, highlight = false, icon }) {
 
 export default function ReferralTab({
   profile,
+  setProfile,
   setError,
   setSuccess
 }) {
   const [copied, setCopied] = useState(false);
   const [showShareOptions, setShowShareOptions] = useState(false);
+  const [regenerating, setRegenerating] = useState(false);
+  const [showRegenerateConfirm, setShowRegenerateConfirm] = useState(false);
 
   // Get referral data using custom hook
   const { stats, history, loading, refresh } = useReferral(profile?.referralCode);
+
+  // Regenerate referral code
+  const handleRegenerate = async () => {
+    setRegenerating(true);
+    setError?.('');
+
+    try {
+      const result = await referralAPI.regenerate();
+      if (result.success) {
+        // Update the profile with new code
+        if (setProfile) {
+          setProfile(prev => ({ ...prev, referralCode: result.code }));
+        }
+        setSuccess?.(`Referral code updated to ${result.code}`);
+        setShowRegenerateConfirm(false);
+      }
+    } catch (err) {
+      const message = err.response?.data?.error || 'Failed to regenerate code';
+      setError?.(message);
+    } finally {
+      setRegenerating(false);
+    }
+  };
 
   // Generate referral URL
   const referralUrl = getReferralUrl(profile?.referralCode, 'link');
@@ -151,7 +177,15 @@ export default function ReferralTab({
             <p className="mt-4 font-mono text-2xl text-yellow-400 tracking-widest font-bold">
               {profile?.referralCode}
             </p>
-            <p className="text-neutral-500 text-xs mt-1">Scan or share this code</p>
+            <div className="flex items-center gap-2 mt-1">
+              <p className="text-neutral-500 text-xs">Scan or share this code</p>
+              <button
+                onClick={() => setShowRegenerateConfirm(true)}
+                className="text-xs text-neutral-500 hover:text-yellow-400 transition-colors underline"
+              >
+                regenerate
+              </button>
+            </div>
           </div>
 
           {/* Share Actions */}
@@ -418,6 +452,44 @@ export default function ReferralTab({
           </div>
         </div>
       </div>
+
+      {/* Regenerate Confirmation Modal */}
+      {showRegenerateConfirm && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+          <div className="bg-neutral-900 border border-neutral-700 rounded-xl p-6 max-w-md w-full">
+            <h3 className="text-lg font-semibold text-white mb-3">Regenerate Referral Code?</h3>
+            <p className="text-neutral-400 text-sm mb-4">
+              This will create a new referral code. Your old code <span className="font-mono text-yellow-400">{profile?.referralCode}</span> will stop working immediately.
+            </p>
+            <p className="text-neutral-500 text-xs mb-6">
+              Note: You can only regenerate your code once per week.
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowRegenerateConfirm(false)}
+                disabled={regenerating}
+                className="flex-1 py-2 px-4 bg-neutral-800 hover:bg-neutral-700 text-white rounded-lg transition-colors disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleRegenerate}
+                disabled={regenerating}
+                className="flex-1 py-2 px-4 bg-yellow-500 hover:bg-yellow-400 text-black font-semibold rounded-lg transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {regenerating ? (
+                  <>
+                    <LoadingSpinner />
+                    Regenerating...
+                  </>
+                ) : (
+                  'Regenerate'
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

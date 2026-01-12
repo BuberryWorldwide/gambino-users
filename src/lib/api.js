@@ -523,6 +523,14 @@ export const referralAPI = {
   trackShare: async (platform) => {
     const response = await api.post('/api/referral/track-share', { platform });
     return response.data;
+  },
+
+  /**
+   * Regenerate referral code (rate limited to once per week)
+   */
+  regenerate: async () => {
+    const response = await api.post('/api/referral/regenerate');
+    return response.data;
   }
 };
 

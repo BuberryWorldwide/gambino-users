@@ -232,6 +232,7 @@ function DashboardContent() {
   // Shared context object
   const sharedContext = {
     profile,
+    setProfile,
     balances,
     currentSession,
     sessionHistory,
