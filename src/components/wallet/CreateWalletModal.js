@@ -485,11 +485,14 @@ Generated: ${new Date().toISOString()}
                 Back
               </button>
               <button
-                onClick={() => setStep(3)}
+                onClick={() => {
+                  setStep(4);
+                  handleSaveWallet();
+                }}
                 disabled={!ackSavedSecurely}
                 className="flex-1 py-3 px-4 bg-gradient-to-r from-yellow-400 to-amber-500 hover:from-yellow-500 hover:to-amber-600 disabled:from-neutral-600 disabled:to-neutral-700 disabled:cursor-not-allowed text-black font-semibold rounded-xl transition-all"
               >
-                Verify Phrase
+                Create Wallet
               </button>
             </div>
           </div>
