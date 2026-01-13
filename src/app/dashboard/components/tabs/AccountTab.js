@@ -298,6 +298,85 @@ export default function AccountTab({
         )}
       </div>
 
+      {/* KYC Verification Status */}
+      <div className="bg-neutral-900/50 border border-neutral-800 rounded-xl p-6">
+        <div className="flex items-center gap-3 mb-6">
+          <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
+            profile?.kycStatus === 'verified'
+              ? 'bg-gradient-to-r from-green-500 to-emerald-500'
+              : profile?.kycStatus === 'rejected'
+                ? 'bg-gradient-to-r from-red-500 to-pink-500'
+                : 'bg-gradient-to-r from-blue-500 to-cyan-500'
+          }`}>
+            <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+            </svg>
+          </div>
+          <div>
+            <h2 className="text-lg font-bold text-white">KYC Verification</h2>
+            <p className="text-xs text-neutral-400">Identity verification status</p>
+          </div>
+        </div>
+
+        {profile?.kycStatus === 'verified' ? (
+          <div className="space-y-4">
+            <div className="flex items-center gap-3 p-4 bg-green-900/20 border border-green-500/30 rounded-xl">
+              <svg className="w-8 h-8 text-green-400" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+              </svg>
+              <div>
+                <p className="text-green-300 font-semibold">Identity Verified</p>
+                <p className="text-green-400/70 text-sm">
+                  Verified on {profile?.kycVerifiedAt ? new Date(profile.kycVerifiedAt).toLocaleDateString() : 'N/A'}
+                </p>
+              </div>
+            </div>
+            <p className="text-neutral-400 text-sm">
+              Your identity has been verified. You have full access to all platform features.
+            </p>
+          </div>
+        ) : profile?.kycStatus === 'rejected' ? (
+          <div className="space-y-4">
+            <div className="flex items-center gap-3 p-4 bg-red-900/20 border border-red-500/30 rounded-xl">
+              <svg className="w-8 h-8 text-red-400" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+              </svg>
+              <div>
+                <p className="text-red-300 font-semibold">Verification Rejected</p>
+                <p className="text-red-400/70 text-sm">Please contact support for assistance.</p>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            <div className="flex items-center gap-3 p-4 bg-blue-900/20 border border-blue-500/30 rounded-xl">
+              <svg className="w-8 h-8 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <div>
+                <p className="text-blue-300 font-semibold">Verification Pending</p>
+                <p className="text-blue-400/70 text-sm">Visit a venue to complete verification</p>
+              </div>
+            </div>
+
+            <div className="bg-neutral-800/50 rounded-xl p-4 space-y-3">
+              <h3 className="text-white font-medium">How to Verify</h3>
+              <ol className="text-neutral-300 text-sm space-y-2 list-decimal list-inside">
+                <li>Visit any participating Gambino venue</li>
+                <li>Bring a valid government-issued ID</li>
+                <li>Ask staff to verify your account</li>
+                <li>Receive <span className="text-yellow-400 font-semibold">25 GG tokens</span> instantly!</li>
+              </ol>
+              {profile?.referredBy && (
+                <p className="text-cyan-400 text-sm mt-2">
+                  <span className="font-semibold">Bonus:</span> You were referred! Completing KYC will also unlock your referral rewards.
+                </p>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+
       {/* Security */}
       <div className="bg-neutral-900/50 border border-neutral-800 rounded-xl p-6">
         <div className="flex items-center gap-3 mb-6">
