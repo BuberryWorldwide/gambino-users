@@ -133,4 +133,58 @@ export function useEntropyLeaderboard(limit = 10) {
   };
 }
 
+/**
+ * Fetch global pool statistics
+ * @returns {Object} pool, recentDraws, loading, error, refresh
+ */
+export function useEntropyPool() {
+  const [pool, setPool] = useState(null);
+  const [recentDraws, setRecentDraws] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+
+  const fetchPool = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      // Fetch pool stats
+      const poolRes = await fetch(`${ARCA_API_URL}/v1/entropy/pool`);
+
+      if (!poolRes.ok) {
+        throw new Error(`Failed to fetch pool stats: ${poolRes.status}`);
+      }
+
+      const poolData = await poolRes.json();
+      setPool(poolData.pool);
+
+      // Fetch recent draws
+      const drawsRes = await fetch(`${ARCA_API_URL}/v1/entropy/draws?limit=5`);
+
+      if (drawsRes.ok) {
+        const drawsData = await drawsRes.json();
+        setRecentDraws(drawsData.draws || []);
+      }
+
+    } catch (err) {
+      console.error('Failed to fetch pool stats:', err);
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchPool();
+  }, [fetchPool]);
+
+  return {
+    pool,
+    recentDraws,
+    loading,
+    error,
+    refresh: fetchPool
+  };
+}
+
 export default useEntropy;

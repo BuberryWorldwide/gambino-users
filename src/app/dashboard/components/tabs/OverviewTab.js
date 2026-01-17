@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useEntropy } from '@/lib/useEntropy';
+import { useEntropy, useEntropyPool } from '@/lib/useEntropy';
 import { miningAPI } from '@/lib/api';
 
 function StatCard({ label, value, sub, highlight = false }) {
@@ -64,6 +64,9 @@ export default function OverviewTab({
 
   // Fetch entropy stats using wallet address as supplier_id
   const { stats: entropyStats, loading: entropyLoading, refresh: refreshEntropy } = useEntropy(profile?.walletAddress);
+
+  // Fetch global pool stats
+  const { pool: entropyPool, recentDraws, loading: poolLoading, refresh: refreshPool } = useEntropyPool();
 
   // Balance values
   const cachedGambinoBalance = profile?.cachedGambinoBalance || 0;
@@ -284,6 +287,97 @@ export default function OverviewTab({
                 {iface.name}
               </button>
             ))}
+          </div>
+        )}
+      </div>
+
+      {/* Network Entropy Pool Section */}
+      <div className="bg-neutral-900/50 border border-neutral-800 rounded-xl p-6">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-white font-semibold flex items-center gap-2">
+            <svg className="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+            </svg>
+            Arca Network Pool
+          </h3>
+          <button
+            onClick={refreshPool}
+            disabled={poolLoading}
+            className="text-xs text-blue-400 hover:text-blue-300 disabled:text-neutral-500 transition-colors flex items-center gap-2"
+          >
+            {poolLoading ? (
+              <><LoadingSpinner /> Loading...</>
+            ) : (
+              <>
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+                Refresh
+              </>
+            )}
+          </button>
+        </div>
+
+        {entropyPool ? (
+          <>
+            <div className="grid grid-cols-3 gap-4 mb-4">
+              <div className="text-center p-3 bg-green-900/20 border border-green-700/30 rounded-lg">
+                <p className="text-xs text-green-400 uppercase tracking-wider mb-1">Available</p>
+                <p className="text-xl font-bold text-green-400">{entropyPool.available?.bits?.toFixed(1) || 0}</p>
+                <p className="text-xs text-neutral-500">{entropyPool.available?.packets || 0} packets</p>
+              </div>
+              <div className="text-center p-3 bg-amber-900/20 border border-amber-700/30 rounded-lg">
+                <p className="text-xs text-amber-400 uppercase tracking-wider mb-1">Consumed</p>
+                <p className="text-xl font-bold text-amber-400">{entropyPool.consumed?.bits?.toFixed(1) || 0}</p>
+                <p className="text-xs text-neutral-500">{entropyPool.consumed?.packets || 0} packets</p>
+              </div>
+              <div className="text-center p-3 bg-blue-900/20 border border-blue-700/30 rounded-lg">
+                <p className="text-xs text-blue-400 uppercase tracking-wider mb-1">Total</p>
+                <p className="text-xl font-bold text-blue-400">{entropyPool.total?.bits?.toFixed(1) || 0}</p>
+                <p className="text-xs text-neutral-500">{entropyPool.total?.suppliers || 0} suppliers</p>
+              </div>
+            </div>
+
+            {/* Progress bar showing available vs consumed */}
+            {entropyPool.total?.packets > 0 && (
+              <div className="mb-4">
+                <div className="flex justify-between text-xs text-neutral-500 mb-1">
+                  <span>Pool Utilization</span>
+                  <span>{((entropyPool.consumed?.packets || 0) / entropyPool.total.packets * 100).toFixed(1)}% consumed</span>
+                </div>
+                <div className="h-2 bg-neutral-800 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-gradient-to-r from-green-500 to-amber-500 transition-all duration-500"
+                    style={{ width: `${Math.min(100, ((entropyPool.consumed?.packets || 0) / entropyPool.total.packets * 100))}%` }}
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* Recent Draws */}
+            {recentDraws?.length > 0 && (
+              <div className="mt-4 pt-4 border-t border-neutral-700">
+                <p className="text-xs text-neutral-500 uppercase tracking-wider mb-2">Recent Entropy Draws</p>
+                <div className="space-y-2">
+                  {recentDraws.slice(0, 3).map((draw, i) => (
+                    <div key={draw.drawId || i} className="flex items-center justify-between text-sm">
+                      <div className="flex items-center gap-2">
+                        <div className="w-2 h-2 bg-amber-500 rounded-full"></div>
+                        <span className="text-neutral-400">{draw.bits} bits drawn</span>
+                      </div>
+                      <span className="text-xs text-neutral-500">
+                        {new Date(draw.createdAt).toLocaleTimeString()}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </>
+        ) : (
+          <div className="text-center py-4">
+            <LoadingSpinner />
+            <p className="text-neutral-400 text-sm mt-2">Loading pool stats...</p>
           </div>
         )}
       </div>
