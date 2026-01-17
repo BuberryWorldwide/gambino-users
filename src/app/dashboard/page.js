@@ -46,6 +46,7 @@ function DashboardContent() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [arcaPendingStats, setArcaPendingStats] = useState(null);
+  const [claimingEntropy, setClaimingEntropy] = useState(false);
 
   // Mount gate + token check
   useEffect(() => {
@@ -263,6 +264,57 @@ function DashboardContent() {
     }
   };
 
+  // Claim entropy from linked Arca IDs to wallet
+  const handleClaimEntropy = async () => {
+    if (!profile?.linkedArcaIds?.length || !profile?.walletAddress) return;
+
+    setClaimingEntropy(true);
+    setError('');
+
+    try {
+      const ARCA_API = process.env.NEXT_PUBLIC_ARCA_API_URL || 'https://api.arca-protocol.com';
+      let totalClaimed = 0;
+
+      for (const arcaId of profile.linkedArcaIds) {
+        try {
+          const res = await fetch(`${ARCA_API}/v1/entropy/claim`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              fromSupplierId: arcaId,
+              toSupplierId: profile.walletAddress
+            })
+          });
+
+          if (res.ok) {
+            const data = await res.json();
+            totalClaimed += data.claimed?.packetsTransferred || 0;
+            console.log(`✅ Claimed entropy from ${arcaId}:`, data);
+          } else {
+            console.warn(`⚠️ Failed to claim from ${arcaId}:`, res.status);
+          }
+        } catch (err) {
+          console.error(`❌ Error claiming from ${arcaId}:`, err);
+        }
+      }
+
+      if (totalClaimed > 0) {
+        setSuccess(`Successfully claimed ${totalClaimed} entropy packets to your wallet!`);
+        // Clear the pending stats since we claimed them
+        setArcaPendingStats(null);
+      } else {
+        setSuccess('Entropy claim processed. Check your wallet stats.');
+      }
+
+      setTimeout(() => setSuccess(''), 5000);
+    } catch (err) {
+      console.error('❌ Entropy claim failed:', err);
+      setError('Failed to claim entropy. Please try again.');
+    } finally {
+      setClaimingEntropy(false);
+    }
+  };
+
   // Shared context object
   const sharedContext = {
     profile,
@@ -434,6 +486,36 @@ function DashboardContent() {
                     className="px-4 py-2 bg-violet-500 hover:bg-violet-600 text-white font-semibold rounded-lg transition-colors text-sm whitespace-nowrap"
                   >
                     Create Wallet
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Arca Entropy Claim Banner - show if user has linked Arca IDs AND a wallet */}
+            {profile?.linkedArcaIds?.length > 0 && profile?.walletAddress && (
+              <div className="bg-gradient-to-r from-violet-900/40 to-purple-900/40 border border-violet-500/50 rounded-xl p-4 backdrop-blur-sm mb-8">
+                <div className="flex items-center justify-between flex-wrap gap-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-lg bg-violet-500/20 flex items-center justify-center">
+                      <svg className="w-5 h-5 text-violet-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                      </svg>
+                    </div>
+                    <div>
+                      <p className="text-violet-200 font-medium">
+                        Claim Your Entropy
+                      </p>
+                      <p className="text-violet-300/70 text-sm">
+                        You have entropy contributions from <span className="font-bold text-violet-300">Arca Protocol</span> ready to claim to your wallet.
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={handleClaimEntropy}
+                    disabled={claimingEntropy}
+                    className="px-4 py-2 bg-violet-500 hover:bg-violet-600 disabled:bg-violet-500/50 text-white font-semibold rounded-lg transition-colors text-sm whitespace-nowrap"
+                  >
+                    {claimingEntropy ? 'Claiming...' : 'Claim Entropy'}
                   </button>
                 </div>
               </div>
