@@ -145,20 +145,22 @@ function OnboardPageContent() {
   // Read referral code and arcaRef from URL on mount
   useEffect(() => {
     // Check for Arca reference (for linking entropy contributions)
+    // Can come as ?arcaRef= or as ?ref= if it looks like an Arca ID
     const arcaRefParam = searchParams.get('arcaRef');
+    const refCode = searchParams.get('ref') || searchParams.get('referral');
+
+    // Determine if ref looks like an Arca anonymous ID (starts with anon-)
+    const refLooksLikeArcaId = refCode && refCode.toLowerCase().startsWith('anon-');
+
     if (arcaRefParam) {
       setArcaRef(arcaRefParam);
+    } else if (refLooksLikeArcaId) {
+      // ref param contains an Arca ID, not a referral code
+      setArcaRef(refCode);
     }
 
-    // Check for referral code (for referral rewards)
-    const refCode = searchParams.get('ref') || searchParams.get('referral');
-    if (refCode && !arcaRefParam) {
-      // Only use ref for referral if arcaRef isn't also present
-      // (to avoid confusion when both are provided)
-      updateForm('referralCode', refCode.toUpperCase());
-      validateReferralCode(refCode);
-    } else if (refCode && arcaRefParam) {
-      // Both arcaRef and ref provided - ref is the referral code
+    // Only use ref as referral code if it doesn't look like an Arca ID
+    if (refCode && !refLooksLikeArcaId && !arcaRefParam) {
       updateForm('referralCode', refCode.toUpperCase());
       validateReferralCode(refCode);
     }
