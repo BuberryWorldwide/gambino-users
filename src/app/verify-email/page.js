@@ -14,6 +14,28 @@ function VerifyEmailContent() {
   const [status, setStatus] = useState('verifying'); // 'verifying', 'success', 'error', 'already-verified'
   const [error, setError] = useState('');
   const [countdown, setCountdown] = useState(5);
+  const [resendEmail, setResendEmail] = useState('');
+  const [resending, setResending] = useState(false);
+  const [resendSuccess, setResendSuccess] = useState(false);
+  const [resendError, setResendError] = useState('');
+
+  const handleResendVerification = async (e) => {
+    e.preventDefault();
+    if (!resendEmail || !resendEmail.includes('@')) {
+      setResendError('Please enter a valid email address');
+      return;
+    }
+    setResending(true);
+    setResendError('');
+    try {
+      await api.post('/api/users/resend-verification', { email: resendEmail });
+      setResendSuccess(true);
+    } catch (err) {
+      setResendError(err.response?.data?.error || 'Failed to resend verification email');
+    } finally {
+      setResending(false);
+    }
+  };
 
   useEffect(() => {
     if (!token) {
@@ -156,11 +178,41 @@ function VerifyEmailContent() {
               Verification Failed
             </h2>
             <p className="text-neutral-300 mb-4">{error}</p>
-            <div className="bg-neutral-800/50 rounded-xl p-4 mb-6 border border-neutral-700/50">
-              <p className="text-neutral-400 text-sm">
-                The link may have expired or already been used. Please request a new verification email.
-              </p>
-            </div>
+
+            {/* Resend Verification Form */}
+            {resendSuccess ? (
+              <div className="bg-green-900/30 border border-green-700/50 rounded-xl p-4 mb-6">
+                <p className="text-green-300 text-sm">
+                  Verification email sent! Check your inbox (and spam folder).
+                </p>
+              </div>
+            ) : (
+              <form onSubmit={handleResendVerification} className="mb-6">
+                <p className="text-neutral-400 text-sm mb-3">
+                  Enter your email to receive a new verification link:
+                </p>
+                <div className="flex gap-2">
+                  <input
+                    type="email"
+                    value={resendEmail}
+                    onChange={(e) => setResendEmail(e.target.value)}
+                    placeholder="your@email.com"
+                    className="flex-1 px-4 py-3 rounded-xl bg-neutral-800/50 border border-neutral-700 text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-yellow-500/50 focus:border-yellow-500/50 transition-all"
+                  />
+                  <button
+                    type="submit"
+                    disabled={resending}
+                    className="px-4 py-3 rounded-xl bg-gradient-to-r from-yellow-400 to-amber-500 text-black font-bold hover:from-yellow-500 hover:to-amber-600 transition-all duration-300 disabled:opacity-50"
+                  >
+                    {resending ? '...' : 'Send'}
+                  </button>
+                </div>
+                {resendError && (
+                  <p className="text-red-400 text-sm mt-2">{resendError}</p>
+                )}
+              </form>
+            )}
+
             <div className="space-y-3">
               <a
                 href="/login"

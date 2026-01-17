@@ -45,6 +45,7 @@ function DashboardContent() {
   const [sessionHistory, setSessionHistory] = useState([]);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [arcaPendingStats, setArcaPendingStats] = useState(null);
 
   // Mount gate + token check
   useEffect(() => {
@@ -171,6 +172,39 @@ function DashboardContent() {
       clearInterval(pollingInterval);
     };
   }, [profile?.walletAddress]);
+
+  // Fetch Arca pending entropy stats if user has linkedArcaIds but no wallet
+  useEffect(() => {
+    if (!profile?.linkedArcaIds?.length || profile?.walletAddress) {
+      setArcaPendingStats(null);
+      return;
+    }
+
+    const fetchArcaStats = async () => {
+      try {
+        const ARCA_API = process.env.NEXT_PUBLIC_ARCA_API_URL || 'https://api.arca-protocol.com';
+        let totalPackets = 0;
+        let totalBits = 0;
+
+        for (const arcaId of profile.linkedArcaIds) {
+          const res = await fetch(`${ARCA_API}/v1/entropy/supplier/${arcaId}`);
+          if (res.ok) {
+            const data = await res.json();
+            if (data.supplier) {
+              totalPackets += data.supplier.packetCount || 0;
+              totalBits += data.supplier.totalBits || 0;
+            }
+          }
+        }
+
+        setArcaPendingStats({ totalPackets, totalBits });
+      } catch (err) {
+        console.error('Failed to fetch Arca pending stats:', err);
+      }
+    };
+
+    fetchArcaStats();
+  }, [profile?.linkedArcaIds, profile?.walletAddress]);
 
   // Handle tab change with lazy loading
   const handleTabChange = (tabId) => {
@@ -362,6 +396,44 @@ function DashboardContent() {
                     className="px-4 py-2 bg-green-500 hover:bg-green-600 text-black font-semibold rounded-lg transition-colors text-sm whitespace-nowrap"
                   >
                     Set Up Wallet
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Arca Entropy Pending Banner - show if user has linked Arca IDs but no wallet */}
+            {profile?.linkedArcaIds?.length > 0 && !profile?.walletAddress && (
+              <div className="bg-gradient-to-r from-violet-900/40 to-purple-900/40 border border-violet-500/50 rounded-xl p-4 backdrop-blur-sm mb-8">
+                <div className="flex items-center justify-between flex-wrap gap-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-lg bg-violet-500/20 flex items-center justify-center">
+                      <svg className="w-5 h-5 text-violet-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                      </svg>
+                    </div>
+                    <div>
+                      <p className="text-violet-200 font-medium">
+                        Pending Entropy Contributions
+                      </p>
+                      <p className="text-violet-300/70 text-sm">
+                        {arcaPendingStats?.totalPackets > 0 ? (
+                          <>
+                            <span className="font-bold text-violet-300">{arcaPendingStats.totalPackets} packets</span>
+                            {arcaPendingStats.totalBits > 0 && <span> ({arcaPendingStats.totalBits.toFixed(1)} bits)</span>}
+                            {' '}from <span className="font-bold text-violet-300">Arca Protocol</span> waiting to be collected.
+                          </>
+                        ) : (
+                          <>Entropy contributions from <span className="font-bold text-violet-300">Arca Protocol</span> waiting to be collected.</>
+                        )}
+                        {' '}Create a wallet to claim them.
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => handleTabChange('wallet')}
+                    className="px-4 py-2 bg-violet-500 hover:bg-violet-600 text-white font-semibold rounded-lg transition-colors text-sm whitespace-nowrap"
+                  >
+                    Create Wallet
                   </button>
                 </div>
               </div>
