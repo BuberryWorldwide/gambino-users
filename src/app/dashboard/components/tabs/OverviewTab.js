@@ -188,7 +188,7 @@ export default function OverviewTab({
         <div className="bg-neutral-900/50 border border-neutral-800 rounded-xl p-6">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-white font-semibold flex items-center gap-2">
-              <svg className="w-5 h-5 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-5 h-5 text-gold" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z" />
               </svg>
               Entropy Contributions
@@ -196,7 +196,7 @@ export default function OverviewTab({
             <button
               onClick={refreshEntropy}
               disabled={entropyLoading}
-              className="text-xs text-purple-400 hover:text-purple-300 disabled:text-neutral-500 transition-colors flex items-center gap-2"
+              className="text-xs text-gold hover:text-yellow-300 disabled:text-neutral-500 transition-colors flex items-center gap-2"
             >
               {entropyLoading ? (
                 <><LoadingSpinner /> Loading...</>
@@ -215,7 +215,7 @@ export default function OverviewTab({
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <div className="text-center p-3 bg-neutral-800/50 rounded-lg">
                 <p className="text-xs text-neutral-500 uppercase tracking-wider mb-1">Total Bits</p>
-                <p className="text-xl font-bold text-purple-400">{entropyStats.totalBitsVerified?.toFixed(0) || 0}</p>
+                <p className="text-xl font-bold text-gold">{(entropyStats.totalBitsClaimed || entropyStats.totalBitsVerified || 0).toFixed(0)}</p>
               </div>
               <div className="text-center p-3 bg-neutral-800/50 rounded-lg">
                 <p className="text-xs text-neutral-500 uppercase tracking-wider mb-1">Packets</p>
@@ -232,8 +232,8 @@ export default function OverviewTab({
             </div>
           ) : (
             <div className="text-center py-6">
-              <div className="w-12 h-12 mx-auto mb-3 rounded-full bg-purple-500/10 flex items-center justify-center">
-                <svg className="w-6 h-6 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="w-12 h-12 mx-auto mb-3 rounded-full bg-gold/10 flex items-center justify-center">
+                <svg className="w-6 h-6 text-gold" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
                 </svg>
               </div>
@@ -251,9 +251,9 @@ export default function OverviewTab({
       )}
 
       {/* Mining Sessions Section */}
-      <div className="bg-gradient-to-br from-purple-900/30 to-indigo-900/30 border border-purple-500/20 rounded-xl p-6">
+      <div className="bg-gradient-to-br from-yellow-900/20 to-amber-900/20 border border-gold/20 rounded-xl p-6">
         <div className="flex items-center gap-2 mb-4">
-          <svg className="w-5 h-5 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg className="w-5 h-5 text-gold" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
@@ -269,41 +269,21 @@ export default function OverviewTab({
           </div>
         ) : (
           <div className={`grid gap-3 ${miningInterfaces.length === 1 ? 'grid-cols-1' : 'grid-cols-2'}`}>
-            {miningInterfaces.map((iface) => {
-              // Map Tailwind color names to hex values
-              const colorMap = {
-                'pink-500': '#ec4899',
-                'red-500': '#ef4444',
-                'blue-500': '#3b82f6',
-                'cyan-500': '#06b6d4',
-                'purple-500': '#a855f7',
-                'indigo-500': '#6366f1',
-                'green-500': '#22c55e',
-                'yellow-500': '#eab308',
-                'orange-500': '#f97316'
-              };
-              const fromColor = colorMap[iface.gradient_from] || '#a855f7';
-              const toColor = colorMap[iface.gradient_to] || '#6366f1';
-
-              return (
-                <button
-                  key={iface.slug}
-                  onClick={() => handleLaunchMining(iface.game_url)}
-                  disabled={launchingSession}
-                  className="flex items-center justify-center gap-2 hover:opacity-90 disabled:opacity-50 text-white font-medium py-3 px-4 rounded-lg transition-all"
-                  style={{
-                    background: `linear-gradient(to right, ${fromColor}, ${toColor})`
-                  }}
-                >
-                  {launchingSession === iface.game_url ? (
-                    <LoadingSpinner />
-                  ) : (
-                    <span>{iface.icon}</span>
-                  )}
-                  {iface.name}
-                </button>
-              );
-            })}
+            {miningInterfaces.map((iface) => (
+              <button
+                key={iface.slug}
+                onClick={() => handleLaunchMining(iface.game_url)}
+                disabled={launchingSession}
+                className="flex items-center justify-center gap-2 hover:brightness-110 disabled:opacity-50 text-black font-semibold py-3 px-4 rounded-lg transition-all bg-gradient-to-r from-yellow-500 to-amber-400"
+              >
+                {launchingSession === iface.game_url ? (
+                  <LoadingSpinner />
+                ) : (
+                  <span>{iface.icon}</span>
+                )}
+                {iface.name}
+              </button>
+            ))}
           </div>
         )}
       </div>

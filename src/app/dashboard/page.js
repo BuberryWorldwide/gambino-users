@@ -298,13 +298,21 @@ function DashboardContent() {
         }
       }
 
+      // Clear linkedArcaIds from profile after claiming
+      try {
+        await api.put('/api/users/profile', { clearLinkedArcaIds: true });
+        await refreshProfile();
+      } catch (err) {
+        console.warn('Failed to clear linkedArcaIds:', err);
+      }
+
       if (totalClaimed > 0) {
         setSuccess(`Successfully claimed ${totalClaimed} entropy packets to your wallet!`);
-        // Clear the pending stats since we claimed them
-        setArcaPendingStats(null);
       } else {
         setSuccess('Entropy claim processed. Check your wallet stats.');
       }
+      // Clear the pending stats since we claimed them
+      setArcaPendingStats(null);
 
       setTimeout(() => setSuccess(''), 5000);
     } catch (err) {
