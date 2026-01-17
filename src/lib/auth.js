@@ -263,17 +263,25 @@ export function useAuth(options = {}) {
    * @param {string} password - User password
    * @param {boolean} remember - Remember me flag
    * @param {boolean} skipRedirect - If true, don't redirect after login (caller will handle)
+   * @param {string} arcaRef - Optional Arca anonymous ID to link to this account
    */
-  const login = useCallback(async (email, password, remember = true, skipRedirect = false) => {
+  const login = useCallback(async (email, password, remember = true, skipRedirect = false, arcaRef = null) => {
     try {
       setLoading(true);
       setError(null);
       setErrorCode(null);
 
-      const response = await api.post('/api/auth/login', {
+      const loginPayload = {
         email: email.toLowerCase().trim(),
         password
-      });
+      };
+
+      // Include Arca reference if provided (for linking anonymous entropy contributions)
+      if (arcaRef) {
+        loginPayload.arcaRef = arcaRef;
+      }
+
+      const response = await api.post('/api/auth/login', loginPayload);
 
       const data = response.data;
 

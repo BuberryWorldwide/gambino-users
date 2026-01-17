@@ -139,12 +139,27 @@ function OnboardPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  // Read referral code from URL on mount
+  // Arca anonymous ID for linking entropy contributions (separate from referral)
+  const [arcaRef, setArcaRef] = useState(null);
+
+  // Read referral code and arcaRef from URL on mount
   useEffect(() => {
+    // Check for Arca reference (for linking entropy contributions)
+    const arcaRefParam = searchParams.get('arcaRef');
+    if (arcaRefParam) {
+      setArcaRef(arcaRefParam);
+    }
+
+    // Check for referral code (for referral rewards)
     const refCode = searchParams.get('ref') || searchParams.get('referral');
-    if (refCode) {
+    if (refCode && !arcaRefParam) {
+      // Only use ref for referral if arcaRef isn't also present
+      // (to avoid confusion when both are provided)
       updateForm('referralCode', refCode.toUpperCase());
-      // Validate the code from URL
+      validateReferralCode(refCode);
+    } else if (refCode && arcaRefParam) {
+      // Both arcaRef and ref provided - ref is the referral code
+      updateForm('referralCode', refCode.toUpperCase());
       validateReferralCode(refCode);
     }
   }, [searchParams]);
@@ -267,6 +282,11 @@ function OnboardPageContent() {
           // Include referral code if provided and valid
           if (form.referralCode && referralValidation.valid) {
             registerPayload.referralCode = form.referralCode;
+          }
+
+          // Include Arca reference if provided (for linking anonymous entropy contributions)
+          if (arcaRef) {
+            registerPayload.arcaRef = arcaRef;
           }
 
           const { data } = await api.post('/api/users/register', registerPayload);

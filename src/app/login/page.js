@@ -35,6 +35,7 @@ function LoginContent() {
 
   const searchParams = useSearchParams();
   const returnTo = searchParams.get('returnTo');
+  const arcaRef = searchParams.get('arcaRef') || searchParams.get('ref'); // Arca anonymous ID for linking contributions
 
   const {
     login,
@@ -96,7 +97,8 @@ function LoginContent() {
       }
 
       // Pass skipRedirect if we're handling mining redirect
-      const result = await login(email.trim(), password, remember, isMiningRedirect);
+      // Also pass arcaRef if present (for linking Arca entropy contributions)
+      const result = await login(email.trim(), password, remember, isMiningRedirect, arcaRef);
 
       // Check if login returned an unverified email error
       if (result?.code === 'EMAIL_NOT_VERIFIED') {
